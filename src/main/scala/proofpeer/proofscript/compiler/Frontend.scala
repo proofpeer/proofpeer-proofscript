@@ -9,6 +9,10 @@ object ParseTree {
   
   sealed trait Expr extends ParseTree
   
+  case class Bool(value : Boolean) extends Expr {
+    protected def calcFreeVars = Set()    
+  }
+  
   case class Integer(value : BigInt) extends Expr {
     protected def calcFreeVars = Set()
   }
@@ -49,6 +53,8 @@ object ParseTree {
   case object Mul extends BinaryOperator
   case object Div extends BinaryOperator
   case object Mod extends BinaryOperator
+  case object And extends BinaryOperator
+  case object Or extends BinaryOperator
   
   sealed trait CmpOperator extends Operator
   case object Eq extends CmpOperator
@@ -103,16 +109,32 @@ val g_literals =
   lexrule("Id", "LowerLetter") ++
   lexrule("Val", literal("val")) ++
   lexrule("Def", literal("def")) ++
-  lexrule("Mod", literal("mod")) 
+  lexrule("Mod", literal("mod")) ++
+  lexrule("Or", literal("or")) ++
+  lexrule("And", literal("and")) ++
+  lexrule("Not", literal("not")) ++
+  lexrule("True", literal("true")) ++
+  lexrule("False", literal("false")) 
+  
 
 import Derivation.Context  
   
 val g_expr =
   rule("PrimitiveExpr", "Id", c => Id(c.Id.text)) ++
   rule("Int", "Nat", c => Integer(BigInt(c.Nat.text, 10))) ++
-  rule("Int", "Minus Nat", c => Integer(-BigInt(c.Nat.text, 10))) ++
+  rule("Int", "Minus Nat", c => Integer(-BigInt(c.Nat.text, 10))) ++  
   rule("PrimitiveExpr", "Nat", c => Integer(BigInt(c.Nat.text, 10))) ++
   rule("PrimitiveExpr", "RoundBracketOpen Expr RoundBracketClose", c => c.Expr.result) ++
+  rule("PrimitiveExpr", "True", c => Bool(true)) ++  
+  rule("PrimitiveExpr", "False", c => Bool(false)) ++  
+  rule("OrExpr", "OrExpr Or AndExpr", 
+      c => BinaryOperation(Or, c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
+  rule("OrExpr", "AndExpr", _.AndExpr.result) ++
+  rule("AndExpr", "AndExpr And NotExpr", 
+      c => BinaryOperation(And, c.AndExpr.resultAs[Expr], c.NotExpr.resultAs[Expr])) ++
+  rule("AndExpr", "NotExpr", _.NotExpr.result) ++
+  rule("NotExpr", "Not NotExpr", c => UnaryOperation(Not, c.NotExpr.resultAs[Expr])) ++
+  rule("NotExpr", "CmpExpr", _.CmpExpr.result) ++
   rule("CmpExpr", "CmpExpr CmpOp AddExpr", { c =>
     val operator = c.CmpOp.resultAs[CmpOperator]
     val operand = c.AddExpr.resultAs[Expr]
@@ -130,16 +152,17 @@ val g_expr =
   rule("CmpOp", "Geq", c => Geq) ++
   rule("CmpOp", "Equals", c => Eq) ++
   rule("CmpOp", "NEquals", c => NEq) ++
-  rule("AddExpr", "AddExpr Plus MultExpr", c => BinaryOperation(Add, c.AddExpr.resultAs[Expr], c.MultExpr.resultAs[Expr])) ++
-  rule("AddExpr", "AddExpr Minus MultExpr", c => BinaryOperation(Sub, c.AddExpr.resultAs[Expr], c.MultExpr.resultAs[Expr])) ++  
-  rule("AddExpr", "MultExpr", _.MultExpr.result) ++
-  rule("AddExpr", "Minus MultExpr", c => UnaryOperation(Neg, c.MultExpr.resultAs[Expr])) ++  
+  rule("AddExpr", "AddExpr Plus NegExpr", c => BinaryOperation(Add, c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++
+  rule("AddExpr", "AddExpr Minus NegExpr", c => BinaryOperation(Sub, c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++  
+  rule("AddExpr", "NegExpr", _.NegExpr.result) ++
+  rule("NegExpr", "Minus NegExpr", c => UnaryOperation(Neg, c.NegExpr.resultAs[Expr])) ++  
+  rule("NegExpr", "MultExpr", _.MultExpr.result) ++  
   rule("MultExpr", "MultExpr Times BasicExpr", c => BinaryOperation(Mul, c.MultExpr.resultAs[Expr], c.BasicExpr.resultAs[Expr])) ++
   rule("MultExpr", "MultExpr Slash BasicExpr", c => BinaryOperation(Div, c.MultExpr.resultAs[Expr], c.BasicExpr.resultAs[Expr])) ++
   rule("MultExpr", "MultExpr Mod BasicExpr", c => BinaryOperation(Mod, c.MultExpr.resultAs[Expr], c.BasicExpr.resultAs[Expr])) ++
   rule("MultExpr", "BasicExpr", _.BasicExpr.result) ++
   rule("BasicExpr", "PrimitiveExpr", _.PrimitiveExpr.result) ++
-  rule("Expr", "CmpExpr", _.CmpExpr.result) 
+  rule("Expr", "OrExpr", _.OrExpr.result) 
   
 val g_prog = 
   g_literals ++
@@ -174,7 +197,13 @@ def parse(prog : String) {
 
 def main(args : Array[String]) {
   parse("x - y == 10 < y <= z - 4")
-  parse("2 * (x + 4) + y")
+  parse("not 2 * (x + 4) + y mod 7 or 2 and 3")
+  parse("not x or y")
+  parse("not not x or y")
+  parse("- x + y")
+  parse("- - x + y")
+  parse("- x * y")
+  parse("true or false")
 }
   
   
