@@ -164,8 +164,8 @@ object ParseTree {
     }
   }
   
-  case class STReturn(exprs : Vector[Expr]) extends Statement {
-    protected def calcVars = (exprs.foldLeft(Set[String]())((frees, e) => frees ++ e.freeVars), Set())
+  case class STReturn(expr : Expr) extends Statement {
+    protected def calcVars = (expr.freeVars, Set())
   }
 
   case class STYield(exprs : Vector[Expr]) extends Statement {
@@ -252,8 +252,7 @@ val g_literals =
   lexrule("In", literal("in")) ++
   lexrule("Match", literal("match")) ++
   lexrule("Case", literal("case")) ++
-  lexrule("Return", literal("return")) ++
-  lexrule("Yield", literal("yield"))
+  lexrule("Return", literal("return"))
   
 val g_expr =
   rule("PrimitiveExpr", "Id", c => Id(c.Id.text)) ++
@@ -451,34 +450,21 @@ val g_def =
       c => DefCase(c.Id.text, c.OptPattern.resultAs[Option[Pattern]], c.Block.resultAs[Block]))
       
 val g_return =
-  rule("ST", "Return ExprList", CS.Indent("Return", "ExprList"), c => STReturn(c.ExprList.resultAs[Vector[Expr]]))
-  
-val g_yield = 
-  rule("ST", "Yield ExprList", CS.Indent("Yield", "ExprList"), c => STYield(c.ExprList.resultAs[Vector[Expr]]))  
-  
+  rule("ST", "Return Expr", CS.Indent("Return", "Expr"), c => STReturn(c.Expr.resultAs[Expr]))
+    
 val g_statement = 
-  g_val ++ g_assign ++ g_def ++ g_return ++ g_yield ++
-  rule("Statement", "Expr", CS.Protrude("Expr"), c => STExpr(c.Expr.resultAs[Expr])) ++
+  g_val ++ g_assign ++ g_def ++ g_return ++ 
   rule("Statement", "ST", _.ST.result) ++
   rule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow.resultAs[ControlFlow])) ++ 
-  rule("Block", "", c => Block(Vector())) ++
-  rule("Block", "Expr", CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))), 
-      c => Block(Vector(STExpr(c.Expr.resultAs[Expr])))) ++
-  rule("Block", "STControlFlow", c => Block(Vector(STControlFlow(c.STControlFlow.resultAs[ControlFlow])))) ++   
-  rule("Block", "ST", c => Block(Vector(c.ST.resultAs[Statement]))) ++
-  rule("Block", "Block1 Statement", CS.Align("Block1", "Statement"), 
-    c => {
-      val statements = c.Block1.resultAs[Block].statements
-      val statement = c.Statement.resultAs[Statement]
-      Block(statements :+ statement)
-    }) ++
-  rule("Block1", "Statement", c => Block(Vector(c.Statement.resultAs[Statement]))) ++
-  rule("Block1", "Block1 Statement", CS.Align("Block1", "Statement"), 
-    c => {
-      val statements = c.Block1.resultAs[Block].statements
-      val statement = c.Statement.resultAs[Statement]
-      Block(statements :+ statement)
-    }) 
+  rule("Statements", "", c => Vector[Statement]()) ++
+  rule("Statements", "Statements Statement", CS.Align("Statements", "Statement"),
+      c => c.Statements.resultAs[Vector[Statement]] :+ c.Statement.resultAs[Statement]) ++
+  rule("Block", "Statements", c => Block(c.Statements.resultAs[Vector[Statement]])) ++
+  rule("Block", "Statements Expr", 
+      CS.and(
+          CS.Align("Statements", "Expr"), 
+          CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr")))),
+      c => Block(c.Statements.resultAs[Vector[Statement]] :+ STExpr(c.Expr.resultAs[Expr])))
 
 val g_prog = 
   g_literals ++
@@ -543,7 +529,7 @@ def main(args : Array[String]) {
   parse("3 * (x => _ => x + 10)")
   
   parse("""
-3 * 4
+return 3 * 4
   f x
  g y
 h z
@@ -579,9 +565,9 @@ if true then
 def 
   u = 10
   f x = 
-    13  
-    42
-    return    
+    val y = 13  
+    y = y * 42
+    return y + 1   
   v = u + 1
 """)
 
@@ -626,15 +612,7 @@ val x = 3 * (do
 
   parse("match x case 1 => (match y case 2 => x*y)")
   
-  parse("""
-      10
-      yield
-      yield 11, 12, 13
-      yield 14
-      return 15
-""")
-
-  parse("val x = return 1, 2, 3")
+  parse("val x = return 1")
    
 }
    
