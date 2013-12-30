@@ -635,7 +635,7 @@ val x = 3 * (do
 """)
 
   parse("val x = return 1, 2, 3")
-  
+   
 }
    
 }
