@@ -633,6 +633,8 @@ val x = 3 * (do
       yield 14
       return 15
 """)
+
+  parse("val x = return 1, 2, 3")
   
 }
    
