@@ -5,6 +5,8 @@ ProofScript
 It is used for
 * mathematical formalisations,
 * programming,
-* technical publishing.
+* technical publishing,
+* blogging,
+* commenting.
 
 Check out the [Wiki](https://github.com/phlegmaticprogrammer/proofpeer-proofscript/wiki) for more information.
