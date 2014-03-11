@@ -11,11 +11,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     case class Assume(thm_name : Name, assumption : Term) extends ContextKind
     case class Define(const_name : Name, thm_name : Name, tm : Term) extends ContextKind
     case class Introduce(const_name : Name, ty : Type) extends ContextKind
+    case object NonLogical extends ContextKind
   }
 
   private class ContextImpl(val kind : ContextKind,
                             val namespace : String, 
                             val parentNamespaces : Set[String],
+                            val ancestorNamespaces : Set[String],
                             val parentContext : Option[ContextImpl],
                             val constants : Map[Name, (Type, Option[Name])],
                             val theorems : Map[Name, Term]) extends Context 
@@ -34,14 +36,14 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (hasContextScope(name)) this
       else {
         val namespace = name.namespace.get
-        if (parentNamespaces.contains(namespace))
+        if (ancestorNamespaces.contains(namespace))
           contextOfNamespace(namespace).get.asInstanceOf[ContextImpl]
         else
           failwith("no such namespace found: " + namespace)
       }
     }
     
-    def lookupConst(const_name : Name) : Option[(Type, Option[Name])] = {
+    def lookupConstant(const_name : Name) : Option[(Type, Option[Name])] = {
       contextOfName(const_name).constants.get(const_name)
     }
     
@@ -66,20 +68,77 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           ContextKind.Introduce(const_name, ty),
           namespace,
           parentNamespaces,
+          ancestorNamespaces,
           Some(this),
           constants + (const_name -> (ty, None)),
           theorems)
-    }
-    
-    
+    } 
 
-    def assume(thm_name : Name, assumption : Term) : Theorem = null
+    def assume(thm_name : Name, assumption : Term) : Theorem = {
+      ensureContextScope(thm_name)
+      if (contains(thm_name, theorems))
+        failwith("theorem name "+thm_name+" has already been defined")
+      if (typeOfTerm(assumption) != Some(Prop))
+        failwith("assumption is not a valid proposition")
+      val context = 
+        new ContextImpl(
+            ContextKind.Assume(thm_name, assumption),
+            namespace,
+            parentNamespaces,
+            ancestorNamespaces,
+            Some(this),
+            constants,
+            theorems + (thm_name -> assumption))
+      mk_theorem(context, assumption)
+    }
   
-    def define(const_name : Name, thm_name : Name, tm : Term) : Theorem = null
+    def define(const_name : Name, thm_name : Name, tm : Term) : Theorem = {
+      ensureContextScope(const_name)
+      ensureContextScope(thm_name)
+      if (contains(const_name, constants))
+        failwith("constant name "+const_name+" clashes with other constant in current scope")
+      if (contains(thm_name, theorems))
+        failwith("theorem name "+thm_name+" has already been defined")
+      typeOfTerm(tm) match {
+        case None =>
+          failwith("the defining term is not a valid term")
+        case Some(ty) =>
+          val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
+          val context = 
+            new ContextImpl(
+              ContextKind.Define(const_name, thm_name, tm),
+              namespace,
+              parentNamespaces,
+              ancestorNamespaces,
+              Some(this),
+              constants + (const_name -> (ty, Some(thm_name))),
+              theorems + (thm_name -> eq))
+          mk_theorem(context, eq)         
+      }
+    }
    
-    def lookupTheorem(thm_name : Name) : Option[Theorem] = null
+    def lookupTheorem(thm_name : Name) : Option[Theorem] = {
+      val context = contextOfName(thm_name)
+      context.theorems.get(thm_name).map(mk_theorem(context, _))
+    }
   
-    def storeTheorem(thm_name : Name, thm : Theorem) : Context = null
+    def storeTheorem(thm_name : Name, thm : Theorem) : Context = {
+      ensureContextScope(thm_name)
+      if (contains(thm_name, theorems))
+        failwith("theorem name "+thm_name+" has already been defined")
+      if (KernelImpl.this != thm.context.kernel)   
+        failwith("theorem belongs to a different kernel")
+      if (thm.context != this)
+        failwith("theorem belongs to a different context")
+      new ContextImpl(
+          ContextKind.NonLogical,
+          namespace,
+          parentNamespaces,
+          ancestorNamespaces,
+          Some(this),
+          constants,
+          theorems + (thm_name -> thm.proposition))
+    }
     
     def lift(thm : Theorem) : Theorem = null
      
