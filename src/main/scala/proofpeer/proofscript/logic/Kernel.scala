@@ -6,11 +6,13 @@ object Utils {
     throw new RuntimeException("Failure: " + reason)
   }
   
+  type Integer = BigInt
+  
 }
 
 import Utils._
 
-sealed case class IndexedName(val name : String, val index : Option[Int]) 
+sealed case class IndexedName(val name : String, val index : Option[Integer]) 
 sealed case class Name(val namespace : Option[String], val name : IndexedName)
 
 sealed abstract class Type
@@ -22,54 +24,81 @@ object Type {
 
 sealed abstract class Term 
 object Term {
-  case class Const(name : Name, ty : Type) extends Term 
+  case class PolyConst(name : Name, alpha : Type) extends Term
+  case class Const(name : Name) extends Term 
   case class Comb(f : Term, x : Term) extends Term 
   case class Abs(name : IndexedName, ty : Type, body : Term) extends Term 
   case class Var(name : IndexedName) extends Term
 }
 
-sealed case class Theorem(ctx : Context, hyps : Set[Term], concl : Term)
+sealed trait Theorem {
+  def context : Context
+  def proposition : Term
+}
 
-sealed trait Context {
+trait Context {
   
-  // The parent context, which is only null for the very first context.
-  def parent : Context
+  // The Kernel object that this Context was created by.
+  def kernel : Kernel
   
-  // The name of the current namespace.
-  def currentNamespace : String
+  // The namespace of the context.
+  def namespace : String
   
-  // The completed namespaces.
-  def completedNamespaces : Map[String, Context]
+  // The namespaces that were used to create this (or its ancestor) context.
+  def parentNamespaces : Set[String]
+    
+  // Returns the type of the constant. 
+  // A None result means that either no such constant exists in this context, 
+  // or that the constant is polymorphic.
+  def typeOfConst(const_name : Name) : Option[Type] = 
+    lookupConstant(const_name).map(_._1)
   
-  // Starts a new namespace.
-  def startNamespace(namespace : String) : Context
-  
-  // Checks if the given constant has the given type. 
-  def constHasType(const_name : Name, ty : Type) : Boolean
-  
-  // Introduces an assumption with a given name. 
-  // The name must either have no namespace, or must be equal to the current namespace.
-  // Note that the context of the theorem is different from this context.
-  def assume(thm_name : Name, assumption : Term) : Theorem
-  
-  // Defines a new constant.
-  def define(const_name : Name, thm_name : Name, tm : Term) : Theorem
+  // Returns the type of the term if the term is valid in this context.
+  def typeOfTerm(term : Term) : Option[Type]
   
   // Introduces a new unspecified constant.
+  // The name must either have no namespace, or must be equal to the current namespace.
   def introduce(const_name : Name, ty : Type) : Context
+
+  // Introduces an assumption with a given name. 
+  // The name must either have no namespace, or must be equal to the current namespace.
+  // The new context can be obtained from the theorem.
+  def assume(thm_name : Name, assumption : Term) : Theorem
   
+  // Defines a new constant. 
+  // The names must either have no namespace, or must be equal to the current namespace.
+  def define(const_name : Name, thm_name : Name, tm : Term) : Theorem
+   
+  // Looks up the theorem with the given name.
   def lookupTheorem(thm_name : Name) : Option[Theorem]
   
+  // Stores the theorem under the given name.
+  // The name must either have no namespace, or must be equal to the current namespace.
   def storeTheorem(thm_name : Name, thm : Theorem) : Context
   
-  def lookupConstant(const_name : Name) : Option[(Type, Option[(Name, Theorem)])]
+  // Looks up the type and (if existing) the theorem name of the definition of a constant.
+  // A None result means that either no such constant exists in this context, 
+  // or that the constant is polymorphic.
+  def lookupConstant(const_name : Name) : Option[(Type, Option[Name])]
   
-  // Converts a theorem into a theorem of this context. 
+  // Converts a theorem into a theorem of this context (if possible). 
   def lift(thm : Theorem) : Theorem
   
 }
 
-object Context {
+trait Kernel {
+  
+  def completedNamespaces : Set[String]
+  
+  def contextOfNamespace(namespace : String) : Option[Context]
+  
+  def createNewNamespace(namespace : String, parents : Set[String]) : Context
+  
+  def completeNamespace(context : Context)
+  
+}
+
+object Kernel {
   val root_namespace = "root"
   def rootname(name : String) = Name(Some(root_namespace), IndexedName(name, None))
   
@@ -77,85 +106,8 @@ object Context {
   val forall = rootname("forall")
   val exists = rootname("exists")
   val choose = rootname("choose")
+  
+  private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
+  
+  def createDefaultKernel() : Kernel = new KernelImpl((c : Context, p : Term) => new TheoremImpl(c, p))
 }
-
-abstract class ContextImpl(private val constants : Map[Name, Type]) extends Context {
-  
-  def constHasType(name : Name, ty : Type) : Boolean = {
-    import Type._
-    name match {
-      case Context.equals =>
-        ty match {
-          case Fun(alpha, Fun(beta, Prop)) if alpha == beta => true
-          case _ => false
-        }
-      case Context.forall | Context.exists =>
-        ty match {
-          case Fun(Fun(_, Prop), Prop) => true
-          case _ => false
-        }
-      case Context.choose =>
-        ty match {
-          case Fun(Fun(alpha, Prop), beta) if alpha == beta => true
-          case _ => false
-        }
-      case _ =>
-        constants.get(name) == Some(ty)
-    }
-  }
-  
-}
-
-object AssocList {
-  
-  type L[K,V] = List[(K,V)]
-  
-  def empty[K,V] : L[K,V] = List()
-  
-  def lookup[K,V](list : L[K,V], k : K) : Option[V] = {
-    for ((key, value) <- list) {
-      if (key == k) return Some(value)
-    }
-    None
-  }
-  
-  def assoc[K,V](list : L[K,V], k : K, v : V) : L[K, V] = (k,v) :: list
-  
-}
-
-object Kernel {
-  
-  import Term._
-  import Type._
-      
-  def isValidTerm(c : Context, vars : AssocList.L[IndexedName, Type], term : Term) : Option[Type] = {
-    term match {
-      case Const(name, ty) =>
-        if (c.constHasType(name, ty)) Some(ty) else None
-      case Var(name) =>
-        AssocList.lookup(vars, name)
-      case Comb(f, x) => 
-        (isValidTerm(c, vars, f), isValidTerm(c, vars, x)) match {
-          case (Some(Fun(fdomain, frange)), Some(xty)) if fdomain == xty =>
-            Some(frange)
-          case _ => None
-        }
-      case Abs(name, ty, body) =>
-        isValidTerm(c, AssocList.assoc(vars, name, ty), body) match {
-          case Some(bodyty) => Some(Fun(ty, bodyty))
-          case None => None            
-        }
-    }
-  }
-  
-  
-  
-  
-  
-}
-
-
-
-
-
-
