@@ -161,7 +161,26 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   }
   
   def createNewNamespace(namespace : String, parents : Set[String]) : Context = {
-    null
+    var ancestors : Set[String] = Set()
+    if (contextOfNamespace(namespace).isDefined)
+      failwith("namespace already exists: "+namespace)
+    for (parent <- parents) {
+      contextOfNamespace(parent) match {
+        case Some(context) =>
+          ancestors = ancestors ++ context.asInstanceOf[ContextImpl].ancestorNamespaces
+          ancestors = ancestors + parent
+        case None =>
+          failwith("no such completed namespace: "+parent)
+      }
+    }
+    new ContextImpl(
+        ContextKind.NonLogical,
+        namespace,
+        parents,
+        ancestors,
+        None,
+        Map(),
+        Map())
   }
       
   def typeOfTerm(c : Context, vars : Map[IndexedName, Type], term : Term) : Option[Type] = {
