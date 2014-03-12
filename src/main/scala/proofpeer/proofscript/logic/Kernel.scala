@@ -94,7 +94,7 @@ trait Kernel {
   
   def createNewNamespace(namespace : String, parents : Set[String]) : Context
   
-  def completeNamespace(context : Context)
+  def completeNamespace(context : Context) : Context
   
 }
 

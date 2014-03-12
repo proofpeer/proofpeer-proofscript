@@ -11,19 +11,23 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     case class Assume(thm_name : Name, assumption : Term) extends ContextKind
     case class Define(const_name : Name, thm_name : Name, tm : Term) extends ContextKind
     case class Introduce(const_name : Name, ty : Type) extends ContextKind
-    case object NonLogical extends ContextKind
+    case class Created(namespace : String, parentNamespaces : Set[String], ancestorNamespaces : Set[String]) extends ContextKind
+    case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
+    case object Complete extends ContextKind
   }
 
   private class ContextImpl(val kind : ContextKind,
-                            val namespace : String, 
-                            val parentNamespaces : Set[String],
-                            val ancestorNamespaces : Set[String],
+                            val created : ContextKind.Created,
                             val parentContext : Option[ContextImpl],
                             val constants : Map[Name, (Type, Option[Name])],
                             val theorems : Map[Name, Term]) extends Context 
   {
     
     def kernel : Kernel = KernelImpl.this
+    
+    def namespace = created.namespace
+    
+    def parentNamespaces = created.parentNamespaces
         
     def typeOfTerm(term : Term) : Option[Type] = 
       KernelImpl.this.typeOfTerm(this, Map(), term)
@@ -36,7 +40,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (hasContextScope(name)) this
       else {
         val namespace = name.namespace.get
-        if (ancestorNamespaces.contains(namespace))
+        if (created.ancestorNamespaces.contains(namespace))
           contextOfNamespace(namespace).get.asInstanceOf[ContextImpl]
         else
           failwith("no such namespace found: " + namespace)
@@ -49,7 +53,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     
     private def ensureContextScope(name : Name) {
       if (!hasContextScope(name)) 
-        failwith("name "+name+" is outside of namespace: "+namespace)
+        failwith("name "+name+" is outside of namespace: "+created.namespace)
     } 
     
     private def contains[T](name : Name, map : Map[Name, T]) : Boolean = {
@@ -66,9 +70,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         failwith("constant name "+const_name+" clashes with other constant in current scope")
       new ContextImpl(
           ContextKind.Introduce(const_name, ty),
-          namespace,
-          parentNamespaces,
-          ancestorNamespaces,
+          created,
           Some(this),
           constants + (const_name -> (ty, None)),
           theorems)
@@ -83,9 +85,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val context = 
         new ContextImpl(
             ContextKind.Assume(thm_name, assumption),
-            namespace,
-            parentNamespaces,
-            ancestorNamespaces,
+            created,
             Some(this),
             constants,
             theorems + (thm_name -> assumption))
@@ -107,9 +107,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           val context = 
             new ContextImpl(
               ContextKind.Define(const_name, thm_name, tm),
-              namespace,
-              parentNamespaces,
-              ancestorNamespaces,
+              created,
               Some(this),
               constants + (const_name -> (ty, Some(thm_name))),
               theorems + (thm_name -> eq))
@@ -131,10 +129,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (thm.context != this)
         failwith("theorem belongs to a different context")
       new ContextImpl(
-          ContextKind.NonLogical,
-          namespace,
-          parentNamespaces,
-          ancestorNamespaces,
+          ContextKind.StoreTheorem(thm_name, thm.proposition),
+          created,
           Some(this),
           constants,
           theorems + (thm_name -> thm.proposition))
@@ -149,15 +145,48 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   def completedNamespaces = namespaces.keySet
   
   def contextOfNamespace(namespace : String) : Option[Context] = namespaces.get(namespace)
+  
+  private def isQualifiedName(name : Name) : Boolean = name.namespace.isDefined
+  
+  private def isQualifiedTerm(term : Term) : Boolean = {
+    term match {
+      case PolyConst(name, alpha) => isQualifiedName(name)
+      case Const(name) => isQualifiedName(name)
+      case Comb(f, x) => isQualifiedTerm(f) && isQualifiedTerm(x)
+      case Abs(name, ty, body) => isQualifiedTerm(body)
+      case Var(name) => true
+    }
+  }
+  
+  private def isQualifiedTheorem(thm_name : Name, proposition : Term) : Boolean = {
+    isQualifiedName(thm_name) && isQualifiedTerm(proposition)
+  }
     
-  def completeNamespace(context : Context) {
+  def completeNamespace(context : Context) : Context = {
     if (!context.isInstanceOf[ContextImpl] || context.kernel != this) 
       failwith("context does not belong to this kernel")
     val namespace = context.namespace
-    if (namespaces.contains(namespace)) failwith("this namespace has already been completed: "+namespace)
-    // ToDo: Here we must check if the context does introduce or
-    // define any constants with names that are not qualified by its namespace
-    namespaces += (namespace -> context.asInstanceOf[ContextImpl])
+    if (namespaces.contains(namespace)) 
+      failwith("this namespace has already been completed: "+namespace)
+    val ctx = context.asInstanceOf[ContextImpl]
+    val theorems = ctx.theorems.filter(th => isQualifiedTheorem(th._1, th._2))
+    def isQualifiedConstant(key : Name, value : (Type, Option[Name])) : Boolean = {
+      isQualifiedName(key) &&
+      (value._2 match {
+        case Some(thm_name) => theorems.contains(thm_name)
+        case None => true
+       })
+    }
+    val constants = ctx.constants.filter(c => isQualifiedConstant(c._1, c._2))   
+    val completedContext = 
+      new ContextImpl(
+          ContextKind.Complete,
+          ctx.created,
+          Some(ctx),
+          constants,
+          theorems)  
+    namespaces += (namespace -> completedContext)
+    completedContext
   }
   
   def createNewNamespace(namespace : String, parents : Set[String]) : Context = {
@@ -167,17 +196,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     for (parent <- parents) {
       contextOfNamespace(parent) match {
         case Some(context) =>
-          ancestors = ancestors ++ context.asInstanceOf[ContextImpl].ancestorNamespaces
+          ancestors = ancestors ++ context.asInstanceOf[ContextImpl].created.ancestorNamespaces
           ancestors = ancestors + parent
         case None =>
           failwith("no such completed namespace: "+parent)
       }
     }
+    val created = ContextKind.Created(namespace, parents, ancestors)
     new ContextImpl(
-        ContextKind.NonLogical,
-        namespace,
-        parents,
-        ancestors,
+        created,
+        created,
         None,
         Map(),
         Map())
