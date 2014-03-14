@@ -17,6 +17,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   }
 
   private class ContextImpl(val kind : ContextKind,
+                            val depth : Integer,
                             val created : ContextKind.Created,
                             val parentContext : Option[ContextImpl],
                             val constants : Map[Name, (Type, Option[Name])],
@@ -67,9 +68,10 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def introduce(const_name : Name, ty : Type) : Context = {
       ensureContextScope(const_name)
       if (contains(const_name, constants))
-        failwith("constant name "+const_name+" clashes with other constant in current scope")
+        failwith("constant name " + const_name + " clashes with other constant in current scope")
       new ContextImpl(
           ContextKind.Introduce(const_name, ty),
+          depth + 1,
           created,
           Some(this),
           constants + (const_name -> (ty, None)),
@@ -79,12 +81,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def assume(thm_name : Name, assumption : Term) : Theorem = {
       ensureContextScope(thm_name)
       if (contains(thm_name, theorems))
-        failwith("theorem name "+thm_name+" has already been defined")
+        failwith("theorem name " + thm_name + " has already been defined")
       if (typeOfTerm(assumption) != Some(Prop))
         failwith("assumption is not a valid proposition")
       val context = 
         new ContextImpl(
             ContextKind.Assume(thm_name, assumption),
+            depth + 1,
             created,
             Some(this),
             constants,
@@ -107,6 +110,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           val context = 
             new ContextImpl(
               ContextKind.Define(const_name, thm_name, tm),
+              depth + 1,
               created,
               Some(this),
               constants + (const_name -> (ty, Some(thm_name))),
@@ -130,13 +134,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         failwith("theorem belongs to a different context")
       new ContextImpl(
           ContextKind.StoreTheorem(thm_name, thm.proposition),
+          depth + 1,
           created,
           Some(this),
           constants,
           theorems + (thm_name -> thm.proposition))
     }
     
-    def lift(thm : Theorem) : Theorem = null
+    def lift(thm : Theorem) : Theorem = {
+      null
+    }
      
   }
   
@@ -181,6 +188,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     val completedContext = 
       new ContextImpl(
           ContextKind.Complete,
+          ctx.depth + 1,
           ctx.created,
           Some(ctx),
           constants,
@@ -205,6 +213,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     val created = ContextKind.Created(namespace, parents, ancestors)
     new ContextImpl(
         created,
+        0,
         created,
         None,
         Map(),
