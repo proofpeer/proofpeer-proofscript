@@ -20,7 +20,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
                             val depth : Integer,
                             val created : ContextKind.Created,
                             val parentContext : Option[ContextImpl],
-                            val constants : Map[Name, (Type, Option[Name])],
+                            val constants : Map[Name, Type],
                             val theorems : Map[Name, Term]) extends Context 
   {
     
@@ -48,7 +48,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
     }
     
-    def lookupConstant(const_name : Name) : Option[(Type, Option[Name])] = {
+    def typeOfConst(const_name : Name) : Option[Type] = {
       contextOfName(const_name).constants.get(const_name)
     }
     
@@ -74,7 +74,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           depth + 1,
           created,
           Some(this),
-          constants + (const_name -> (ty, None)),
+          constants + (const_name -> ty),
           theorems)
     } 
 
@@ -117,7 +117,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
               depth + 1,
               created,
               Some(this),
-              constants + (const_name -> (ty, Some(thm_name))),
+              constants + (const_name -> ty),
               theorems + (thm_name -> eq))
           mk_theorem(context, eq)         
       }
@@ -178,15 +178,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     if (namespaces.contains(namespace)) 
       failwith("this namespace has already been completed: "+namespace)
     val ctx = context.asInstanceOf[ContextImpl]
-    val theorems = ctx.theorems.filter(th => isQualifiedName(th._1))
-    def isQualifiedConstant(key : Name, value : (Type, Option[Name])) : Boolean = {
-      isQualifiedName(key) &&
-      (value._2 match {
-        case Some(thm_name) => isQualifiedName(thm_name)
-        case None => true
-       })
-    }
-    val constants = ctx.constants.filter(c => isQualifiedConstant(c._1, c._2))   
+    val theorems = ctx.theorems.filterKeys(n => isQualifiedName(n))
+    val constants = ctx.constants.filterKeys(n => isQualifiedName(n))   
     val completedContext = 
       new ContextImpl(
           ContextKind.Complete,

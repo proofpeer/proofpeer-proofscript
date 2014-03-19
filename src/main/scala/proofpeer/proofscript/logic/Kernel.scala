@@ -47,11 +47,10 @@ trait Context {
   // The namespaces that were used to create this (or its ancestor) context.
   def parentNamespaces : Set[String]
     
-  // Returns the type of the constant. 
+  // Looks up the type of a constant.
   // A None result means that either no such constant exists in this context, 
   // or that the constant is polymorphic.
-  def typeOfConst(const_name : Name) : Option[Type] = 
-    lookupConstant(const_name).map(_._1)
+  def typeOfConst(const_name : Name) : Option[Type] 
   
   // Returns the type of the term if the term is valid in this context.
   def typeOfTerm(term : Term) : Option[Type]
@@ -75,12 +74,7 @@ trait Context {
   // Stores the theorem under the given name.
   // The name must either have no namespace, or must be equal to the current namespace.
   def storeTheorem(thm_name : Name, thm : Theorem) : Context
-  
-  // Looks up the type and (if existing) the theorem name of the definition of a constant.
-  // A None result means that either no such constant exists in this context, 
-  // or that the constant is polymorphic.
-  def lookupConstant(const_name : Name) : Option[(Type, Option[Name])]
-  
+    
   // Converts a theorem into a theorem of this context (if possible). 
   def lift(thm : Theorem) : Theorem
   
