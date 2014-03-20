@@ -315,7 +315,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   }
   
   private def mk_implies(hyp : Term, concl : Term) : Term = {
-    null
+    Comb(Comb(Const(Kernel.implies), hyp), concl)
   }
   
   private def mk_forall(name : Name, ty : Type, prop : Term) : Term = {

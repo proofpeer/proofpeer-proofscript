@@ -100,6 +100,7 @@ object Kernel {
   val forall = rootname("forall")
   val exists = rootname("exists")
   val choose = rootname("choose")
+  val implies = rootname("implies")
   
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   
