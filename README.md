@@ -9,4 +9,4 @@ It is used for
 * blogging,
 * commenting.
 
-Check out the [Wiki](https://github.com/phlegmaticprogrammer/proofpeer-proofscript/wiki) for more information.
+Check out the [Wiki](https://github.com/proofpeer/proofpeer-proofscript/wiki) for more information.
