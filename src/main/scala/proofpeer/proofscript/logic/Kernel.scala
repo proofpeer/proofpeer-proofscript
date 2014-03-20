@@ -76,9 +76,7 @@ trait Context {
   def storeTheorem(thm_name : Name, thm : Theorem) : Context
     
   // Converts a theorem into a theorem of this context (if possible). 
-  // If rigid conversion is requested, conversion proceeds along fixed rigid rules,
-  // otherwise the conversion process may employ theorem simplification methods.
-  def lift(thm : Theorem, rigid : Boolean) : Theorem
+  def lift(thm : Theorem) : Theorem
   
 }
 

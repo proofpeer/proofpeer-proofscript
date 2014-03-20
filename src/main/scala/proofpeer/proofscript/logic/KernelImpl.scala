@@ -9,7 +9,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   sealed trait ContextKind 
   object ContextKind {
     case class Assume(thm_name : Name, assumption : Term) extends ContextKind
-    case class Define(const_name : Name, thm_name : Name, tm : Term) extends ContextKind
+    case class Define(const_name : Name, ty : Type, thm_name : Name, tm : Term) extends ContextKind
     case class Introduce(const_name : Name, ty : Type) extends ContextKind
     case class Created(namespace : String, parentNamespaces : Set[String], ancestorNamespaces : Set[String]) extends ContextKind
     case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
@@ -112,7 +112,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
           val context = 
             new ContextImpl(
-              ContextKind.Define(const_name, thm_name, tm),
+              ContextKind.Define(const_name, ty, thm_name, tm),
               depth + 1,
               created,
               Some(this),
@@ -146,8 +146,54 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           theorems + (thm_name -> thm.proposition))
     }
     
-    def lift(thm : Theorem, rigid : Boolean) : Theorem = {
-      null
+    def lift(thm : Theorem) : Theorem = {
+      if (KernelImpl.this != thm.context.kernel)
+        failwith("theorem belongs to a different kernel")
+      val src_context = thm.context.asInstanceOf[ContextImpl]
+      val src_namespace = src_context.namespace
+      if (namespace != src_namespace) {
+        if (created.ancestorNamespaces.contains(src_namespace)) {
+          val prop = completedContext(src_namespace).liftLocally(thm).proposition
+          if (!isQualifiedTerm(prop))
+            failwith("cannot lift theorem containing unqualified constants between namespaces")
+          mk_theorem(this, prop)
+        } else {
+          failwith("cannot lift theorem from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
+        }
+      } else {
+        liftLocally(thm)
+      }
+    }
+    
+    // Same as lift, but assumes that the theorem context has the same namespace as this context.
+    private def liftLocally(thm : Theorem) : Theorem = {
+      val src_context = thm.context.asInstanceOf[ContextImpl]
+      val common_ancestor = findCommonAncestorContext(this, src_context)
+      val lifted_thm = common_ancestor.liftLocallyUp(thm)
+      if (common_ancestor.depth == depth)
+        lifted_thm
+      else
+        mk_theorem(this, lifted_thm.proposition)
+    }
+    
+    private def liftLocallyUp(thm : Theorem) : Theorem = {
+      import ContextKind._
+      var context = thm.context.asInstanceOf[ContextImpl]
+      var prop = thm.proposition
+      while (context.depth > depth) {
+        context.kind match {
+          case Assume(_, hyp) => 
+            prop = mk_implies(hyp, prop)
+          case Introduce(c, ty) => 
+            prop = mk_forall(c, ty, prop)
+          case Define(c, ty, _, _) =>
+            prop = mk_exists(c, ty, prop)
+          case _ => 
+            // nothing to do, the context is non-logical
+        }
+        context = context.parentContext.get
+      }
+      mk_theorem(context, prop)
     }
      
   }
@@ -157,6 +203,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   def completedNamespaces = namespaces.keySet
   
   def contextOfNamespace(namespace : String) : Option[Context] = namespaces.get(namespace)
+  
+  private def completedContext(namespace : String) : ContextImpl = {
+    contextOfNamespace(namespace) match {
+      case Some(c) => c.asInstanceOf[ContextImpl]
+      case None => failwith("there is no completed namespace '" + namespace + "'")
+    }
+  }
   
   private def isQualifiedName(name : Name) : Boolean = name.namespace.isDefined
   
@@ -237,6 +290,40 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           case None => None            
         }
     }
+  }
+  
+  // This assumes that c1 and c2 belong to the same kernel and the same context
+  private def findCommonAncestorContext(c1 : ContextImpl, c2 : ContextImpl) : ContextImpl = {
+    var depth1 = c1.depth
+    var context1 = c1
+    var depth2 = c2.depth
+    var context2 = c2
+    var depth = if (depth1 > depth2) depth1 else depth2
+    while (depth1 != depth2) {
+      if (depth1 > depth2) {
+        context1 = context1.parentContext.get
+        depth1 = depth1 - 1
+      } else {
+        context2 = context2.parentContext.get
+        depth2 = depth2 - 1
+      }
+    }
+    if (context1 != context2) 
+      failwith("no common ancestor context found")
+    else 
+      context1
+  }
+  
+  private def mk_implies(hyp : Term, concl : Term) : Term = {
+    null
+  }
+  
+  private def mk_forall(name : Name, ty : Type, prop : Term) : Term = {
+    null
+  }
+  
+  private def mk_exists(name : Name, ty : Type, prop : Term) : Term = {
+    null
   }
   
 }
