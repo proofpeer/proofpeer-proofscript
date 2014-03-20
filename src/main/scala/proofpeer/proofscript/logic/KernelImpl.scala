@@ -59,10 +59,9 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     
     private def contains[T](name : Name, map : Map[Name, T]) : Boolean = {
       if (name.namespace.isDefined) 
-        constants.contains(name)
-      else {
-        constants.contains(name) || constants.contains(Name(Some(namespace), name.name))
-      }
+        map.contains(name) || map.contains(Name(None, name.name))
+      else 
+        map.contains(name) || map.contains(Name(Some(namespace), name.name))
     }
 
     def introduce(const_name : Name, ty : Type) : Context = {
@@ -147,7 +146,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           theorems + (thm_name -> thm.proposition))
     }
     
-    def lift(thm : Theorem) : Theorem = {
+    def lift(thm : Theorem, rigid : Boolean) : Theorem = {
       null
     }
      
