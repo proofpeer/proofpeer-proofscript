@@ -52,6 +52,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       contextOfName(const_name).constants.get(const_name)
     }
     
+    private def isComplete : Boolean = {
+      kind match {
+        case ContextKind.Complete => true
+        case _ => false
+      }
+    }
+    
     private def ensureContextScope(name : Name) {
       if (!hasContextScope(name)) 
         failwith("name "+name+" is outside of namespace: "+created.namespace)
@@ -73,6 +80,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
     
     def introduce(const_name : Name, ty : Type) : Context = {
+      if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name " + const_name + " clashes with other constant in current scope")
@@ -86,6 +94,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     } 
 
     def assume(thm_name : Name, assumption : Term) : Theorem = {
+      if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(thm_name)
       if (contains(thm_name, theorems))
         failwith("theorem name " + thm_name + " has already been defined")
@@ -105,6 +114,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
   
     def define(const_name : Name, thm_name : Name, tm : Term) : Theorem = {
+      if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
       ensureContextScope(thm_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
@@ -220,7 +230,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
                 consts = consts - c
               }
             case _ => 
-            // nothing to do, the context is non-logical
+              // nothing to do, the context is non-logical
           }
           context = context.parentContext.get
         }        
@@ -242,7 +252,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       case None => failwith("there is no completed namespace '" + namespace + "'")
     }
   }
-  
+    
   private def isQualifiedName(name : Name) : Boolean = name.namespace.isDefined
   
   private def isQualifiedTerm(term : Term) : Boolean = {
