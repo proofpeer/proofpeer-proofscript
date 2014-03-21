@@ -76,7 +76,7 @@ trait Context {
   def storeTheorem(thm_name : Name, thm : Theorem) : Context
     
   // Converts a theorem into a theorem of this context (if possible). 
-  def lift(thm : Theorem) : Theorem
+  def lift(thm : Theorem, preserve_structure : Boolean) : Theorem
   
 }
 

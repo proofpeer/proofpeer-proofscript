@@ -63,10 +63,18 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       else 
         map.contains(name) || map.contains(Name(Some(namespace), name.name))
     }
-
+    
+    private def isPolyConst(name : Name) : Boolean = {
+      val n = name.name
+      (n == Kernel.equals.name || 
+       n == Kernel.forall.name || 
+       n == Kernel.exists.name || 
+       n == Kernel.choose.name)
+    }
+    
     def introduce(const_name : Name, ty : Type) : Context = {
       ensureContextScope(const_name)
-      if (contains(const_name, constants))
+      if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name " + const_name + " clashes with other constant in current scope")
       new ContextImpl(
           ContextKind.Introduce(const_name, ty),
@@ -99,7 +107,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def define(const_name : Name, thm_name : Name, tm : Term) : Theorem = {
       ensureContextScope(const_name)
       ensureContextScope(thm_name)
-      if (contains(const_name, constants))
+      if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
       if (contains(thm_name, theorems))
         failwith("theorem name "+thm_name+" has already been defined")
@@ -146,14 +154,14 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           theorems + (thm_name -> thm.proposition))
     }
     
-    def lift(thm : Theorem) : Theorem = {
+    def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       if (KernelImpl.this != thm.context.kernel)
         failwith("theorem belongs to a different kernel")
       val src_context = thm.context.asInstanceOf[ContextImpl]
       val src_namespace = src_context.namespace
       if (namespace != src_namespace) {
         if (created.ancestorNamespaces.contains(src_namespace)) {
-          val prop = completedContext(src_namespace).liftLocally(thm).proposition
+          val prop = completedContext(src_namespace).liftLocally(thm, preserve_structure).proposition
           if (!isQualifiedTerm(prop))
             failwith("cannot lift theorem containing unqualified constants between namespaces")
           mk_theorem(this, prop)
@@ -161,37 +169,61 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           failwith("cannot lift theorem from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
         }
       } else {
-        liftLocally(thm)
+        liftLocally(thm, preserve_structure)
       }
     }
     
     // Same as lift, but assumes that the theorem context has the same namespace as this context.
-    private def liftLocally(thm : Theorem) : Theorem = {
+    private def liftLocally(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       val src_context = thm.context.asInstanceOf[ContextImpl]
       val common_ancestor = findCommonAncestorContext(this, src_context)
-      val lifted_thm = common_ancestor.liftLocallyUp(thm)
+      val lifted_thm = common_ancestor.liftLocallyUp(thm, preserve_structure)
       if (common_ancestor.depth == depth)
         lifted_thm
       else
         mk_theorem(this, lifted_thm.proposition)
     }
     
-    private def liftLocallyUp(thm : Theorem) : Theorem = {
+    private def liftLocallyUp(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       import ContextKind._
       var context = thm.context.asInstanceOf[ContextImpl]
-      var prop = thm.proposition
-      while (context.depth > depth) {
-        context.kind match {
-          case Assume(_, hyp) => 
-            prop = mk_implies(hyp, prop)
-          case Introduce(c, ty) => 
-            prop = mk_forall(c, ty, prop)
-          case Define(c, ty, _, _) =>
-            prop = mk_exists(c, ty, prop)
-          case _ => 
-            // nothing to do, the context is non-logical
+      var prop = thm.proposition      
+      if (preserve_structure) {
+        while (context.depth > depth) {
+          context.kind match {
+            case Assume(_, hyp) => 
+              prop = mk_implies(hyp, prop)
+            case Introduce(c, ty) => 
+              prop = mk_forall(c, ty, prop)
+            case Define(c, ty, _, _) =>
+              prop = mk_exists(c, ty, prop)
+            case _ => 
+              // nothing to do, the context is non-logical
+          }
+          context = context.parentContext.get
         }
-        context = context.parentContext.get
+      } else {
+        var consts : Set[Name] = collectConsts(prop)
+        while (context.depth > depth) {
+          context.kind match {
+            case Assume(_, hyp) => 
+              prop = mk_implies(hyp, prop)
+              consts = collectConsts(hyp, consts)
+            case Introduce(c, ty) => 
+              if (consts.contains(c)) {
+                prop = mk_forall(c, ty, prop)
+                consts = consts - c
+              }
+            case Define(c, ty, _, _) =>
+              if (consts.contains(c)) {
+                prop = mk_exists(c, ty, prop)
+                consts = consts - c
+              }
+            case _ => 
+            // nothing to do, the context is non-logical
+          }
+          context = context.parentContext.get
+        }        
       }
       mk_theorem(context, prop)
     }
@@ -312,6 +344,18 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       failwith("no common ancestor context found")
     else 
       context1
+  }
+  
+  private def collectConsts(term : Term) : Set[Name] = collectConsts(term, Set())
+  
+  private def collectConsts(term : Term, consts : Set[Name]) : Set[Name] = {
+    term match {
+      case Const(name) => consts + name
+      case PolyConst(name, _) => consts + name
+      case Comb(f, g) => collectConsts(g, collectConsts(f, consts))
+      case Abs(_, _, body) => collectConsts(body, consts)
+      case Var(_) => consts
+    }
   }
   
   private def mk_implies(hyp : Term, concl : Term) : Term = {
