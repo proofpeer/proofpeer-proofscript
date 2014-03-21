@@ -372,12 +372,66 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     Comb(Comb(Const(Kernel.implies), hyp), concl)
   }
   
+  private def maxIndex(x : Option[Option[Integer]], y : Option[Option[Integer]]) : Option[Option[Integer]] = {
+    (x, y) match {
+      case (None, m) => m
+      case (m, None) => m
+      case (Some(x), Some(y)) =>
+        (x, y) match {
+          case (None, m) => Some(m)
+          case (m, None) => Some(m)
+          case (Some(x), Some(y)) => Some(Some(if (x > y) x else y))
+        }
+    }
+  }
+  
+  private def incIndex(x : Option[Option[Integer]]) : Option[Integer] = {
+    x match {
+      case None => None
+      case Some(None) => Some(1)
+      case Some(Some(x)) => Some(x + 1)
+    }
+  }
+  
+  private def findHighestVarIndex(name : String, term : Term) : Option[Option[Integer]] = {
+    term match {
+      case Const(_) => None
+      case PolyConst(_, _) => None
+      case Comb(f, g) => 
+        val fi = findHighestVarIndex(name, f)
+        val gi = findHighestVarIndex(name, g)
+        maxIndex(fi, gi)
+      case Abs(varname, _, body) =>
+        val vi = if (varname.name == name) Some(varname.index) else None
+        val bi = findHighestVarIndex(name, body)
+        maxIndex(vi, bi)
+      case Var(varname) =>
+        if (varname.name == name) Some(varname.index) else None
+    }
+  }
+  
+  // naive substitution, does not check for variable capture
+  private def substConst(term : Term, name : Name, subst : Term) : Term = {
+    term match {
+      case Const(cname) if cname == name => subst
+      case Comb(f, g) => Comb(substConst(f, name, subst), substConst(g, name, subst))
+      case Abs(x, ty, body) => Abs(x, ty, substConst(body, name, subst))
+      case _ => term
+    }
+  }
+  
+  private def mk_abs(name : Name, ty : Type, prop : Term) : Term = {
+    val index = incIndex(findHighestVarIndex(name.name.name, prop))
+    val varname = IndexedName(name.name.name, index)
+    Abs(varname, ty, substConst(prop, name, Var(varname)))
+  }
+  
   private def mk_forall(name : Name, ty : Type, prop : Term) : Term = {
-    null
+    Comb(PolyConst(Kernel.forall, ty), mk_abs(name, ty, prop))
   }
   
   private def mk_exists(name : Name, ty : Type, prop : Term) : Term = {
-    null
+    Comb(PolyConst(Kernel.exists, ty), mk_abs(name, ty, prop))
   }
   
 }
