@@ -145,15 +145,19 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val context = contextOfName(thm_name)
       context.theorems.get(thm_name).map(mk_theorem(context, _))
     }
+    
+    def checkTheoremContext(thm : Theorem) {
+      if (KernelImpl.this != thm.context.kernel)   
+        failwith("theorem belongs to a different kernel")
+      if (thm.context != this)
+        failwith("theorem belongs to a different context")      
+    }
   
     def storeTheorem(thm_name : Name, thm : Theorem) : Context = {
       ensureContextScope(thm_name)
       if (contains(thm_name, theorems))
         failwith("theorem name "+thm_name+" has already been defined")
-      if (KernelImpl.this != thm.context.kernel)   
-        failwith("theorem belongs to a different kernel")
-      if (thm.context != this)
-        failwith("theorem belongs to a different context")
+      checkTheoremContext(thm)
       if (isQualifiedName(thm_name) && !isQualifiedTerm(thm.proposition))
         failwith("theorem name is qualified, but proposition contains unqualified constants")
       new ContextImpl(
@@ -257,6 +261,17 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       mk_theorem(this, mk_equals(ty, a, b))
     }
 
+    def transitive(p : Theorem, q : Theorem) : Theorem = {
+      checkTheoremContext(p)
+      checkTheoremContext(q)
+      val (a, b1, _) = dest_equals(p.proposition)
+      val (b2, c, _) = dest_equals(q.proposition)
+      if (alpha_equivalent(b1, b2))
+        mk_theorem(this, mk_equals(Prop, a, c))
+      else
+        failwith("transitive: middle propositions are not alpha equivalent")
+    }
+    
   }
   
   private var namespaces : Map[String, Context] = Map()

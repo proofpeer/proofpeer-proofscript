@@ -100,6 +100,23 @@ object KernelUtils {
         if (varname.name == name) Some(varname.index) else None
     }
   }
+
+  def findHighestVarIndex(term : Term) : Option[Option[Integer]] = {
+    term match {
+      case Const(_) => None
+      case PolyConst(_, _) => None
+      case Comb(f, g) => 
+        val fi = findHighestVarIndex(f)
+        val gi = findHighestVarIndex(g)
+        maxIndex(fi, gi)
+      case Abs(varname, _, body) =>
+        val vi = Some(varname.index)
+        val bi = findHighestVarIndex(body)
+        maxIndex(vi, bi)
+      case Var(varname) =>
+        Some(varname.index)
+    }
+  }
   
   // naive substitution, does not check for variable capture
   def substConst(term : Term, name : Name, substitute : Term) : Term = {
@@ -175,5 +192,46 @@ object KernelUtils {
       case _ => failwith("term is not beta-reducible")
     }
   }
-   
+  
+  def dest_equals(term : Term) : (Term, Term, Type) = {
+    term match {
+      case Comb(Comb(PolyConst(Kernel.equals, ty), left), right) =>
+        (left, right, ty)
+      case _ => failwith("dest_equals: term is not an equality")
+    }
+  }
+  
+  def alpha_equivalent(u : Term, v : Term) : Boolean = {
+    if (u == v) return true
+    incIndex(maxIndex(findHighestVarIndex(u), findHighestVarIndex(v))) match {
+      case None => false
+      case Some(freshIndex) => alpha_equivalent(u, Map(), v, Map(), freshIndex)
+    }
+  }
+  
+  def alpha_equivalent(u : Term, su : Map[IndexedName, Integer], 
+                       v : Term, sv : Map[IndexedName, Integer], 
+                       freshIndex : Integer) : Boolean = 
+  {
+    (u, v) match {
+      case (Var(uname), Var(vname)) =>
+        (su.get(uname), sv.get(vname)) match {
+          case (None, None) => uname == vname
+          case (Some(i), Some(j)) => i == j
+          case _ => false
+        }
+      case (Comb(fu, gu), Comb(fv, gv)) =>
+        alpha_equivalent(fu, su, fv, sv, freshIndex) &&
+        alpha_equivalent(gu, su, gv, sv, freshIndex)
+      case (Abs(ux, uty, ubody), Abs(vx, vty, vbody)) =>
+        if (ux == vx) {
+          uty == vty && alpha_equivalent(ubody, su, vbody, sv, freshIndex)
+        } else {
+          alpha_equivalent(ubody, su + (ux -> freshIndex), vbody, sv + (vx -> freshIndex), freshIndex + 1)
+        }
+      case _ => u == v
+    }
+  }
+                       
+  
 }

@@ -84,6 +84,8 @@ trait Context {
   // Produces the theorem `a = b`, where b results from a by a single beta reduction at the top
   def beta(a : Term) : Theorem 
   
+  def transitive(p : Theorem, q : Theorem) : Theorem
+  
 }
 
 trait Kernel {
