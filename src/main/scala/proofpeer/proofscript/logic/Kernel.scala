@@ -78,6 +78,9 @@ trait Context {
   // Converts a theorem into a theorem of this context (if possible). 
   def lift(thm : Theorem, preserve_structure : Boolean) : Theorem
   
+  // Produces the theorem `a = a`
+  def reflexive(a : Term) : Theorem
+  
 }
 
 trait Kernel {

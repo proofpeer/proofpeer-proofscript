@@ -237,6 +237,19 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
       mk_theorem(context, prop)
     }
+    
+    private def getTypeOfTerm(tm : Term) : Type = {
+      typeOfTerm(tm) match {
+        case None => failwith("term is not wellformed in this context")
+        case Some(ty) => ty
+      }
+    }
+  
+    def reflexive(tm : Term) : Theorem = {
+      val ty = getTypeOfTerm(tm)
+      mk_theorem(this, mk_equals(ty, tm, tm))
+    }
+
      
   }
   
@@ -372,6 +385,10 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     Comb(Comb(Const(Kernel.implies), hyp), concl)
   }
   
+  private def mk_equals(ty : Type, left : Term, right : Term) : Term = {
+    Comb(Comb(PolyConst(Kernel.equals, ty), left), right)    
+  }
+  
   private def maxIndex(x : Option[Option[Integer]], y : Option[Option[Integer]]) : Option[Option[Integer]] = {
     (x, y) match {
       case (None, m) => m
@@ -433,6 +450,6 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   private def mk_exists(name : Name, ty : Type, prop : Term) : Term = {
     Comb(PolyConst(Kernel.exists, ty), mk_abs(name, ty, prop))
   }
-  
+    
 }
 
