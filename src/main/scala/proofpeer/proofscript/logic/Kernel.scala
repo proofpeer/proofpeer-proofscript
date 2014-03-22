@@ -81,6 +81,9 @@ trait Context {
   // Produces the theorem `a = a`
   def reflexive(a : Term) : Theorem
   
+  // Produces the theorem `a = b`, where b results from a by a single beta reduction at the top
+  def beta(a : Term) : Theorem 
+  
 }
 
 trait Kernel {

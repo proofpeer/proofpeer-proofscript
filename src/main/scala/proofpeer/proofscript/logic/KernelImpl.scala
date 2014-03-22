@@ -250,6 +250,12 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val ty = getTypeOfTerm(tm)
       mk_theorem(this, mk_equals(ty, tm, tm))
     }
+    
+    def beta(a : Term) : Theorem = {
+      val ty = getTypeOfTerm(a)
+      val b = KernelUtils.beta(a)
+      mk_theorem(this, mk_equals(ty, a, b))
+    }
 
   }
   

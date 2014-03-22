@@ -151,6 +151,10 @@ object KernelUtils {
     }
   } 
   
+  def substVar(term : Term, varname : IndexedName, sterm : Term) : Term = {
+    subst(term, Map(varname -> sterm), freeVars(sterm) + varname)
+  }
+  
   def freeVars(term : Term, bVars : Set[IndexedName], fVars : Set[IndexedName]) : Set[IndexedName] = {
     term match {
       case Var(varname) =>
@@ -164,5 +168,12 @@ object KernelUtils {
   }
   
   def freeVars(term : Term) : Set[IndexedName] = freeVars(term, Set(), Set())
-    
+  
+  def beta(term : Term) : Term = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => substVar(body, x, y)
+      case _ => failwith("term is not beta-reducible")
+    }
+  }
+   
 }
