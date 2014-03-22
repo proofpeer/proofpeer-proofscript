@@ -249,6 +249,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val ty = getTypeOfTerm(tm)
       mk_theorem(this, mk_equals(ty, tm, tm))
     }
+    
+    
 
      
   }
@@ -428,11 +430,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   }
   
   // naive substitution, does not check for variable capture
-  private def substConst(term : Term, name : Name, subst : Term) : Term = {
+  private def substConst(term : Term, name : Name, substitute : Term) : Term = {
     term match {
-      case Const(cname) if cname == name => subst
-      case Comb(f, g) => Comb(substConst(f, name, subst), substConst(g, name, subst))
-      case Abs(x, ty, body) => Abs(x, ty, substConst(body, name, subst))
+      case Const(cname) if cname == name => substitute
+      case Comb(f, g) => Comb(substConst(f, name, substitute), substConst(g, name, substitute))
+      case Abs(x, ty, body) => Abs(x, ty, substConst(body, name, substitute))
       case _ => term
     }
   }
@@ -450,6 +452,46 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   private def mk_exists(name : Name, ty : Type, prop : Term) : Term = {
     Comb(PolyConst(Kernel.exists, ty), mk_abs(name, ty, prop))
   }
+    
+  private def subst(term : Term, substitution : Map[IndexedName, Term], vars : Set[IndexedName]) : Term = {
+    term match {
+      case Var(varname) =>
+        substitution.get(varname) match {
+          case Some(t) => t
+          case None => term
+        }
+      case Comb(f, g) =>
+        Comb(subst(f, substitution, vars), subst(g, substitution, vars))
+      case Abs(varname, ty, body) =>
+        if (vars.contains(varname)) {
+          var name = varname.name
+          var index : Integer = if (varname.index.isDefined) varname.index.get + 1 else 1   
+          var newvarname : IndexedName = null
+          do {
+            newvarname = IndexedName(name, Some(index))
+            index = index + 1
+          } while (vars.contains(newvarname))
+          Abs(newvarname, ty, subst(body, substitution + (varname -> Var(newvarname)), vars + newvarname))  
+        } else {
+          Abs(varname, ty, subst(body, substitution, vars + varname))
+        }
+      case _ => term
+    }
+  } 
+  
+  private def freeVars(term : Term, bVars : Set[IndexedName], fVars : Set[IndexedName]) : Set[IndexedName] = {
+    term match {
+      case Var(varname) =>
+        if (bVars.contains(varname)) fVars else fVars + varname
+      case Comb(f, g) =>
+        freeVars(g, bVars, freeVars(f, bVars, fVars))
+      case Abs(varname, _, body) =>
+        freeVars(body, bVars + varname, fVars)
+      case _ => fVars
+    }    
+  }
+  
+  private def freeVars(term : Term) : Set[IndexedName] = freeVars(term, Set(), Set())
     
 }
 
