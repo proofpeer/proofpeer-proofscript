@@ -24,7 +24,6 @@ object KernelUtils {
         name match {
           case Kernel.equals => Some(Fun(alpha, Fun(alpha, Prop)))
           case Kernel.forall | Kernel.exists => Some(Fun(Fun(alpha, Prop), Prop))
-          case Kernel.choose => Some(Fun(Fun(alpha, Prop), alpha))            
           case _ => None
         }
       case Const(name) => c.typeOfConst(name)
@@ -262,13 +261,22 @@ object KernelUtils {
     }
   }
   
-  def dest_polyop(term : Term) : (Name, IndexedName, Type, Term) = {
+  def dest_forall(term : Term) : (IndexedName, Type, Term) = {
     term match {
-      case Comb(PolyConst(name, _), Abs(x, ty, body)) => 
-        (name, x, ty, body)
+      case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
+        (x, ty, body)
       case _ =>
-        failwith("dest_polyabs: application of polymorphic operator to abstraction expected")
+        failwith("dest_forall: all-quantification expected")
     }
   }
-                       
+
+  def dest_exists(term : Term) : (IndexedName, Type, Term) = {
+    term match {
+      case Comb(PolyConst(Kernel.exists, _), Abs(x, ty, body)) => 
+        (x, ty, body)
+      case _ =>
+        failwith("dest_exists: existential quantification expected")
+    }
+  }
+   
 }

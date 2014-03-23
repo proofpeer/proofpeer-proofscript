@@ -67,6 +67,11 @@ trait Context {
   // Defines a new constant. 
   // The names must either have no namespace, or must be equal to the current namespace.
   def define(const_name : Name, thm_name : Name, tm : Term) : Theorem
+  
+  // Defines a new constant for which a given property holds. 
+  // The property is given in the shape of an existential theorem.
+  // The names must either have no namespace, or must be equal to the current namespace.
+  def choose(const_name : Name, thm_name : Name, thm : Theorem) : Theorem
    
   // Looks up the theorem with the given name.
   def lookupTheorem(thm_name : Name) : Option[Theorem]
@@ -123,7 +128,6 @@ object Kernel {
   val equals = rootname("equals")  
   val forall = rootname("forall")
   val exists = rootname("exists")
-  val choose = rootname("choose")
   val implies = rootname("implies")
   
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem

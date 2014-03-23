@@ -11,6 +11,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   object ContextKind {
     case class Assume(thm_name : Name, assumption : Term) extends ContextKind
     case class Define(const_name : Name, ty : Type, thm_name : Name, tm : Term) extends ContextKind
+    case class Choose(const_name : Name, ty : Type, thm_name : Name, property : Term) extends ContextKind
     case class Introduce(const_name : Name, ty : Type) extends ContextKind
     case class Created(namespace : String, parentNamespaces : Set[String], ancestorNamespaces : Set[String]) extends ContextKind
     case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
@@ -76,8 +77,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val n = name.name
       (n == Kernel.equals.name || 
        n == Kernel.forall.name || 
-       n == Kernel.exists.name || 
-       n == Kernel.choose.name)
+       n == Kernel.exists.name)
     }
     
     def introduce(const_name : Name, ty : Type) : Context = {
@@ -140,7 +140,31 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           mk_theorem(context, eq)         
       }
     }
-   
+
+    def choose(const_name : Name, thm_name : Name, thm : Theorem) : Theorem = {
+      if (isComplete) failwith("cannot extend completed context")
+      checkTheoremContext(thm)
+      ensureContextScope(const_name)
+      ensureContextScope(thm_name)
+      if (contains(const_name, constants) || isPolyConst(const_name))
+        failwith("constant name "+const_name+" clashes with other constant in current scope")
+      if (contains(thm_name, theorems))
+        failwith("theorem name "+thm_name+" has already been defined")
+      if (isQualifiedName(thm_name) && !isQualifiedTerm(thm.proposition))
+        failwith("theorem name is qualified, but proposition contains unqualified constants")
+      val (x, ty, p) = dest_exists(thm.proposition)
+      val prop = substVar(p, x, Const(const_name))
+      val context = 
+        new ContextImpl(
+              ContextKind.Choose(const_name, ty, thm_name, prop),
+              depth + 1,
+              created,
+              Some(this),
+              constants + (const_name -> ty),
+              theorems + (thm_name -> prop))
+      mk_theorem(context, prop)             
+    }
+        
     def lookupTheorem(thm_name : Name) : Option[Theorem] = {
       val context = contextOfName(thm_name)
       context.theorems.get(thm_name).map(mk_theorem(context, _))
@@ -212,6 +236,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
               prop = mk_forall(c, ty, prop)
             case Define(c, ty, _, _) =>
               prop = mk_exists(c, ty, prop)
+            case Choose(c, ty, _, _) =>
+              prop = mk_exists(c, ty, prop)
             case _ => 
               // nothing to do, the context is non-logical
           }
@@ -230,6 +256,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
                 consts = consts - c
               }
             case Define(c, ty, _, _) =>
+              if (consts.contains(c)) {
+                prop = mk_exists(c, ty, prop)
+                consts = consts - c
+              }
+            case Choose(c, ty, _, _) =>
               if (consts.contains(c)) {
                 prop = mk_exists(c, ty, prop)
                 consts = consts - c
@@ -304,14 +335,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
     
     def abs(p : Theorem) : Theorem = {
-      dest_polyop(p.proposition) match {
-        case (Kernel.forall, x, xty, body) =>
-          val (a, b, ty) = dest_equals(body)
-          val left = Abs(x, xty, a)
-          val right = Abs(x, xty, b)
-          mk_theorem(this, mk_equals(left, right, Fun(xty, ty)))
-        case _ => failwith("abs: expected all-quantification")
-      }
+      val (x, xty, body) = dest_forall(p.proposition)
+      val (a, b, ty) = dest_equals(body)
+      val left = Abs(x, xty, a)
+      val right = Abs(x, xty, b)
+      mk_theorem(this, mk_equals(left, right, Fun(xty, ty)))
     }
     
     def equiv(p : Theorem, q : Theorem) : Theorem = {
@@ -326,7 +354,6 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
     }
 
-    
   }
   
   private var namespaces : Map[String, Context] = Map()
