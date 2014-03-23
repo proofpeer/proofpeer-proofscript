@@ -59,7 +59,7 @@ object KernelUtils {
     Comb(Comb(Const(Kernel.implies), hyp), concl)
   }
   
-  def mk_equals(ty : Type, left : Term, right : Term) : Term = {
+  def mk_equals(left : Term, right : Term, ty : Type) : Term = {
     Comb(Comb(PolyConst(Kernel.equals, ty), left), right)    
   }
   
@@ -239,6 +239,14 @@ object KernelUtils {
       case _ => u == v
     }
   }
-                       
   
+  def dest_polyop(term : Term) : (Name, IndexedName, Type, Term) = {
+    term match {
+      case Comb(PolyConst(name, _), Abs(x, ty, body)) => 
+        (name, x, ty, body)
+      case _ =>
+        failwith("dest_polyabs: application of polymorphic operator to abstraction expected")
+    }
+  }
+                       
 }

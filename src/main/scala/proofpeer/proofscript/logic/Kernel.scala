@@ -93,6 +93,9 @@ trait Context {
   // Given a theorem `a` and either `a' = b` or `a' -> b`, produce the theorem `b` 
   def modusponens(p : Theorem, q : Theorem) : Theorem 
   
+  // Given a theorem `forall x. a = b`, produces the theorem `(lambda x. a) = (lambda x. b)`
+  def abs(p : Theorem) : Theorem
+  
 }
 
 trait Kernel {

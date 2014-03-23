@@ -252,13 +252,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   
     def reflexive(tm : Term) : Theorem = {
       val ty = getTypeOfTerm(tm)
-      mk_theorem(this, mk_equals(ty, tm, tm))
+      mk_theorem(this, mk_equals(tm, tm, ty))
     }
     
     def beta(a : Term) : Theorem = {
       val ty = getTypeOfTerm(a)
       val b = KernelUtils.beta(a)
-      mk_theorem(this, mk_equals(ty, a, b))
+      mk_theorem(this, mk_equals(a, b, ty))
     }
 
     def transitive(p : Theorem, q : Theorem) : Theorem = {
@@ -267,7 +267,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val (a, b1, _) = dest_equals(p.proposition)
       val (b2, c, _) = dest_equals(q.proposition)
       if (alpha_equivalent(b1, b2))
-        mk_theorem(this, mk_equals(Prop, a, c))
+        mk_theorem(this, mk_equals(a, c, Prop))
       else
         failwith("transitive: middle propositions are not alpha equivalent")
     }
@@ -279,7 +279,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val (a, b, arg_ty) = dest_equals(q.proposition)
       fun_ty match {
         case Fun(domain, range) if domain == arg_ty =>
-          mk_theorem(this, mk_equals(range, Comb(f, a), Comb(g, b)))
+          mk_theorem(this, mk_equals(Comb(f, a), Comb(g, b), range))
         case _ =>
           failwith("comb: types do not match up")
       }
@@ -294,6 +294,17 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
             failwith("modusponens: antecedent and hypothesis do not match")
         case _ => 
           failwith("modusponens: equality or implication expected")
+      }
+    }
+    
+    def abs(p : Theorem) : Theorem = {
+      dest_polyop(p.proposition) match {
+        case (Kernel.forall, x, xty, body) =>
+          val (a, b, ty) = dest_equals(body)
+          val left = Abs(x, xty, a)
+          val right = Abs(x, xty, b)
+          mk_theorem(this, mk_equals(left, right, Fun(xty, ty)))
+        case _ => failwith("abs: expected all-quantification")
       }
     }
     
