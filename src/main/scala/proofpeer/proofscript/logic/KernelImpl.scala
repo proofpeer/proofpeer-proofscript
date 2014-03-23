@@ -272,6 +272,19 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         failwith("transitive: middle propositions are not alpha equivalent")
     }
     
+    def comb(p : Theorem, q : Theorem) : Theorem = {
+      checkTheoremContext(p)
+      checkTheoremContext(q)
+      val (f, g, fun_ty) = dest_equals(p.proposition)
+      val (a, b, arg_ty) = dest_equals(q.proposition)
+      fun_ty match {
+        case Fun(domain, range) if domain == arg_ty =>
+          mk_theorem(this, mk_equals(range, Comb(f, a), Comb(g, b)))
+        case _ =>
+          failwith("comb: types do not match up")
+      }
+    }
+    
   }
   
   private var namespaces : Map[String, Context] = Map()

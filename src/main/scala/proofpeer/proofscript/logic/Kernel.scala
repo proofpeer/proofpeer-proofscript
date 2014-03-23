@@ -84,7 +84,11 @@ trait Context {
   // Produces the theorem `a = b`, where b results from a by a single beta reduction at the top
   def beta(a : Term) : Theorem 
   
+  // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem
+  
+  // Produces the theorem `f a = g b` from the theorems `f = g` and `a = b`.
+  def comb(p : Theorem, q : Theorem) : Theorem
   
 }
 
