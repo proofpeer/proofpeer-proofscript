@@ -285,6 +285,18 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
     }
     
+    def modusponens(p : Theorem, q : Theorem) : Theorem = {
+      dest_binop(q.proposition) match {
+        case (Kernel.equals | Kernel.implies, a, b) =>
+          if (alpha_equivalent(p.proposition, a))
+            mk_theorem(this, b)
+          else
+            failwith("modusponens: antecedent and hypothesis do not match")
+        case _ => 
+          failwith("modusponens: equality or implication expected")
+      }
+    }
+    
   }
   
   private var namespaces : Map[String, Context] = Map()

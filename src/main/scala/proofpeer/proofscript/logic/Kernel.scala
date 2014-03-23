@@ -89,6 +89,9 @@ trait Context {
   
   // Produces the theorem `f a = g b` from the theorems `f = g` and `a = b`.
   def comb(p : Theorem, q : Theorem) : Theorem
+
+  // Given a theorem `a` and either `a' = b` or `a' -> b`, produce the theorem `b` 
+  def modusponens(p : Theorem, q : Theorem) : Theorem 
   
 }
 

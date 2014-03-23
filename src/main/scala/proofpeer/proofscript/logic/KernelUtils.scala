@@ -63,6 +63,13 @@ object KernelUtils {
     Comb(Comb(PolyConst(Kernel.equals, ty), left), right)    
   }
   
+  def dest_binop(term : Term) : (Name, Term, Term) = {
+    term match {
+      case Comb(Comb(Const(name), left), right) => (name, left, right)
+      case _ => failwith("dest_binop: term is not a binary operation")
+    }
+  }
+  
   def maxIndex(x : Option[Option[Integer]], y : Option[Option[Integer]]) : Option[Option[Integer]] = {
     (x, y) match {
       case (None, m) => m
