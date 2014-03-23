@@ -308,6 +308,19 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
     }
     
+    def equiv(p : Theorem, q : Theorem) : Theorem = {
+      (dest_binop(p.proposition), dest_binop(q.proposition)) match {
+        case ((Kernel.implies, a, b), (Kernel.implies, b_, a_)) =>
+          if (alpha_equivalent(a, a_) && alpha_equivalent(b, b_)) 
+            mk_theorem(this, mk_equals(a, b, Prop))
+          else
+            failwith("equiv: conclusion and hypothesis pairs do not match up")
+        case _ => 
+          failwith("equiv: two implications expected")
+      }
+    }
+
+    
   }
   
   private var namespaces : Map[String, Context] = Map()

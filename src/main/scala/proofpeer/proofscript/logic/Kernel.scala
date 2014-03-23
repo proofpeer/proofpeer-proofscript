@@ -96,6 +96,9 @@ trait Context {
   // Given a theorem `forall x. a = b`, produces the theorem `(lambda x. a) = (lambda x. b)`
   def abs(p : Theorem) : Theorem
   
+  // From theorems `a -> b` and `b' -> a'` produce theorem `a = b`
+  def equiv(p : Theorem, q : Theorem) : Theorem
+  
 }
 
 trait Kernel {
