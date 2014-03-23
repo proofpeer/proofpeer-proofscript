@@ -260,6 +260,12 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val b = KernelUtils.beta(a)
       mk_theorem(this, mk_equals(a, b, ty))
     }
+    
+    def eta(a : Term) : Theorem = {
+      val ty = getTypeOfTerm(a)
+      val b = KernelUtils.eta(a)
+      mk_theorem(this, mk_equals(a, b, ty))
+    }
 
     def transitive(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)

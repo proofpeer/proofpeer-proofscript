@@ -193,10 +193,32 @@ object KernelUtils {
   
   def freeVars(term : Term) : Set[IndexedName] = freeVars(term, Set(), Set())
   
+  // Is equivalent to freeVars(term).contains(varname)
+  def isFreeIn(name : IndexedName, term : Term) : Boolean = {
+    term match {
+      case Var(varname) => varname == name
+      case Comb(f, g) => isFreeIn(name, f) || isFreeIn(name, g)
+      case Abs(varname, _, body) => (varname != name) && isFreeIn(name, body)
+      case _ => false
+    }
+  }
+  
   def beta(term : Term) : Term = {
     term match {
       case Comb(Abs(x, ty, body), y) => substVar(body, x, y)
-      case _ => failwith("term is not beta-reducible")
+      case _ => failwith("beta: term is not reducible")
+    }
+  }
+  
+  def eta(term : Term) : Term = {
+    term match {
+      case Abs(x, ty, Comb(f, Var(y))) if x == y =>
+        if (!isFreeIn(x, f)) 
+          f
+        else
+          failwith("eta: variable appears free in function")
+      case _ =>
+        failwith("eta: term is not reducible")
     }
   }
   
