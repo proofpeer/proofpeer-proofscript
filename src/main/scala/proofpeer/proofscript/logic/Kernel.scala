@@ -70,6 +70,7 @@ trait Context {
   
   // Defines a new constant for which a given property holds. 
   // The property is given in the shape of an existential theorem.
+  // The theorem may have leading all-quantifiers; in this case the constant will be skolemized. 
   // The names must either have no namespace, or must be equal to the current namespace.
   def choose(const_name : Name, thm_name : Name, thm : Theorem) : Theorem
    

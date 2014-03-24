@@ -90,6 +90,15 @@ object KernelUtils {
     }
   }
   
+  def incIndex(x : IndexedName) : IndexedName = {
+    val index : Integer = 
+      x.index match {
+        case None => 1
+        case Some(i) => i + 1
+      }
+    IndexedName(x.name, Some(index))
+  }
+  
   def findHighestVarIndex(name : String, term : Term) : Option[Option[Integer]] = {
     term match {
       case Const(_) => None
@@ -175,7 +184,10 @@ object KernelUtils {
   } 
   
   def substVar(term : Term, varname : IndexedName, sterm : Term) : Term = {
-    subst(term, Map(varname -> sterm), freeVars(sterm) + varname)
+    if (sterm == Var(varname))
+      term
+    else
+      subst(term, Map(varname -> sterm), freeVars(sterm) + varname)
   }
   
   def freeVars(term : Term, bVars : Set[IndexedName], fVars : Set[IndexedName]) : Set[IndexedName] = {
@@ -313,5 +325,22 @@ object KernelUtils {
         failwith("internal error in mk_implies_prenex")
     }
   }  
+  
+  def strip_forall_unique(term_ : Term) : (List[(IndexedName, Type)], Term) = {
+    var names : Set[IndexedName] = Set()
+    var quantifiers : List[(IndexedName, Type)] = List()
+    var term : Term = term_
+    while (is_forall(term)) {
+      val (x, ty, tm) = dest_forall(term)
+      var y = x
+      while (names.contains(y)) {
+        y = incIndex(y)
+      }
+      term = substVar(tm, x, Var(y))
+      names = names + y
+      quantifiers = (y, ty) :: quantifiers
+    }
+    (quantifiers.reverse, term)
+  }
    
 }

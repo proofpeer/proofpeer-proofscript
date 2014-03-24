@@ -152,15 +152,25 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         failwith("theorem name "+thm_name+" has already been defined")
       if (isQualifiedName(thm_name) && !isQualifiedTerm(thm.proposition))
         failwith("theorem name is qualified, but proposition contains unqualified constants")
-      val (x, ty, p) = dest_exists(thm.proposition)
-      val prop = substVar(p, x, Const(const_name))
+      val (quantifiers, th) = strip_forall_unique(thm.proposition)
+      val (x, ty, p) = dest_exists(th)
+      var c : Term = Const(const_name)
+      var cty : Type = ty
+      for ((x, xty) <- quantifiers) {
+        c = Comb(c, Var(x))
+      }
+      var prop = substVar(p, x, c)
+      for ((x, xty) <- quantifiers.reverse) {
+        cty = Fun(xty, cty)
+        prop = Abs(x, xty, prop)
+      }
       val context = 
         new ContextImpl(
-              ContextKind.Choose(const_name, ty, thm_name, prop),
+              ContextKind.Choose(const_name, cty, thm_name, prop),
               depth + 1,
               created,
               Some(this),
-              constants + (const_name -> ty),
+              constants + (const_name -> cty),
               theorems + (thm_name -> prop))
       mk_theorem(context, prop)             
     }
@@ -434,7 +444,6 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     else 
       context1
   }
-  
-    
+   
 }
 
