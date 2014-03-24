@@ -248,7 +248,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         while (context.depth > depth) {
           context.kind match {
             case Assume(_, hyp) => 
-              prop = mk_implies(hyp, prop)
+              prop = mk_implies_prenex(hyp, prop)
               consts = collectConsts(hyp, consts)
             case Introduce(c, ty) => 
               if (consts.contains(c)) {

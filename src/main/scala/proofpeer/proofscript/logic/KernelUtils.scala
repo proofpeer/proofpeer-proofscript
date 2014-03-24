@@ -261,6 +261,13 @@ object KernelUtils {
     }
   }
   
+  def is_forall(term : Term) : Boolean = {
+    term match {
+      case Comb(PolyConst(Kernel.forall, _), Abs(_, _, _)) => true
+      case _ => false
+    }    
+  }
+  
   def dest_forall(term : Term) : (IndexedName, Type, Term) = {
     term match {
       case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
@@ -268,6 +275,13 @@ object KernelUtils {
       case _ =>
         failwith("dest_forall: all-quantification expected")
     }
+  }
+
+  def is_exists(term : Term) : Boolean = {
+    term match {
+      case Comb(PolyConst(Kernel.exists, _), Abs(_, _, _)) => true
+      case _ => false
+    }    
   }
 
   def dest_exists(term : Term) : (IndexedName, Type, Term) = {
@@ -278,5 +292,26 @@ object KernelUtils {
         failwith("dest_exists: existential quantification expected")
     }
   }
+  
+  // assumes that hyp has no free variables
+  def mk_implies_prenex(hyp : Term, concl : Term) : Term = {
+    concl match {
+      case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
+        Comb(PolyConst(Kernel.forall, ty), Abs(x, ty, mk_implies_prenex(hyp, body)))
+      case Comb(PolyConst(Kernel.exists, _), Abs(x, ty, body)) => 
+        Comb(PolyConst(Kernel.exists, ty), Abs(x, ty, mk_implies_prenex(hyp, body)))
+      case _ =>
+        var tm : Term = concl
+        while (true) {
+          tm match {
+            case Comb(Comb(Const(Kernel.implies), p), q) =>
+              if (alpha_equivalent(p, tm)) return concl else tm = q
+            case _ =>
+              return mk_implies(hyp, concl)
+          }
+        }
+        failwith("internal error in mk_implies_prenex")
+    }
+  }  
    
 }
