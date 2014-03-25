@@ -157,6 +157,7 @@ object KernelUtils {
     Comb(PolyConst(Kernel.exists, ty), mk_abs(name, ty, prop))
   }
     
+  // vars should contain all variables appearing free in substitution (including the keys)
   def subst(term : Term, substitution : Map[IndexedName, Term], vars : Set[IndexedName]) : Term = {
     term match {
       case Var(varname) =>
@@ -326,11 +327,17 @@ object KernelUtils {
     }
   }  
   
-  def strip_forall_unique(term_ : Term) : (List[(IndexedName, Type)], Term) = {
+  def strip_forall_unique(term : Term) : (List[(IndexedName, Type)], Term) = {
+    val (_, qs, t) = strip_forall_unique(term, -1)
+    (qs, t)
+  }
+
+  def strip_forall_unique(term_ : Term, max_ : Int) : (Set[IndexedName], List[(IndexedName, Type)], Term) = {
     var names : Set[IndexedName] = Set()
     var quantifiers : List[(IndexedName, Type)] = List()
     var term : Term = term_
-    while (is_forall(term)) {
+    var max : Int = max_
+    while (is_forall(term) && (max < 0 || max > 0)) {
       val (x, ty, tm) = dest_forall(term)
       var y = x
       while (names.contains(y)) {
@@ -339,8 +346,40 @@ object KernelUtils {
       term = substVar(tm, x, Var(y))
       names = names + y
       quantifiers = (y, ty) :: quantifiers
+      max = max - 1
     }
-    (quantifiers.reverse, term)
+    (names, quantifiers.reverse, term)
+  }
+  
+  def instantiate(context : Context, p : Term, insts : List[Option[Term]]) : Term = {
+    val (names, quantifiers, term) = strip_forall_unique(p, insts.size)
+    if (insts.size != quantifiers.size) failwith("instantiate: too many instantiations")
+    var vars : Set[IndexedName] = names
+    var substitution : Map[IndexedName, Term] = Map()
+    var terms : List[Option[Term]] = insts
+    var quants : List[(IndexedName, Type)] = quantifiers
+    var notInstantiated : List[(IndexedName, Type)] = List()
+    while (!quants.isEmpty) {
+      val (x, xty) = quants.head
+      terms.head match {
+        case None =>
+          notInstantiated = (x, xty) :: notInstantiated
+        case Some(t) =>
+          if (context.typeOfTerm(t) == Some(xty)) {
+            vars = freeVars(t, Set(), vars)
+            substitution = substitution + (x -> t)
+          } else {
+            failwith("instantiate: instantiation has wrong type / is not well-formed")
+          }
+      }
+      quants = quants.tail
+      terms = terms.tail
+    }
+    var prop : Term = subst(term, substitution, vars)
+    for ((x, xty) <- notInstantiated) {
+      prop = Comb(PolyConst(Kernel.forall, xty), Abs(x, xty, prop))
+    }
+    prop
   }
    
 }

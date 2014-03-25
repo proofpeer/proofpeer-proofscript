@@ -108,6 +108,9 @@ trait Context {
   // From theorems `a -> b` and `b' -> a'` produce theorem `a = b`
   def equiv(p : Theorem, q : Theorem) : Theorem
   
+  // Instantiates the given all-quantified theorem. 
+  def instantiate(p : Theorem, insts : List[Option[Term]]) : Theorem
+  
 }
 
 trait Kernel {

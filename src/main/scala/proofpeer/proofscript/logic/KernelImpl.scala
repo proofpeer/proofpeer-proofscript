@@ -174,6 +174,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
               theorems + (thm_name -> prop))
       mk_theorem(context, prop)             
     }
+    
+    def instantiate(thm : Theorem, insts : List[Option[Term]]) : Theorem = {
+      checkTheoremContext(thm)
+      mk_theorem(this, KernelUtils.instantiate(this, thm.proposition, insts))
+    } 
         
     def lookupTheorem(thm_name : Name) : Option[Theorem] = {
       val context = contextOfName(thm_name)
