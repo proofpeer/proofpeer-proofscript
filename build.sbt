@@ -10,6 +10,6 @@ scalacOptions += "-feature"
 
 libraryDependencies += "net.proofpeer" %% "proofpeer-scala" % "0.1-SNAPSHOT"
 
-libraryDependencies += "net.proofpeer" %% "proofpeer-indent" % "0.2-SNAPSHOT"
+libraryDependencies += "net.proofpeer" %% "proofpeer-indent" % "0.3-SNAPSHOT"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"

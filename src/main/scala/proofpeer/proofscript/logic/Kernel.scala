@@ -8,6 +8,8 @@ object Utils {
   
   type Integer = BigInt
   
+  def str2Integer(s : String) : Integer = s.toInt  
+  
 }
 
 import Utils._

@@ -225,7 +225,7 @@ object Compiler {
   def let(name : String, expr : Expr, body : Expr) : Expr =
     Expr.Let(Expr.Definition(name, expr), body)
   
-  def main(args : Array[String]) {
+  def mainl(args : Array[String]) {
     import Expr._
     import Value._
     import scala.language.implicitConversions

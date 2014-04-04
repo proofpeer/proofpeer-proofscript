@@ -45,7 +45,7 @@ def parse(prog : String) {
   println()
 } 
 
-def main(args : Array[String]) {
+def mainl(args : Array[String]) {
   parse("x - y == 10 < y <= z - 4")
   
   parse("not 2 * (x + 4) + y mod 7 or 2 and 3")
