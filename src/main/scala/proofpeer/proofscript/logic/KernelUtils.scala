@@ -8,10 +8,17 @@ object KernelUtils {
 
   def isQualifiedName(name : Name) : Boolean = name.namespace.isDefined
   
+  def isQualifiedType(ty : Type) : Boolean = {
+    ty match {
+      case TySet(s) => isQualifiedTerm(s)
+      case Fun(domain, range) => isQualifiedType(domain) && isQualifiedType(range)
+      case _ => true
+    }
+  }
+  
   def isQualifiedTerm(term : Term) : Boolean = {
     term match {
-      case PolyConst(name, alpha) => isQualifiedName(name)
-      case Const(name) => isQualifiedName(name)
+      case Const(name, ty) => isQualifiedName(name) && isQualifiedType(ty)
       case Comb(f, x) => isQualifiedTerm(f) && isQualifiedTerm(x)
       case Abs(name, ty, body) => isQualifiedTerm(body)
       case Var(name) => true
@@ -20,13 +27,13 @@ object KernelUtils {
   
   def typeOfTerm(c : Context, vars : Map[IndexedName, Type], term : Term) : Option[Type] = {
     term match {
-      case PolyConst(name, alpha) =>
-        name match {
-          case Kernel.equals => Some(Fun(alpha, Fun(alpha, Prop)))
-          case Kernel.forall | Kernel.exists => Some(Fun(Fun(alpha, Prop), Prop))
-          case _ => None
+      case Const(name, ty) => 
+        c.typeOfConst(name) match {
+          case None => None
+          case Some(cty) if cty == ty => Some(cty)
+          case Some(cty) => 
+            
         }
-      case Const(name) => c.typeOfConst(name)
       case Var(name) => vars.get(name)
       case Comb(f, x) => 
         (typeOfTerm(c, vars, f), typeOfTerm(c, vars, x)) match {
