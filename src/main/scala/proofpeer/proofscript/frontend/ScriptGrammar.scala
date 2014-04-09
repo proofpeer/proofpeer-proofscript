@@ -14,6 +14,10 @@ def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar =
   
 def ltokenrule(nonterminal : String, c : Char) : Grammar = ltokenrule(nonterminal, c, c)
 
+def ltokenrule(nonterminal : String, i : Int) : Grammar = 
+  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal)
+  
+
 val g_literals = 
   ltokenrule("LowerLetter", 'a', 'z') ++
   ltokenrule("UpperLetter", 'A', 'Z') ++

@@ -32,6 +32,7 @@ object Term {
   case class Abs(name : IndexedName, ty : Type, body : Term) extends Term 
   case class Var(name : IndexedName) extends Term
 }
+// \\x:Reals,y:Reals,k:Reals. x = y + k
 
 sealed trait Theorem {
   def context : Context
