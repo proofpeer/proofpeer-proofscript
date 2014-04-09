@@ -22,17 +22,17 @@ object Type {
   case object Universe extends Type
   case object Prop extends Type
   case class Fun(domain : Type, range : Type) extends Type
-  case class TySet(set : Term) extends Type
-  case class TyVar(n : Integer) extends Type
 }
 
 sealed abstract class Term 
 object Term {
-  case class Const(name : Name, ty : Type) extends Term 
+  case class PolyConst(name : Name, alpha : Type) extends Term
+  case class Const(name : Name) extends Term 
   case class Comb(f : Term, x : Term) extends Term 
   case class Abs(name : IndexedName, ty : Type, body : Term) extends Term 
   case class Var(name : IndexedName) extends Term
 }
+// \\x:Reals,y:Reals,k:Reals. x = y + k
 
 sealed trait Theorem {
   def context : Context
@@ -51,7 +51,8 @@ trait Context {
   def parentNamespaces : Set[String]
     
   // Looks up the type of a constant.
-  // A None result means that no such constant exists in this context. 
+  // A None result means that either no such constant exists in this context, 
+  // or that the constant is polymorphic.
   def typeOfConst(const_name : Name) : Option[Type] 
   
   // Returns the type of the term if the term is valid in this context.
