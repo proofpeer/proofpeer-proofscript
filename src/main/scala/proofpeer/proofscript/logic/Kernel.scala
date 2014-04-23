@@ -132,11 +132,27 @@ object Kernel {
   val root_namespace = "root"
   def rootname(name : String) = Name(Some(root_namespace), IndexedName(name, None))
   
+  // names which are essential to the kernel
   val equals = rootname("equals")  
   val forall = rootname("forall")
   val exists = rootname("exists")
   val implies = rootname("implies")
   
+  // the other names in the root namespace
+  val logical_and = rootname("and")
+  val logical_or = rootname("or")
+  val logical_not = rootname("not")
+  val logical_true = rootname("true")
+  val logical_false = rootname("false")
+  
+  val empty_set = rootname("empty")
+  val set_difference = rootname("difference")
+  val set_union = rootname("union")
+  val set_intersection = rootname("intersection")
+  val set_bigunion = rootname("bigunion")
+  val set_bigintersection = rootname("bigintersection")
+  val set_power = rootname("power")
+    
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   
   def createDefaultKernel() : Kernel = new KernelImpl((c : Context, p : Term) => new TheoremImpl(c, p))
