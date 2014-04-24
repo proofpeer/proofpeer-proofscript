@@ -33,6 +33,10 @@ object Preterm {
   case class PTmTerm(tm : Term) extends Preterm
   case class PTmError(reason : String) extends Preterm
   
+  def pTmAbsOverUniverse(x : IndexedName, body : Preterm) : Preterm = {
+    PTmAbs(Binding(x, Some(TypeDomain(Pretype.PTyUniverse))), body)
+  }
+
   def pTmAbs(xs : List[Binding], body : Preterm) : Preterm = {
     var p = body
     for (x <- xs) {
@@ -57,7 +61,28 @@ object Preterm {
     p
   }
 
-  def pTmSetComprehension(xs : List[Binding], f : Preterm, predicate : Option[Preterm]) : Preterm = null 
+  def pTmSetComprehension(xs : List[Binding], f : Preterm, predicate : Option[Preterm]) : Preterm = {
+    if (xs.isEmpty) PTmError("set comprehension without binders")
+    else {
+      xs.head match {
+        case Binding(x, Some(SetDomain(domain))) =>
+          if (xs.tail.isEmpty) {
+            val xdomain = 
+              predicate match { 
+                case None => domain
+                case Some(predicate) => 
+                  pTmBinaryOp(Kernel.set_separation, domain, pTmAbsOverUniverse(x, predicate))
+              }
+            pTmBinaryOp(Kernel.set_replacement, xdomain, pTmAbsOverUniverse(x, f))
+          } else {
+            val body = pTmSetComprehension(xs.tail, f, predicate)
+            val family = pTmSetComprehension(List(xs.head), body, None)
+            pTmUnaryOp(Kernel.set_bigunion, family)
+          }
+        case _ => PTmError("set comprehension binder must range over set")
+      }
+    }
+  }
   
   def pTmSet(elems : List[Preterm]) : Preterm = {
     if (elems.isEmpty) 

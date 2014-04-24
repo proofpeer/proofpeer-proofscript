@@ -152,6 +152,8 @@ object Kernel {
   val set_bigintersection = rootname("bigintersection")
   val set_power = rootname("power")
   val set_singleton = rootname("singleton")
+  val set_separation = rootname("sep")
+  val set_replacement = rootname("repl")
     
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   
