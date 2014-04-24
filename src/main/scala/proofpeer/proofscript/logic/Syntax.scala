@@ -16,47 +16,81 @@ object Pretype {
   case object PTyAny extends Pretype
 }
 
+sealed trait Domain
+case class TypeDomain(ty : Pretype) extends Domain
+case class SetDomain(tm : Preterm) extends Domain
+case class Binding(name : IndexedName, domain : Option[Domain])
+
 sealed trait Preterm
 object Preterm {
-  sealed trait Domain
-  case class TypeDomain(ty : Pretype) extends Domain
-  case class SetDomain(tm : Preterm) extends Domain
-  case class Binding(name : IndexedName, domain : Option[Domain])
  
   case class PTmTyping(tm : Preterm, ty : Pretype) extends Preterm
   case class PTmName(name : Name) extends Preterm
-  case class PTmAbs(x : Binding, body : Preterm) extends Preterm
-  case class PTmForall(x : Binding, body : Preterm) extends Preterm
-  case class PTmExists(x : Binding, body : Preterm) extends Preterm
+  case class PTmAbs(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
+  case class PTmForall(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
+  case class PTmExists(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
   case class PTmEquals(left : Preterm, right : Preterm) extends Preterm
   case class PTmComb(f : Preterm, x : Preterm) extends Preterm
   case class PTmTerm(tm : Term) extends Preterm
   case class PTmError(reason : String) extends Preterm
   
   def pTmAbsOverUniverse(x : IndexedName, body : Preterm) : Preterm = {
-    PTmAbs(Binding(x, Some(TypeDomain(Pretype.PTyUniverse))), body)
+    PTmAbs(x, Pretype.PTyUniverse, body)
+  }
+
+  def pTmAbs(binding : Binding, body : Preterm) : Preterm = {
+    binding match {
+      case Binding(x, None) => 
+        PTmAbs(x, Pretype.PTyAny, body)
+      case Binding(x, Some(TypeDomain(ty))) =>
+        PTmAbs(x, ty, body)
+      case Binding(x, Some(SetDomain(tm))) =>
+        pTmBinaryOp(Kernel.fun, tm, pTmAbsOverUniverse(x, body))
+    }
   }
 
   def pTmAbs(xs : List[Binding], body : Preterm) : Preterm = {
     var p = body
     for (x <- xs) {
-      p = PTmAbs(x, p)
+      p = pTmAbs(x, p)
     }
     p
+  }
+
+  def pTmForall(binding : Binding, body : Preterm) : Preterm = {
+    binding match {
+      case Binding(x, None) =>
+        PTmForall(x, Pretype.PTyAny, body)
+      case Binding(x, Some(TypeDomain(ty))) =>
+        PTmForall(x, ty, body)
+      case Binding(x, Some(SetDomain(tm))) =>
+        pTmBinaryOp(Kernel.forallin, tm, pTmAbsOverUniverse(x, body))
+    }
   }
 
   def pTmForall(xs : List[Binding], body : Preterm) : Preterm = {
     var p = body
     for (x <- xs) {
-      p = PTmForall(x, p)
+      p = pTmForall(x, p)
     }
     p
+  }
+
+  def pTmExists(binding : Binding, body : Preterm) : Preterm = {
+    binding match {
+      case Binding(x, None) =>
+        PTmExists(x, Pretype.PTyAny, body)
+      case Binding(x, Some(TypeDomain(ty))) =>
+        PTmExists(x, ty, body)
+      case Binding(x, Some(SetDomain(tm))) =>
+        pTmBinaryOp(Kernel.existsin, tm, pTmAbsOverUniverse(x, body))
+    }
   }
 
   def pTmExists(xs : List[Binding], body : Preterm) : Preterm = {
     var p = body
     for (x <- xs) {
-      p = PTmExists(x, p)
+      p = pTmExists(x, p)
     }
     p
   }

@@ -154,6 +154,9 @@ object Kernel {
   val set_singleton = rootname("singleton")
   val set_separation = rootname("sep")
   val set_replacement = rootname("repl")
+  val fun = rootname("fun")
+  val forallin = rootname("forallin")
+  val existsin = rootname("existsin")
     
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   
