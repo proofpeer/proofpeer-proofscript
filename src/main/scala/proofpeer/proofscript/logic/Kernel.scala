@@ -144,7 +144,6 @@ object Kernel {
   val logical_not = rootname("not")
   val logical_true = rootname("true")
   val logical_false = rootname("false")
-  
   val empty_set = rootname("empty")
   val set_difference = rootname("difference")
   val set_union = rootname("union")
@@ -152,6 +151,7 @@ object Kernel {
   val set_bigunion = rootname("bigunion")
   val set_bigintersection = rootname("bigintersection")
   val set_power = rootname("power")
+  val set_singleton = rootname("singleton")
     
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   

@@ -33,11 +33,40 @@ object Preterm {
   case class PTmTerm(tm : Term) extends Preterm
   case class PTmError(reason : String) extends Preterm
   
-  def pTmAbs(xs : List[Binding], body : Preterm) : Preterm = null
-  def pTmForall(xs : List[Binding], body : Preterm) : Preterm = null
-  def pTmExists(xs : List[Binding], body : Preterm) : Preterm = null
+  def pTmAbs(xs : List[Binding], body : Preterm) : Preterm = {
+    var p = body
+    for (x <- xs) {
+      p = PTmAbs(x, p)
+    }
+    p
+  }
+
+  def pTmForall(xs : List[Binding], body : Preterm) : Preterm = {
+    var p = body
+    for (x <- xs) {
+      p = PTmForall(x, p)
+    }
+    p
+  }
+
+  def pTmExists(xs : List[Binding], body : Preterm) : Preterm = {
+    var p = body
+    for (x <- xs) {
+      p = PTmExists(x, p)
+    }
+    p
+  }
+
   def pTmSetComprehension(xs : List[Binding], f : Preterm, predicate : Option[Preterm]) : Preterm = null 
-  def pTmSet(elems : List[Preterm]) : Preterm = null
+  
+  def pTmSet(elems : List[Preterm]) : Preterm = {
+    if (elems.isEmpty) 
+      pTmConst(Kernel.empty_set)
+    else if (elems.tail.isEmpty) 
+      pTmUnaryOp(Kernel.set_singleton, elems.head)
+    else 
+      pTmBinaryOp(Kernel.set_union, pTmSet(elems.tail), pTmUnaryOp(Kernel.set_singleton, elems.head))
+  }
 
   def pTmBinaryOp(name : Name, left : Preterm, right : Preterm) : Preterm = 
     PTmComb(PTmComb(PTmName(name), left), right)
