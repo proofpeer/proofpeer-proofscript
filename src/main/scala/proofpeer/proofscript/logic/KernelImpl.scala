@@ -7,17 +7,6 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
   import Utils._
   import KernelUtils._
   
-  sealed trait ContextKind 
-  object ContextKind {
-    case class Assume(thm_name : Name, assumption : Term) extends ContextKind
-    case class Define(const_name : Name, ty : Type, thm_name : Name, tm : Term) extends ContextKind
-    case class Choose(const_name : Name, ty : Type, thm_name : Name, property : Term) extends ContextKind
-    case class Introduce(const_name : Name, ty : Type) extends ContextKind
-    case class Created(namespace : String, parentNamespaces : Set[String], ancestorNamespaces : Set[String]) extends ContextKind
-    case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
-    case object Complete extends ContextKind
-  }
-
   private class ContextImpl(val kind : ContextKind,
                             val depth : Integer,
                             val created : ContextKind.Created,
@@ -367,6 +356,26 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         case _ => 
           failwith("equiv: two implications expected")
       }
+    }
+
+    def localConstants : Set[Name] = {
+      var set : Set[Name] = Set()
+      for ((name, _) <- constants) {
+        if (!name.namespace.isDefined || name.namespace == Some(namespace)) {
+          set = set + name
+        }
+      }
+      set
+    }
+
+    def localTheorems : Set[Name] = {
+      var set : Set[Name] = Set()
+      for ((name, _) <- theorems) {
+        if (!name.namespace.isDefined || name.namespace == Some(namespace)) {
+          set = set + name
+        }
+      }
+      set
     }
 
   }

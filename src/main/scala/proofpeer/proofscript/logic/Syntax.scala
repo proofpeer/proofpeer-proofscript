@@ -30,7 +30,7 @@ object Preterm {
   case class PTmForall(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
   case class PTmExists(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
   case class PTmEquals(left : Preterm, right : Preterm) extends Preterm
-  case class PTmComb(f : Preterm, x : Preterm) extends Preterm
+  case class PTmComb(f : Preterm, x : Preterm, higherorder : Option[Boolean]) extends Preterm
   case class PTmTerm(tm : Term) extends Preterm
   case class PTmError(reason : String) extends Preterm
   
@@ -128,12 +128,22 @@ object Preterm {
   }
 
   def pTmBinaryOp(name : Name, left : Preterm, right : Preterm) : Preterm = 
-    PTmComb(PTmComb(PTmName(name), left), right)
+    PTmComb(PTmComb(PTmName(name), left, Some(true)), right, Some(true))
 
   def pTmUnaryOp(name : Name, operand : Preterm) : Preterm = 
-    PTmComb(PTmName(name), operand)
+    PTmComb(PTmName(name), operand, Some(true))
 
   def pTmConst(name : Name) : Preterm = PTmName(name)
+
+}
+
+object TypeInference {
+  import Preterm._
+  import Pretype._
+
+  def upperBound(p : Preterm) : Option[Pretype] = {
+    None
+  }
 
 }
 
@@ -362,7 +372,7 @@ object TermSyntax {
     rule("AtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("AtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("CombTerm", "AtomicTerm", _.AtomicTerm.result) ++
-    rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm])) ++
+    rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm], None)) ++
     rule("Binding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
     rule("Binding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
     rule("Binding", "IndexedName Elem Term", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.Term.resultAs[Preterm])))) ++ 

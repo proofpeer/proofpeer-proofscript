@@ -32,11 +32,21 @@ object Term {
   case class Abs(name : IndexedName, ty : Type, body : Term) extends Term 
   case class Var(name : IndexedName) extends Term
 }
-// \\x:Reals,y:Reals,k:Reals. x = y + k
 
 sealed trait Theorem {
   def context : Context
   def proposition : Term
+}
+
+sealed trait ContextKind 
+object ContextKind {
+  case class Assume(thm_name : Name, assumption : Term) extends ContextKind
+  case class Define(const_name : Name, ty : Type, thm_name : Name, tm : Term) extends ContextKind
+  case class Choose(const_name : Name, ty : Type, thm_name : Name, property : Term) extends ContextKind
+  case class Introduce(const_name : Name, ty : Type) extends ContextKind
+  case class Created(namespace : String, parentNamespaces : Set[String], ancestorNamespaces : Set[String]) extends ContextKind
+  case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
+  case object Complete extends ContextKind
 }
 
 trait Context {
@@ -44,11 +54,16 @@ trait Context {
   // The Kernel object that this Context was created by.
   def kernel : Kernel
   
+  def kind : ContextKind
+
   // The namespace of the context.
   def namespace : String
   
   // The namespaces that were used to create this (or its ancestor) context.
   def parentNamespaces : Set[String]
+
+  // The immediate parent context of this context.
+  def parentContext : Option[Context]
     
   // Looks up the type of a constant.
   // A None result means that either no such constant exists in this context, 
@@ -113,6 +128,12 @@ trait Context {
   
   // Instantiates the given all-quantified theorem. 
   def instantiate(p : Theorem, insts : List[Option[Term]]) : Theorem
+
+  // All constants of this context which are NOT constants of a parent namespace.
+  def localConstants : Set[Name]
+
+  // All stored theorems of this context which are NOT theorems of a parent namespace.
+  def localTheorems : Set[Name]
   
 }
 
