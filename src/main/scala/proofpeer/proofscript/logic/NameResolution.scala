@@ -1,10 +1,17 @@
 package proofpeer.proofscript.logic
 
+object NameResolution {
+
+	type Resolution = Map[IndexedName, Name]
+
+}
+
 // NameResolution depends on the kernel, and on a function that computes the local names for a given context.
 class NameResolution(kernel : Kernel, localNames : Context => Set[Name]) {
 
+	import NameResolution._
+
 	private type ResolutionWithConflicts = Map[IndexedName, Option[Name]]
-	type Resolution = Map[IndexedName, Name]
 
 	private def add(a : ResolutionWithConflicts, b : Resolution) : ResolutionWithConflicts = {
 		var m = a
