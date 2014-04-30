@@ -63,10 +63,10 @@ object Pretype {
   	s
   }
 
-  def subst(s : Map[Integer, Pretype], ty : Pretype) : Pretype = {
+  def subst(s : Integer => Option[Pretype], ty : Pretype) : Pretype = {
   	ty match {
   		case PTyVar(n) =>
-  		  s.get(n) match {
+  		  s(n) match {
   		  	case None => ty
   		  	case Some(ty) => ty
   		  }
@@ -77,7 +77,7 @@ object Pretype {
   }
 
   def subst(n : Integer, s : Pretype, ty : Pretype) : Pretype = {
-  	subst(Map(n -> s), ty)
+  	subst(m => if (n == m) Some(s) else None, ty)
   }
 
   private def substEqs(n : Integer, t : Pretype, _eqs: Set[(Pretype, Pretype)]) : Set[(Pretype, Pretype)] = {
@@ -110,6 +110,15 @@ object Pretype {
   		}
   	}
   	transformed
+  }
+
+  def translate(ty : Pretype) : Type = {
+  	ty match {
+  		case PTyUniverse => Type.Universe
+  		case PTyProp => Type.Prop
+  		case PTyFun(domain, range) => Type.Fun(translate(domain), translate(range))
+  		case _ => Utils.failwith("cannot translate PTyAny or PTyVar into proper Type")
+  	}
   }
 
 }

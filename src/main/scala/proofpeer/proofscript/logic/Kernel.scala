@@ -176,6 +176,7 @@ object Kernel {
   val set_separation = rootname("sep")
   val set_replacement = rootname("repl")
   val fun = rootname("fun")
+  val funapply = rootname("apply")
   val forallin = rootname("forallin")
   val existsin = rootname("existsin")
     

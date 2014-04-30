@@ -8,163 +8,14 @@ import proofpeer.indent.{Constraints => CS}
 import Utils._
 import proofpeer.scala.lang._
 
-sealed trait Domain
-case class TypeDomain(ty : Pretype) extends Domain
-case class SetDomain(tm : Preterm) extends Domain
-case class Binding(name : IndexedName, domain : Option[Domain])
-
-sealed trait Preterm
-object Preterm {
- 
-  case class PTmTyping(tm : Preterm, ty : Pretype) extends Preterm
-  case class PTmName(name : Name) extends Preterm
-  case class PTmAbs(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
-  case class PTmForall(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
-  case class PTmExists(x : IndexedName, ty : Pretype, body : Preterm) extends Preterm
-  case class PTmEquals(left : Preterm, right : Preterm) extends Preterm
-  case class PTmComb(f : Preterm, x : Preterm, higherorder : Option[Boolean]) extends Preterm
-  case class PTmTerm(tm : Term) extends Preterm
-  case class PTmError(reason : String) extends Preterm
-  
-  def pTmAbsOverUniverse(x : IndexedName, body : Preterm) : Preterm = {
-    PTmAbs(x, Pretype.PTyUniverse, body)
-  }
-
-  def pTmAbs(binding : Binding, body : Preterm) : Preterm = {
-    binding match {
-      case Binding(x, None) => 
-        PTmAbs(x, Pretype.PTyAny, body)
-      case Binding(x, Some(TypeDomain(ty))) =>
-        PTmAbs(x, ty, body)
-      case Binding(x, Some(SetDomain(tm))) =>
-        pTmBinaryOp(Kernel.fun, tm, pTmAbsOverUniverse(x, body))
-    }
-  }
-
-  def pTmAbs(xs : List[Binding], body : Preterm) : Preterm = {
-    var p = body
-    for (x <- xs) {
-      p = pTmAbs(x, p)
-    }
-    p
-  }
-
-  def pTmForall(binding : Binding, body : Preterm) : Preterm = {
-    binding match {
-      case Binding(x, None) =>
-        PTmForall(x, Pretype.PTyAny, body)
-      case Binding(x, Some(TypeDomain(ty))) =>
-        PTmForall(x, ty, body)
-      case Binding(x, Some(SetDomain(tm))) =>
-        pTmBinaryOp(Kernel.forallin, tm, pTmAbsOverUniverse(x, body))
-    }
-  }
-
-  def pTmForall(xs : List[Binding], body : Preterm) : Preterm = {
-    var p = body
-    for (x <- xs) {
-      p = pTmForall(x, p)
-    }
-    p
-  }
-
-  def pTmExists(binding : Binding, body : Preterm) : Preterm = {
-    binding match {
-      case Binding(x, None) =>
-        PTmExists(x, Pretype.PTyAny, body)
-      case Binding(x, Some(TypeDomain(ty))) =>
-        PTmExists(x, ty, body)
-      case Binding(x, Some(SetDomain(tm))) =>
-        pTmBinaryOp(Kernel.existsin, tm, pTmAbsOverUniverse(x, body))
-    }
-  }
-
-  def pTmExists(xs : List[Binding], body : Preterm) : Preterm = {
-    var p = body
-    for (x <- xs) {
-      p = pTmExists(x, p)
-    }
-    p
-  }
-
-  def pTmSetComprehension(xs : List[Binding], f : Preterm, predicate : Option[Preterm]) : Preterm = {
-    if (xs.isEmpty) PTmError("set comprehension without binders")
-    else {
-      xs.head match {
-        case Binding(x, Some(SetDomain(domain))) =>
-          if (xs.tail.isEmpty) {
-            val xdomain = 
-              predicate match { 
-                case None => domain
-                case Some(predicate) => 
-                  pTmBinaryOp(Kernel.set_separation, domain, pTmAbsOverUniverse(x, predicate))
-              }
-            pTmBinaryOp(Kernel.set_replacement, xdomain, pTmAbsOverUniverse(x, f))
-          } else {
-            val body = pTmSetComprehension(xs.tail, f, predicate)
-            val family = pTmSetComprehension(List(xs.head), body, None)
-            pTmUnaryOp(Kernel.set_bigunion, family)
-          }
-        case _ => PTmError("set comprehension binder must range over set")
-      }
-    }
-  }
-  
-  def pTmSet(elems : List[Preterm]) : Preterm = {
-    if (elems.isEmpty) 
-      pTmConst(Kernel.empty_set)
-    else if (elems.tail.isEmpty) 
-      pTmUnaryOp(Kernel.set_singleton, elems.head)
-    else 
-      pTmBinaryOp(Kernel.set_union, pTmSet(elems.tail), pTmUnaryOp(Kernel.set_singleton, elems.head))
-  }
-
-  def pTmBinaryOp(name : Name, left : Preterm, right : Preterm) : Preterm = 
-    PTmComb(PTmComb(PTmName(name), left, Some(true)), right, Some(true))
-
-  def pTmUnaryOp(name : Name, operand : Preterm) : Preterm = 
-    PTmComb(PTmName(name), operand, Some(true))
-
-  def pTmConst(name : Name) : Preterm = PTmName(name)
-
-}
-
 object TypeInference {
   import Preterm._
   import Pretype._
   import NameResolution._
 
-/*  // Returns whether ty1 is an instance of ty2, i.e. whether occurrences of PTyAny in ty2 can be replaced
-  // such that ty1 is the result. 
-  // Note that type variables are ignored as they should not appear in either ty1 or ty2.
-  def isInstanceOf(ty1 : Pretype, ty2 : Pretype) : Boolean = {
-    (ty1, ty2)  match {
-      case (_, PTyAny) => true
-      case (PTyFun(domain1, range1), PTyFun(domain2, range2)) =>
-        isInstanceOf(domain1, domain2) && isInstanceOf(range1, range2)
-      case _ => ty1 == ty2
-    }
-  }
-
-  // Returns a type ty such that ty is an instance of both ty1 and ty2, and such that every type
-  // with that property is an instance of ty.
-  // Note that type variables are ignored as they should not appear in either ty1 or ty2.
-  def intersectTypes(ty1 : Pretype, ty2 : Pretype) : Option[Pretype] = {
-    (ty1, ty2) match {
-      case (PTyAny, ty) => Some(ty)
-      case (ty, PTyAny) => Some(ty)
-      case (PTyFun(domain1, range1), PTyFun(domain2, range2)) =>
-        (intersectTypes(domain1, domain2), intersectTypes(range1, range2)) match {
-          case (Some(domain), Some(range)) => Some(PTyFun(domain, range))
-          case _ => None
-        }
-      case _ => if (ty1 == ty2) Some(ty1) else None
-    }
-  }
-
   // Disambiguates all occurrences of PTmComb in the given term. 
   // In the process, computes an approximate type such that if the term has an actual type it is an instance of the approximate type.
-  def resolveComb(context : Name => Pretype, boundNames : Map[IndexedName, Pretype], tm : Preterm) : (Preterm, Pretype) = {
+ /* def resolveComb(context : Name => Pretype, boundNames : Map[IndexedName, Pretype], tm : Preterm) : (Preterm, Pretype) = {
     tm match {
       case PTmTyping(tm, ty) =>
         val (rtm, rty) = resolveComb(context, boundNames, tm)
@@ -388,8 +239,8 @@ object TermSyntax {
   val grammar = 
     literals ++
     g_type ++
-    rule("NameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text))) ++
-    rule("NameTerm", "Name", c => PTmName(parseName(c.Name.text))) ++
+    rule("NameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
+    rule("NameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
     rule("SetComprehensionTerm", "CurlyBracketOpen Term Bar Bindings CurlyBracketClose", 
       c => pTmSetComprehension(c.Bindings.resultAs[List[Binding]], c.Term.resultAs[Preterm], None)) ++
     rule("SetComprehensionTerm", "CurlyBracketOpen Term_1 Bar Bindings Dot Term_2 CurlyBracketClose",  
@@ -404,7 +255,7 @@ object TermSyntax {
     rule("AtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("AtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("CombTerm", "AtomicTerm", _.AtomicTerm.result) ++
-    rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm], None)) ++
+    rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
     rule("Binding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
     rule("Binding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
     rule("Binding", "IndexedName Elem Term", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.Term.resultAs[Preterm])))) ++ 
