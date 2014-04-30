@@ -394,8 +394,8 @@ object Preterm {
   	def addVar(name : IndexedName, ty : Pretype) : TypingContext
   }
 
-  def obtainTypingContext(r : NameResolution.Resolution, context : Context) : TypingContext = {
-  	new TC(r, context, List())
+  def obtainTypingContext(nr : NameResolution, context : Context) : TypingContext = {
+  	new TC(nr.resolveContext(context), context, List())
   }
 
   private class TC(r : NameResolution.Resolution, context : Context, vars : List[(IndexedName, Pretype)]) 

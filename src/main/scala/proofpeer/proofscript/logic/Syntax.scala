@@ -8,28 +8,6 @@ import proofpeer.indent.{Constraints => CS}
 import Utils._
 import proofpeer.scala.lang._
 
-object TypeInference {
-  import Preterm._
-  import Pretype._
-  import NameResolution._
-
-  // Disambiguates all occurrences of PTmComb in the given term. 
-  // In the process, computes an approximate type such that if the term has an actual type it is an instance of the approximate type.
- /* def resolveComb(context : Name => Pretype, boundNames : Map[IndexedName, Pretype], tm : Preterm) : (Preterm, Pretype) = {
-    tm match {
-      case PTmTyping(tm, ty) =>
-        val (rtm, rty) = resolveComb(context, boundNames, tm)
-        intersectTypes(rty, ty) match {
-          case None => (rtm, PTyAny)
-          case Some(ty) => (rty, ty)
-        }
-      case PTmName(name) => 
-      case _ => (tm, PTyAny)
-    }
-  }*/
-
-}
-
 /* 
 Special characters used in syntax
 =================================
@@ -321,9 +299,22 @@ object TermSyntax {
         } 
     }  
     println()
-  }     
+  }   
+
+  def parsePreterm(input : String) : Option[Preterm] = {
+    if (!grammar.info.wellformed) Utils.failwith("Syntax.grammar is not wellformed")
+    val d = UnicodeDocument.fromString(input)
+    grammar.parser.parse(d, "Term", 0) match {
+      case None => None
+      case Some((v, i)) =>
+        if (v.isUnique && i == d.size) {
+          val result = Derivation.computeParseResult(grammar, d, t => null, v)
+          Some(result.resultAs[Preterm])
+        } else None
+    }
+  }  
     
-  def main(args : Array[String]) {
+  def mainl(args : Array[String]) {
     val inputs = Array("hello", "hello_there", "hello_", "hello_20", "\\great\\expectations\\hello_10", 
         "thank\\you", "\\cool", "\\hello_23", "123", "\\123", "\\x123", "\\x1_23",
         "x:𝒰", "\\x : 𝒰 → 𝒫 → 𝒫", "\\x:(𝒰→𝒫)→𝒫", "x : 𝒰 → 𝒫 ↦ x",
