@@ -130,12 +130,6 @@ object Preterm {
 
   def pTmConst(name : Name) : Preterm = PTmName(name, Pretype.PTyAny)
 
-  trait TypingContext {
-  	def lookup(name : Name) : Option[Pretype]
-  	def resolve(name : Name) : Either[Term.Var, Term.Const]
-  	def addVar(name : IndexedName, ty : Pretype) : TypingContext
-  }
-
   def computeFresh(tm : Preterm, min : Integer) : Integer = {
   	tm match {
   		case PTmTyping(tm, ty) => 
@@ -287,8 +281,9 @@ object Preterm {
   			translate(context, tm)
   		case PTmName(name, ty) => 
   			context.resolve(name) match {
-  				case Left(t) => t
-  				case Right(t) => t 
+  				case None => Utils.failwith("name resolution failed in Preterm.translate")
+  				case Some(Left(t)) => t
+  				case Some(Right(t)) => t 
   			}
   		case PTmAbs(x, ty, body, _) => 
   			Term.Abs(x, Pretype.translate(ty), translate(context.addVar(x, ty), body))  
@@ -363,8 +358,7 @@ object Preterm {
   	if (!errors.isEmpty) return Right(errors)
   	val (t, fresh) = removeAny(term, computeFresh(term, 0))
   	inferTypes(context, t) match {
-  		case None => 
-  		  Right(List(PTmError("term is ill-typed")))
+  		case None => Right(List(PTmError("term is ill-typed")))
   		case Some(t) => 
   			val tNoVars = subst(n => Some(Pretype.PTyUniverse), t)
   			// this inferTypes is unnecessary, let's do it anyway for now
@@ -380,19 +374,79 @@ object Preterm {
   				  //    - f.typeOf is a variable 
   				  //    - x.typeOf is a variable or universe
   				  //    - typeOf is a variable or universe
-  				  //    - f.typeOf is different from x.typeOf
   				  // 2. If the computed higher-order is Some(true) after, we know that afterwards:
   				  //		- One of f.typeOf, x.typeOf and typeOf must be prop or fun
   				  //    But this contradicts 1., so 2. is not possible.
   				  // 3. If the computed higher-order is Some(false) after, the added constraints are that:
   				  //    f.typeOf is a universe, x.typeOf is a universe, and typeOf is a universe
   				  //    All of these constraints are a consequence of 1. and the fact that the substitution
-  				  //    replaces all variables by sets, so no conflict can arise.
+  				  //    replaces all variables by universe, so no conflict can arise.
   					Utils.failwith("internal error: term is ill-typed after eliminating all type variables")
   				case Some(t) => 
   				  Left(translate(context, t))
   			}
   	}
   }
+
+  trait TypingContext {
+  	def lookup(name : Name) : Option[Pretype]
+  	def resolve(name : Name) : Option[Either[Term.Var, Term.Const]]
+  	def addVar(name : IndexedName, ty : Pretype) : TypingContext
+  }
+
+  def obtainTypingContext(r : NameResolution.Resolution, context : Context) : TypingContext = {
+  	new TC(r, context, List())
+  }
+
+  private class TC(r : NameResolution.Resolution, context : Context, vars : List[(IndexedName, Pretype)]) 
+  	extends TypingContext 
+  {
+  	def lookup(name : Name) : Option[Pretype] = {
+  		if (name.namespace.isDefined) {
+  			context.typeOfConst(name) match {
+  				case None => None
+  				case Some(ty) => Some(Pretype.translate(ty))
+  			}
+  		} else {
+  			val u = name.name
+  			for ((v, ty) <- vars) {
+  				if (u == v) {
+  					return Some(ty)
+  				}
+  			}
+  			r.get(u) match {
+  				case None => None
+  				case Some(name) => 
+  					context.typeOfConst(name) match {
+  						case None => Utils.failwith("internal error: name is not defined, but should be: "+name)
+  						case Some(ty) => Some(Pretype.translate(ty))
+  					}
+  			}
+  		}
+  	}
+  	def resolve(name : Name) : Option[Either[Term.Var, Term.Const]] = {
+  		if (name.namespace.isDefined) {
+  			context.typeOfConst(name) match {
+  				case None => None
+  				case Some(_) => Some(Right(Term.Const(name)))
+  			}
+  		} else {
+  			val u = name.name
+  			for ((v, _) <- vars) {
+  				if (u == v) {
+  					return Some(Left(Term.Var(u)))
+  				}
+  			}
+  			r.get(u) match {
+  				case None => None
+  				case Some(name) => Some(Right(Term.Const(name)))
+  			}
+  		}  		
+  	}
+  	def addVar(x : IndexedName, ty : Pretype) : TypingContext = {
+  		new TC(r, context, (x, ty)::vars)
+  	}
+  }
+
 
 }

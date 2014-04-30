@@ -121,5 +121,9 @@ object Pretype {
   	}
   }
 
+  def translate(ty : Type) : Pretype = {
+  	null
+  }
+
 }
 
