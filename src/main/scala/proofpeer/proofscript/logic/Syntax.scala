@@ -313,6 +313,58 @@ object TermSyntax {
         } else None
     }
   }  
+
+  private def containsSpace(s : String) : Boolean = {
+    s.indexOf(" ") >= 0
+  }
+
+  private def protect(s : String) : String = {
+    if (containsSpace(s)) "(" + s + ")" else s
+  }
+
+  def printType(ty : Type) : String = {
+    ty match {
+      case Type.Universe => "𝒰"
+      case Type.Prop => "𝒫"
+      case Type.Fun(domain, range) => protect(printType(domain)) + " → " + printType(range)
+    }  
+  }
+
+  def printName(name : IndexedName) : String = {
+    if (name.index.isDefined)
+      name.name + "_" + name.index.get
+    else
+      name.name
+  }
+
+  def printName(name : Name) : String = {
+    if (name.namespace.isDefined)
+      name.namespace.get + "\\" + printName(name.name)
+    else
+      printName(name.name)
+  }
+
+  def printTerm(tm : Term) : String = {
+    tm match {
+      case Term.PolyConst(name, alpha) =>
+        val ty = 
+          name match {
+            case Kernel.forall => Type.Fun(Type.Fun(alpha, Type.Prop), Type.Prop)
+            case Kernel.exists => Type.Fun(Type.Fun(alpha, Type.Prop), Type.Prop)
+            case Kernel.equals => Type.Fun(alpha, Type.Fun(alpha, Type.Prop))
+            case _ => Utils.failwith("this is not a polymorphic name: "+name)
+          }
+        printName(name) + " : " + printType(ty)
+      case Term.Const(name : Name) =>
+        printName(name)
+      case Term.Comb(f, x) =>
+        protect(printTerm(f)) + " " + protect(printTerm(x))
+      case Term.Abs(name, ty, body) =>
+        printName(name) + " : " + printType(ty) + " ↦ " + printTerm(body)
+      case Term.Var(name) =>
+        printName(name)
+    }
+  }
     
   def mainl(args : Array[String]) {
     val inputs = Array("hello", "hello_there", "hello_", "hello_20", "\\great\\expectations\\hello_10", 

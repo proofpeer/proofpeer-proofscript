@@ -431,12 +431,17 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
     }
     val created = ContextKind.Created(namespace, parents, ancestors)
+    val constants : Map[Name, Type] =
+      if (namespace == Kernel.root_namespace) 
+        Map(Kernel.implies -> Type.Fun(Type.Prop, Type.Fun(Type.Prop, Type.Prop)))
+      else 
+        Map()
     new ContextImpl(
         created,
         0,
         created,
         None,
-        Map(),
+        constants,
         Map())
   }
         
