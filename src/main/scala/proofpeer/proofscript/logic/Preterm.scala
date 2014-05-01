@@ -280,10 +280,9 @@ object Preterm {
   		case PTmTyping(tm, ty) => 
   			translate(context, tm)
   		case PTmName(name, ty) => 
-  			context.resolve(name) match {
-  				case None => Utils.failwith("name resolution failed in Preterm.translate")
-  				case Some(Left(t)) => t
-  				case Some(Right(t)) => t 
+  			context.resolve(name, ty) match {
+  				case None => Utils.failwith("name resolution failed in Preterm.translate for: "+name)
+  				case Some(t) => t
   			}
   		case PTmAbs(x, ty, body, _) => 
   			Term.Abs(x, Pretype.translate(ty), translate(context.addVar(x, ty), body))  
@@ -312,25 +311,43 @@ object Preterm {
   	}
   }
 
-  def checkNameTypes(context : TypingContext, tm : Preterm) : Preterm = {
+  def checkNameTypes(context : TypingContext, tm : Preterm, fresh : Integer) : (Preterm, Integer) = {
   	tm match {
   		case PTmName(name, ty) =>
-  			context.lookup(name) match {
-  				case None => PTmError("unknown name: "+name)
-  				case _ => tm
+  			context.lookupPolymorphic(name, fresh) match {
+  				case None => (PTmError("unknown name: "+name), fresh)
+  				case Some((ty1, fresh1)) => 
+  					if (fresh1 == fresh) 
+  						(tm, fresh)
+  					else {
+  						if (ty == Pretype.PTyAny) {
+  							(PTmName(name, ty1), fresh1)
+  						} else {
+  							(PTmTyping(tm, ty1), fresh1)
+  						}
+  					}
   			}
-  		case PTmTyping(tm, ty) => PTmTyping(checkNameTypes(context, tm), ty)
+  		case PTmTyping(tm, ty) => 
+  			val (t, fresh1) = checkNameTypes(context, tm, fresh)
+  			(PTmTyping(t, ty), fresh1)
   		case PTmAbs(x, ty, body, body_ty) =>
-  			PTmAbs(x, ty, checkNameTypes(context.addVar(x, ty), body), body_ty)
+  			val (t, fresh1) = checkNameTypes(context.addVar(x, ty), body, fresh)
+  			(PTmAbs(x, ty, t, body_ty), fresh1)
   		case PTmForall(x, ty, body) => 
-  		  PTmForall(x, ty, checkNameTypes(context.addVar(x, ty), body))
+  			val (t, fresh1) = checkNameTypes(context.addVar(x, ty), body, fresh)
+  		  (PTmForall(x, ty, t), fresh1)
   		case PTmExists(x, ty, body) =>
-  		  PTmExists(x, ty, checkNameTypes(context.addVar(x, ty), body))
+  			val (t, fresh1) = checkNameTypes(context.addVar(x, ty), body, fresh)
+  		  (PTmExists(x, ty, t), fresh1)
   		case PTmEquals(left, right) =>
-  		  PTmEquals(checkNameTypes(context, left), checkNameTypes(context, right))
+  			val (t1, fresh1) = checkNameTypes(context, left, fresh)
+  			val (t2, fresh2) = checkNameTypes(context, right, fresh1)
+  		  (PTmEquals(t1, t2), fresh2)
   		case PTmComb(f, x, higherorder, ty) =>
-  			PTmComb(checkNameTypes(context, f), checkNameTypes(context, x), higherorder, ty)
-  		case e : PTmError => e
+  			val (t1, fresh1) = checkNameTypes(context, f, fresh)
+  			val (t2, fresh2) = checkNameTypes(context, x, fresh1)
+  			(PTmComb(t1, t2, higherorder, ty), fresh2)
+  		case e : PTmError => (e, fresh)
   	}
   }
 
@@ -354,9 +371,10 @@ object Preterm {
   }
 
   def inferTerm(context : TypingContext, term : Preterm) : Either[Term, List[PTmError]] = {
-  	val errors = listErrors(checkNameTypes(context, term))
+  	val (checkedTerm, checkedFresh) = checkNameTypes(context, term, computeFresh(term, 0))
+  	val errors = listErrors(checkedTerm)
   	if (!errors.isEmpty) return Right(errors)
-  	val (t, fresh) = removeAny(term, computeFresh(term, 0))
+  	val (t, fresh) = removeAny(checkedTerm, checkedFresh)
   	inferTypes(context, t) match {
   		case None => Right(List(PTmError("term is ill-typed")))
   		case Some(t) => 
@@ -389,8 +407,9 @@ object Preterm {
   }
 
   trait TypingContext {
-  	def lookup(name : Name) : Option[Pretype]
-  	def resolve(name : Name) : Option[Either[Term.Var, Term.Const]]
+  	def lookupPolymorphic(name : Name, fresh : Integer) : Option[(Pretype, Integer)] // like lookup, but also works for polymorphic constants
+  	def lookup(name : Name) : Option[Pretype] // returns None for polymorphic constants!
+  	def resolve(name : Name, ty : Pretype) : Option[Term] // returns None for polymorphic constants!
   	def addVar(name : IndexedName, ty : Pretype) : TypingContext
   }
 
@@ -401,52 +420,83 @@ object Preterm {
   private class TC(r : NameResolution.Resolution, context : Context, vars : List[(IndexedName, Pretype)]) 
   	extends TypingContext 
   {
-  	def lookup(name : Name) : Option[Pretype] = {
-  		if (name.namespace.isDefined) {
-  			context.typeOfConst(name) match {
-  				case None => None
-  				case Some(ty) => Some(Pretype.translate(ty))
-  			}
-  		} else {
+  	private def polyTypeOf(name : Name, fresh : Integer) : Option[Pretype] = {
+  		import Pretype._
+  		name match {
+  			case Kernel.forall => Some(PTyFun(PTyFun(PTyVar(fresh), PTyProp), PTyProp))
+  			case Kernel.exists => Some(PTyFun(PTyFun(PTyVar(fresh), PTyProp), PTyProp))
+  			case Kernel.equals => Some(PTyFun(PTyVar(fresh), PTyFun(PTyVar(fresh), PTyProp)))
+  			case _ => None
+  		}
+  	}
+  	private def lookupName(name : Name, fresh : Integer) : Option[(Pretype, Integer)] = {
+  		polyTypeOf(name, fresh) match {
+  			case Some(ty) => Some((ty, fresh + 1))
+  			case None => 
+  				context.typeOfConst(name) match {
+  					case None => None
+  					case Some(ty) => Some((Pretype.translate(ty), fresh))
+  				}
+  		}	
+  	}
+  	def lookupPolymorphic(name : Name, fresh : Integer) : Option[(Pretype, Integer)] = {
+  		if (name.namespace.isDefined) 
+  			lookupName(name, fresh)
+  		else {
   			val u = name.name
   			for ((v, ty) <- vars) {
   				if (u == v) {
-  					return Some(ty)
+  					return Some(ty, fresh)
   				}
   			}
   			r.get(u) match {
   				case None => None
-  				case Some(name) => 
-  					context.typeOfConst(name) match {
-  						case None => Utils.failwith("internal error: name is not defined, but should be: "+name)
-  						case Some(ty) => Some(Pretype.translate(ty))
-  					}
+  				case Some(name) => lookupName(name, fresh)
   			}
   		}
   	}
-  	def resolve(name : Name) : Option[Either[Term.Var, Term.Const]] = {
-  		if (name.namespace.isDefined) {
-  			context.typeOfConst(name) match {
-  				case None => None
-  				case Some(_) => Some(Right(Term.Const(name)))
-  			}
-  		} else {
+  	def lookup(name : Name) : Option[Pretype] = {
+  		lookupPolymorphic(name, 0) match {
+  			case None => None
+  			case Some((ty, fresh)) => if (fresh > 0) None else Some(ty)
+  		}
+  	}
+  	private def resolveConst(name : Name, ty : Pretype) : Option[Term] = {
+			lookupPolymorphic(name, 0) match {
+				case None => None
+				case Some((t, fresh)) =>
+					if (fresh == 0) {
+						if (t == ty) Some(Term.Const(name)) else None
+					} else {
+						import Pretype._
+						(name, ty) match {
+							case (Kernel.forall, PTyFun(PTyFun(alpha, PTyProp), PTyProp)) =>
+								Some(Term.PolyConst(Kernel.forall, Pretype.translate(alpha)))
+							case (Kernel.exists, PTyFun(PTyFun(alpha, PTyProp), PTyProp)) =>
+								Some(Term.PolyConst(Kernel.exists, Pretype.translate(alpha)))
+							case (Kernel.equals, PTyFun(alpha, PTyFun(beta, PTyProp))) if alpha == beta =>
+								Some(Term.PolyConst(Kernel.equals, Pretype.translate(alpha)))
+							case _ => None
+						}
+					}
+			}  			
+  	}
+  	def resolve(name : Name, ty : Pretype) : Option[Term] = {
+  		if (!name.namespace.isDefined) {
   			val u = name.name
   			for ((v, _) <- vars) {
   				if (u == v) {
-  					return Some(Left(Term.Var(u)))
+  					return Some(Term.Var(u))
   				}
   			}
   			r.get(u) match {
   				case None => None
-  				case Some(name) => Some(Right(Term.Const(name)))
+  				case Some(name) => resolveConst(name, ty)
   			}
-  		}  		
+			} else resolveConst(name, ty)
   	}
   	def addVar(x : IndexedName, ty : Pretype) : TypingContext = {
   		new TC(r, context, (x, ty)::vars)
   	}
   }
-
-
 }

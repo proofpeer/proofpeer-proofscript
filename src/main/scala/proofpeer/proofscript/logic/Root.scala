@@ -12,6 +12,9 @@ object Root {
 				Preterm.inferTerm(typingContext, ptm) match {
 					case Left(tm) => tm
 					case Right(errors) =>
+						for (e <- errors) {
+							println("error: "+e.reason)
+						}
 						Utils.failwith("cannot convert preterm to term, "+errors.size+" errors")
 				}
 		}
@@ -23,7 +26,10 @@ object Root {
 
 	def main(args : Array[String]) {
 
-		val t = read("root.forall")
+		val t = read("root\\forall : ((_ → 𝒫) → 𝒫) → 𝒫")
+		println("t = "+t)
+		val s = read("forall : ((_ → 𝒫) → 𝒫) → 𝒫")
+		println("s = "+s)
 
 	}
 

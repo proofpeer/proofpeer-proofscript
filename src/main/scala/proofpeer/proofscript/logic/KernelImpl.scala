@@ -360,6 +360,9 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
 
     def localConstants : Set[Name] = {
       var set : Set[Name] = Set()
+      if (namespace == Kernel.root_namespace) {
+        set = set + Kernel.forall + Kernel.equals + Kernel.exists
+      }
       for ((name, _) <- constants) {
         if (!name.namespace.isDefined || name.namespace == Some(namespace)) {
           set = set + name
