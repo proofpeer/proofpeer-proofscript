@@ -43,7 +43,7 @@ object Root {
 		test("root\\forall")
 		test("root\\forall : ((_ → 𝒫) → 𝒫) → 𝒫")
 	  test("forall : ((_ → 𝒫) → 𝒫) → 𝒫")
-	  test("∀ x, y. x y = y x")
+	  test("∀ x, y. x y = y")
 	  test("∀ x, y : 𝒫. x y = y")
 	  test("∀ x, y. x y")	  
 	}

@@ -346,6 +346,14 @@ object TermSyntax {
 
   def printTerm(tm : Term) : String = {
     tm match {
+      case Term.Comb(Term.PolyConst(Kernel.forall, _), Term.Abs(name, ty, body)) =>
+        "∀ " + printName(name) + " : " + printType(ty) + ". " + printTerm(body)
+      case Term.Comb(Term.PolyConst(Kernel.exists, _), Term.Abs(name, ty, body)) =>
+        "∃ " + printName(name) + " : " + printType(ty) + ". " + printTerm(body)
+      case Term.Comb(Term.Comb(Term.PolyConst(Kernel.equals, _), left), right) =>
+        protect(printTerm(left)) + " = " + protect(printTerm(right))
+      case Term.Comb(Term.Comb(Term.Const(Kernel.funapply), f), x) =>
+        protect(printTerm(f)) + " " + protect(printTerm(x))
       case Term.PolyConst(name, alpha) =>
         val ty = 
           name match {
