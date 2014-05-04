@@ -256,8 +256,8 @@ object TermSyntax {
     rule("TypedTerm", "SetTerm", _.SetTerm.result) ++
     rule("TypedTerm", "TypedTerm Colon Type", c => PTmTyping(c.TypedTerm.resultAs[Preterm], c.Type.resultAs[Pretype])) ++
     rule("EqTerm", "TypedTerm", _.TypedTerm.result) ++
-    rule("EqTerm", "TypedTerm_1 Eq TypedTerm_2", c => PTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm])) ++
-    rule("EqTerm", "TypedTerm_1 NotEq TypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, PTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm]))) ++
+    rule("EqTerm", "TypedTerm_1 Eq TypedTerm_2", c => pTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm])) ++
+    rule("EqTerm", "TypedTerm_1 NotEq TypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm]))) ++
     rule("NotTerm", "Not NotTerm", c => pTmUnaryOp(Kernel.logical_not, c.NotTerm.resultAs[Preterm])) ++
     rule("NotTerm", "EqTerm", _.EqTerm.result) ++
     rule("AndTerm", "AndTerm And NotTerm", c => pTmBinaryOp(Kernel.logical_and, c.AndTerm.resultAs[Preterm], c.NotTerm.resultAs[Preterm])) ++
