@@ -122,7 +122,11 @@ object Pretype {
   }
 
   def translate(ty : Type) : Pretype = {
-  	null
+  	ty match {
+  		case Type.Prop => PTyProp
+  		case Type.Universe => PTyUniverse
+  		case Type.Fun(domain, range) => PTyFun(translate(domain), translate(range))
+  	}
   }
 
 }
