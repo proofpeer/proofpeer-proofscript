@@ -78,6 +78,8 @@ object Root {
 	  test("forallin")  
 	  test("∀ x. x = forallin")
 	  test("∀ x, y. x x = y")
+	  test("x ↦ y ↦ x y")
+	  test("x ↦ x x")
 	}
 
 
