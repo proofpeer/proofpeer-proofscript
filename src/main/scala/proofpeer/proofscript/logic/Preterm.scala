@@ -205,7 +205,7 @@ object Preterm {
   	    	  	val fty = f.typeOf
   	    	  	if (cantBeUniv(fty) || cantBeUniv(x.typeOf) || cantBeUniv(ty))
   	    	  	  Some(true)
-  	    	  	else if (cantBeFun(fty) || fty == x)
+  	    	  	else if (cantBeFun(fty))
   	    	  	  Some(false)
   	    	  	else None 
   	    	  case _ => _higherorder
