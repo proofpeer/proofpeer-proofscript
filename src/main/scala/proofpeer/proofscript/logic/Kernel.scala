@@ -169,16 +169,19 @@ object Kernel {
   val set_difference = rootname("difference")
   val set_union = rootname("union")
   val set_intersection = rootname("intersection")
-  val set_bigunion = rootname("bigunion")
-  val set_bigintersection = rootname("bigintersection")
+  val set_bigunion = rootname("Union")
+  val set_bigintersection = rootname("Intersection")
   val set_power = rootname("power")
   val set_singleton = rootname("singleton")
   val set_separation = rootname("sep")
   val set_replacement = rootname("repl")
+  val set_elementOf = rootname("elementof")
+  val set_subsetOf = rootname("subsetof") 
   val fun = rootname("fun")
   val funapply = rootname("apply")
   val forallin = rootname("forallin")
   val existsin = rootname("existsin")
+  val pair = rootname("pair")
     
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   

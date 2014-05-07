@@ -194,11 +194,11 @@ object TermSyntax {
     ltokenrule("False", Range.singleton(0x22A5)) ++
     ltokenrule("Elem", Range.singleton(0x2208)) ++
     ltokenrule("NotElem", Range.singleton(0x2209)) ++
+    ltokenrule("Subset", Range.singleton(0x2282)) ++
+    ltokenrule("NotSubset", Range.singleton(0x2284)) ++    
     ltokenrule("Or", Range.singleton(0x2228)) ++
     ltokenrule("And", Range.singleton(0x2227)) ++
     ltokenrule("Not", Range.singleton(0x00AC)) ++
-    ltokenrule("True", Range.singleton(0x22A4)) ++
-    ltokenrule("False", Range.singleton(0x22A5)) ++
     ltokenrule("EmptySet", Range.singleton(0x2205)) ++
     ltokenrule("SetDiff", Range.singleton(0x2216)) ++
     ltokenrule("SetUnion", Range.singleton(0x222A)) ++
@@ -226,7 +226,7 @@ object TermSyntax {
     rule("ConcreteSetTerm", "CurlyBracketOpen TermList CurlyBracketClose", c => pTmSet(c.TermList.resultAs[List[Preterm]])) ++
     rule("ConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
     rule("AtomicTerm", "NameTerm", _.NameTerm.result) ++
-    rule("AtomicTerm", "RoundBracketOpen Term RoundBracketClose", _.Term.result) ++
+    rule("AtomicTerm", "RoundBracketOpen TermList RoundBracketClose", c => pTmTuple(c.TermList.resultAs[List[Preterm]])) ++
     rule("AtomicTerm", "SetComprehensionTerm", _.SetComprehensionTerm.result) ++
     rule("AtomicTerm", "ConcreteSetTerm", _.ConcreteSetTerm.result) ++    
     rule("AtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
@@ -253,7 +253,16 @@ object TermSyntax {
     rule("SetDiffTerm", "SetDiffTerm SetDiff SetUnionTerm", 
       c => pTmBinaryOp(Kernel.set_difference, c.SetDiffTerm.resultAs[Preterm], c.SetUnionTerm.resultAs[Preterm])) ++
     rule("SetTerm", "SetDiffTerm", _.SetDiffTerm.result) ++
-    rule("TypedTerm", "SetTerm", _.SetTerm.result) ++
+    rule("SetBinaryRelationTerm", "SetTerm", _.SetTerm.result) ++
+    rule("SetBinaryRelationTerm", "SetTerm_1 Elem SetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_elementOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm])) ++
+    rule("SetBinaryRelationTerm", "SetTerm_1 NotElem SetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_elementOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm]))) ++    
+    rule("SetBinaryRelationTerm", "SetTerm_1 Subset SetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_subsetOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm])) ++
+    rule("SetBinaryRelationTerm", "SetTerm_1 NotSubset SetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm]))) ++    
+    rule("TypedTerm", "SetBinaryRelationTerm", _.SetBinaryRelationTerm.result) ++
     rule("TypedTerm", "TypedTerm Colon Type", c => PTmTyping(c.TypedTerm.resultAs[Preterm], c.Type.resultAs[Pretype])) ++
     rule("EqTerm", "TypedTerm", _.TypedTerm.result) ++
     rule("EqTerm", "TypedTerm_1 Eq TypedTerm_2", c => pTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm])) ++

@@ -113,6 +113,16 @@ object Preterm {
       pTmBinaryOp(Kernel.set_union, pTmSet(elems.tail), pTmUnaryOp(Kernel.set_singleton, elems.head))
   }
 
+  def pTmTuple(elems : List[Preterm]) : Preterm = {
+  	if (elems.isEmpty)
+  		Utils.failwith("there is no empty tuple")
+  	else if (elems.tail.isEmpty)
+  		elems.head
+  	else {
+  		pTmBinaryOp(Kernel.pair, pTmTuple(elems.tail), elems.head)
+  	}	
+  }
+
   def pTmBinaryOp(name : Name, left : Preterm, right : Preterm) : Preterm = 
     PTmComb(PTmComb(PTmName(name, Pretype.PTyAny), left, Some(true), Pretype.PTyAny), right, Some(true), Pretype.PTyAny)
 

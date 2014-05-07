@@ -41,6 +41,11 @@ object Root {
 		def intro(name : Name, ty : Type) {
 			context = context.introduce(name, ty)
 		}
+		def axiom(name : String, ax : String) {
+			val t = read(ax)
+			val th = context.assume(Kernel.rootname(name), t)
+			context = th.context
+		}
 		intro(Kernel.logical_and, ty_log2)
 		intro(Kernel.logical_or, ty_log2)
 		intro(Kernel.logical_not, ty_log1)
@@ -58,13 +63,45 @@ object Root {
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_set0)))
 		intro(Kernel.set_replacement, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_set0), ty_set0)))
+		intro(Kernel.pair, ty_set2)
 		intro(Kernel.fun, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_set0), ty_set0)))
 		intro(Kernel.funapply, ty_set2)
+		intro(Kernel.set_elementOf,
+			Type.Fun(ty_set0, Type.Fun(ty_set0, ty_log0)))
+		intro(Kernel.set_subsetOf,
+			Type.Fun(ty_set0, Type.Fun(ty_set0, ty_log0)))		
 		intro(Kernel.forallin, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0)))
 		intro(Kernel.existsin, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0)))
+
+		axiom("trueDef", "((p : 𝒫 ↦ p) = (p : 𝒫 ↦ p))")
+		axiom("falseDef", "⊥ = (∀ p. p)")
+		axiom("notDef", "∀ p. (¬ p) = (p → ⊥)")
+		axiom("andDef", "∀ x, y. (x ∧ y) = ((f ↦ f x y) = (f ↦ f ⊤ ⊤))")
+		axiom("impliesDef", "∀ x, y. (x → y) = ((x ∧ y) = x)")
+		axiom("orDef", "∀ x, y. (x ∨ y) = (∀ z. (x → z) → (y → z) → z)")
+		axiom("empty", "∀ x. x ∉ ∅")
+		axiom("ext", "∀ x, y. (x = y) = (∀ z. z ∈ x = z ∈ y)")
+		axiom("Union", "∀ z, x. z ∈ ⋃ x = (∃ y ∈ x. z ∈ y)")
+		axiom("union", "∀ x, y, z. (z ∈ x ∪ y) = (z ∈ x ∨ z ∈ y)")
+		axiom("Intersection", "∀ z, x. z ∈ ⋂ x = (∀ y ∈ x. z ∈ y)")
+		axiom("intersection", "∀ x, y, z. z ∈ x ∩ y = (z ∈ x ∧ z ∈ y)")
+		axiom("difference", "∀ x, y, z. z ∈ x ∖ y = (z ∈ x ∧ z ∉ y)")
+		axiom("subset", "∀ x, y. x ⊂ y = (∀ z ∈ x. z ∈ y)")
+		axiom("singleton", "∀ x, y. y ∈ {x} = (y = x)")
+		axiom("power", "∀ x, y. x ∈ 𝒫 y = x ⊂ y")
+		axiom("repl", "∀ A, f, b. b ∈ repl A f = (∃ a ∈ A. b = f a)")
+		axiom("sep", "∀ A, p, a. a ∈ sep A p = (a ∈ A ∧ p a)")
+		axiom("regularity", "∀ A. A ≠ ∅ → (∃ x ∈ A. x ∩ A = ∅)")
+		axiom("infinity", "∃ X. ∅ ∈ X ∧ (∀ x ∈ X. x ∪ {x} ∈ X)")
+		axiom("forallin", "∀ X, P. forallin X P = (∀ x. x ∈ X → P x)")
+		axiom("existsin", "∀ X, P. existsin X P = (∃ x. x ∈ X ∧ P x)")
+		axiom("pair", "∀ x, y. (x, y) = {{x}, {x, y}}")
+		axiom("fun", "∀ X, f. fun X f = {(x, f x)| x ∈ X}")
+		axiom("apply", "∀ X, f, x ∈ X. fun X f x = f x")
+
 	}
 	
 	def main(args : Array[String]) {
@@ -80,7 +117,25 @@ object Root {
 	  test("∀ x, y. x x = y")
 	  test("x ↦ y ↦ x y")
 	  test("x ↦ x x")
+	  test("r ↦ ∀P. (∀x. (∀y. r y x  → P y) → P x) → (∀x. P x)")
+	  test("∀ x. x ∉ ∅")
+	  test("∀ x, y. (x = y) = (∀ z. z ∈ x = z ∈ y)")
+	  test("∀ z, x. z ∈ ⋃ x = (∃ y. z ∈ y ∧ y ∈ x)")
+	  test("∀ y, x. y ∈ 𝒫 x = y ⊂ x")
+	  test("∀ b, A, f. b ∈ repl A f = (∃ a ∈ A. b = f a)")
+	  test("∀ A, p, a. a ∈ sep A p = (a ∈ A ∧ p a)")
+	  test("subsetof = (x ↦ y ↦ (∀ z ∈ x. z ∈ y))")
+	  test("∀ x, y. x ⊂ y = (∀ z ∈ x. z ∈ y)")
+	  test("∀ A. A ≠ ∅ → (∃ x ∈ A. x ∩ A = ∅)")
+	  test("∃ X. ∅ ∈ X ∧ (∀ x ∈ X. x ∪ {x} ∈ X)")
+	  test("∀ x, y. y ∈ {x} = (y = x)")
+	  test("∀ X, P. forallin X P = (∀ x. x ∈ X → P x)")
+	  test("x ↦ x = fun")
+	  test("∀ x, y. (x, y) = {{x}, {x, y}}")
+	  test("x ↦ y ↦ z ↦ (x, y, z)")
+	  test("∀ X, f. fun X f = {(x, f x)| x ∈ X}")
+	  test("x ↦ y ↦ z ↦ x y z")
+	  test("∀ X, f, x ∈ X. fun X f x = f x")
 	}
-
 
 }
