@@ -136,6 +136,7 @@ object Root {
 	  test("∀ X, f. fun X f = {(x, f x)| x ∈ X}")
 	  test("x ↦ y ↦ z ↦ x y z")
 	  test("∀ X, f, x ∈ X. fun X f x = f x")
+	  test("A, p ↦ {x | x ∈ A. p x}")
 	}
 
 }

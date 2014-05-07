@@ -344,6 +344,13 @@ object TermSyntax {
     }  
   }
 
+  def printTypeAnnotation(ty : Type) : String = {
+    ty match {
+      case Type.Universe => ""
+      case _ => " : " + printType(ty)
+    }
+  }
+
   def printName(name : IndexedName) : String = {
     if (name.index.isDefined)
       name.name + "_" + name.index.get
@@ -358,16 +365,70 @@ object TermSyntax {
       printName(name.name)
   }
 
+  def printBinary(op : String, left : Term, right : Term) : String = {
+    protect(printTerm(left)) + " " + op + " " + protect(printTerm(right))
+  }
+
+  def printUnary(op : String, tm : Term) : String = {
+    op + " " + protect(printTerm(tm))
+  }
+
+  private val binaryOp : Map[Name, String] = 
+    Map(
+      Kernel.set_union -> "∪",
+      Kernel.set_intersection -> "∩",
+      Kernel.set_difference -> "∖",
+      Kernel.set_elementOf -> "∈",
+      Kernel.set_subsetOf -> "⊂",
+      Kernel.logical_and -> "∧",
+      Kernel.logical_or -> "∨",
+      Kernel.implies -> "→"
+    )
+
+  private val unaryOp : Map[Name, String] = 
+    Map(
+      Kernel.logical_not -> "¬",
+      Kernel.set_bigunion -> "⋃",
+      Kernel.set_bigintersection -> "⋂",
+      Kernel.set_power -> "𝒫"
+    )
+
+  private val nullaryOp : Map[Name, String] = 
+    Map(
+      Kernel.empty_set -> "∅",
+      Kernel.logical_true -> "⊤",
+      Kernel.logical_false -> "⊥"
+    )
+
   def printTerm(tm : Term) : String = {
     tm match {
       case Term.Comb(Term.PolyConst(Kernel.forall, _), Term.Abs(name, ty, body)) =>
-        "∀ " + printName(name) + " : " + printType(ty) + ". " + printTerm(body)
+        "∀ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(body)
+      case Term.Comb(Term.Comb(Term.Const(Kernel.forallin), set), Term.Abs(name, ty, body)) =>
+        "∀ " + printName(name) + " ∈ " + printTerm(set) + ". " + printTerm(body)
       case Term.Comb(Term.PolyConst(Kernel.exists, _), Term.Abs(name, ty, body)) =>
-        "∃ " + printName(name) + " : " + printType(ty) + ". " + printTerm(body)
+        "∃ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(body)
+      case Term.Comb(Term.Comb(Term.Const(Kernel.existsin), set), Term.Abs(name, ty, body)) =>
+        "∃ " + printName(name) + " ∈ " + printTerm(set) + ". " + printTerm(body)
+      case Term.Comb(Term.Comb(Term.Const(Kernel.pair), left), right) =>
+        "(" + printTerm(left) + ", " + printTerm(right) + ")"
+      case Term.Comb(Term.Comb(Term.Const(op), left), right) if binaryOp.get(op).isDefined =>
+        printBinary(binaryOp(op), left, right)
+      case Term.Comb(Term.Const(op), tm) if unaryOp.get(op).isDefined =>
+        printUnary(unaryOp(op), tm)
+      case Term.Const(op) if nullaryOp.get(op).isDefined =>
+        nullaryOp(op)
       case Term.Comb(Term.Comb(Term.PolyConst(Kernel.equals, _), left), right) =>
-        protect(printTerm(left)) + " = " + protect(printTerm(right))
+        printBinary("=", left, right)
       case Term.Comb(Term.Comb(Term.Const(Kernel.funapply), f), x) =>
         protect(printTerm(f)) + " " + protect(printTerm(x))
+      case Term.Comb(Term.Const(Kernel.set_singleton), tm) =>
+        "{" + printTerm(tm) + "}"
+      case Term.Comb(Term.Comb(Term.Const(Kernel.set_replacement), 
+        Term.Comb(Term.Comb(Term.Const(Kernel.set_separation), tm), Term.Abs(pname, _, pred))), Term.Abs(name, _, body)) if name == pname =>
+        "{" + printTerm(body) + " | " + printName(name) + " ∈ " + printTerm(tm) + ". " + printTerm(pred) + "}"
+      case Term.Comb(Term.Comb(Term.Const(Kernel.set_replacement), tm), Term.Abs(name, _, body)) =>
+        "{" + printTerm(body) + " | " + printName(name) + " ∈ " + printTerm(tm) + "}"
       case Term.PolyConst(name, alpha) =>
         val ty = 
           name match {
@@ -382,7 +443,7 @@ object TermSyntax {
       case Term.Comb(f, x) =>
         protect(printTerm(f)) + " " + protect(printTerm(x))
       case Term.Abs(name, ty, body) =>
-        printName(name) + " : " + printType(ty) + " ↦ " + printTerm(body)
+        printName(name) + printTypeAnnotation(ty) + " ↦ " + printTerm(body)
       case Term.Var(name) =>
         printName(name)
     }
