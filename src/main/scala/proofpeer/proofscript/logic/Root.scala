@@ -76,7 +76,7 @@ object Root {
 		intro(Kernel.existsin, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0)))
 
-		axiom("trueDef", "((p : 𝒫 ↦ p) = (p : 𝒫 ↦ p))")
+		axiom("trueDef", "((p : ℙ ↦ p) = (p : ℙ ↦ p))")
 		axiom("falseDef", "⊥ = (∀ p. p)")
 		axiom("notDef", "∀ p. (¬ p) = (p → ⊥)")
 		axiom("andDef", "∀ x, y. (x ∧ y) = ((f ↦ f x y) = (f ↦ f ⊤ ⊤))")
@@ -107,10 +107,10 @@ object Root {
 	def main(args : Array[String]) {
 		setupRoot()
 		test("root\\forall")
-		test("root\\forall : ((_ → 𝒫) → 𝒫) → 𝒫")
-	  test("forall : ((_ → 𝒫) → 𝒫) → 𝒫")
+		test("root\\forall : ((_ → ℙ) → ℙ) → ℙ")
+	  test("forall : ((_ → ℙ) → ℙ) → ℙ")
 	  test("∀ x, y. x y = y")
-	  test("∀ x, y : 𝒫. x y = y")
+	  test("∀ x, y : ℙ. x y = y")
 	  test("∀ x, y. x y")	
 	  test("forallin")  
 	  test("∀ x. x = forallin")

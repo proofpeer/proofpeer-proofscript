@@ -16,9 +16,9 @@ Special characters used in syntax
 MATHEMATICAL SCRIPT CAPITAL U
 Unicode: U+1D4B0 (U+D835 U+DCB0), UTF-8: F0 9D 92 B0
 
-𝒫
-MATHEMATICAL SCRIPT CAPITAL P
-Unicode: U+1D4AB (U+D835 U+DCAB), UTF-8: F0 9D 92 AB
+ℙ
+DOUBLE-STRUCK CAPITAL P
+Unicode: U+2119, UTF-8: E2 84 99
 
 →
 RIGHTWARDS ARROW
@@ -75,6 +75,10 @@ Unicode: U+2201, UTF-8: E2 88 81
 ∅
 EMPTY SET
 Unicode: U+2205, UTF-8: E2 88 85
+
+𝒫
+MATHEMATICAL SCRIPT CAPITAL P
+Unicode: U+1D4AB (U+D835 U+DCAB), UTF-8: F0 9D 92 AB
 
 ⋂
 N-ARY INTERSECTION
@@ -188,6 +192,7 @@ object TermSyntax {
     ltokenrule("Exists", Range.singleton(0x2203)) ++
     ltokenrule("NotExists", Range.singleton(0x2204)) ++    
     ltokenrule("Universe", Range.singleton(0x1D4B0)) ++
+    ltokenrule("Prop", Range.singleton(0x2119)) ++
     ltokenrule("Powerset", Range.singleton(0x1D4AB)) ++
     ltokenrule("MapsTo", Range.singleton(0x21A6)) ++
     ltokenrule("True", Range.singleton(0x22A4)) ++
@@ -208,7 +213,7 @@ object TermSyntax {
       
   val g_type = 
     rule("AtomicType", "Universe", c => PTyUniverse) ++
-    rule("AtomicType", "Powerset", c => PTyProp) ++
+    rule("AtomicType", "Prop", c => PTyProp) ++
     rule("AtomicType", "Underscore", c => PTyAny) ++
     rule("AtomicType", "RoundBracketOpen Type RoundBracketClose", _.Type.result) ++
     rule("Type", "AtomicType", _.AtomicType.result) ++
@@ -334,7 +339,7 @@ object TermSyntax {
   def printType(ty : Type) : String = {
     ty match {
       case Type.Universe => "𝒰"
-      case Type.Prop => "𝒫"
+      case Type.Prop => "ℙ"
       case Type.Fun(domain, range) => protect(printType(domain)) + " → " + printType(range)
     }  
   }
@@ -382,16 +387,5 @@ object TermSyntax {
         printName(name)
     }
   }
-    
-  def mainl(args : Array[String]) {
-    val inputs = Array("hello", "hello_there", "hello_", "hello_20", "\\great\\expectations\\hello_10", 
-        "thank\\you", "\\cool", "\\hello_23", "123", "\\123", "\\x123", "\\x1_23",
-        "x:𝒰", "\\x : 𝒰 → 𝒫 → 𝒫", "\\x:(𝒰→𝒫)→𝒫", "x : 𝒰 → 𝒫 ↦ x",
-        "x : 𝒰 ↦ x", "(x : 𝒰) ↦ x", "x : 𝒰 → 𝒫 ↦ y ↦ z ↦ x z y")
-    for (input <- inputs) {
-      parse(grammar, "Term", input)
-      println("")
-    }
-  }
-  
+      
 }
