@@ -332,8 +332,32 @@ object TermSyntax {
     s.indexOf(" ") >= 0
   }
 
+  private def isBalanced(s : String, open : String, close : String) : Boolean = {
+    var count = 0
+    var i = 0
+    do {
+      val jOpen = s.indexOf(open, i)
+      val jClose = s.indexOf(close, i)
+      if (jOpen >= 0 && (jClose < 0 || jClose > jOpen)) {
+        i = jOpen + 1
+        count = count + 1
+      } else if (jClose >= 0 && (jOpen < 0 || jOpen > jClose)) {
+        i = jClose + 1
+        count = count - 1
+      } else i = -1
+    } while (count > 0)
+    s.length == i
+  }
+
   private def protect(s : String) : String = {
-    if (containsSpace(s)) "(" + s + ")" else s
+    if (containsSpace(s)) {
+      if ((s.startsWith("(") && isBalanced(s, "(", ")")) ||
+          (s.startsWith("{") && isBalanced(s, "{", "}")) ||
+          (s.startsWith("[") && isBalanced(s, "[", "]")))
+        s
+      else
+        "(" + s + ")" 
+    } else s
   }
 
   def printType(ty : Type) : String = {
@@ -441,10 +465,6 @@ object TermSyntax {
     }
   }
 
-  type priority = Int
-  val QUANTIFIER = 1 
-
-  // Returns the 
   private def printTerm(tm : Term) : String = {
     tm match {
       case Term.Comb(Term.PolyConst(Kernel.forall, _), Term.Abs(name, ty, body)) =>
