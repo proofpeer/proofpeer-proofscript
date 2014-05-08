@@ -389,12 +389,12 @@ object TermSyntax {
       printName(name.name)
   }
 
-  def printBinary(op : String, left : Term, right : Term) : String = {
-    protect(printTerm(left)) + " " + op + " " + protect(printTerm(right))
+  def printBinary(nameRes : NameResolution.Resolution, vars : Set[IndexedName], op : String, left : Term, right : Term) : String = {
+    protect(printTerm(nameRes, vars, left)) + " " + op + " " + protect(printTerm(nameRes, vars, right))
   }
 
-  def printUnary(op : String, tm : Term) : String = {
-    op + " " + protect(printTerm(tm))
+  def printUnary(nameRes : NameResolution.Resolution, vars : Set[IndexedName], op : String, tm : Term) : String = {
+    op + " " + protect(printTerm(nameRes, vars, tm))
   }
 
   private val binaryOp : Map[Name, String] = 
@@ -426,7 +426,7 @@ object TermSyntax {
 
   def printTerm(nameRes : NameResolution.Resolution, tm : Term) : String = {
     val (t, _) = preparePrinting(tm)
-    printTerm(t)
+    printTerm(nameRes, Set(), t)
   }
 
   // We check whether there are unqualified constants in this term which clash with variables. 
@@ -465,35 +465,44 @@ object TermSyntax {
     }
   }
 
-  private def printTerm(tm : Term) : String = {
+  private def printNameInContext(nameRes : NameResolution.Resolution, vars : Set[IndexedName], name : Name) : String = {
+    if (name.namespace.isDefined && !vars.contains(name.name)) {
+      nameRes.get(name.name) match {
+        case Some(n) if n == name => printName(name.name)
+        case _ => printName(name)
+      }
+    } else printName(name) 
+  }
+
+  private def printTerm(nameRes : NameResolution.Resolution, vars : Set[IndexedName], tm : Term) : String = {
     tm match {
       case Term.Comb(Term.PolyConst(Kernel.forall, _), Term.Abs(name, ty, body)) =>
-        "∀ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(body)
+        "∀ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(nameRes, vars + name, body)
       case Term.Comb(Term.Comb(Term.Const(Kernel.forallin), set), Term.Abs(name, ty, body)) =>
-        "∀ " + printName(name) + " ∈ " + printTerm(set) + ". " + printTerm(body)
+        "∀ " + printName(name) + " ∈ " + printTerm(nameRes, vars, set) + ". " + printTerm(nameRes, vars + name, body)
       case Term.Comb(Term.PolyConst(Kernel.exists, _), Term.Abs(name, ty, body)) =>
-        "∃ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(body)
+        "∃ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(nameRes, vars + name, body)
       case Term.Comb(Term.Comb(Term.Const(Kernel.existsin), set), Term.Abs(name, ty, body)) =>
-        "∃ " + printName(name) + " ∈ " + printTerm(set) + ". " + printTerm(body)
+        "∃ " + printName(name) + " ∈ " + printTerm(nameRes, vars, set) + ". " + printTerm(nameRes, vars + name, body)
       case Term.Comb(Term.Comb(Term.Const(Kernel.pair), left), right) =>
-        "(" + printTerm(left) + ", " + printTerm(right) + ")"
+        "(" + printTerm(nameRes, vars, left) + ", " + printTerm(nameRes, vars, right) + ")"
       case Term.Comb(Term.Comb(Term.Const(op), left), right) if binaryOp.get(op).isDefined =>
-        printBinary(binaryOp(op), left, right)
+        printBinary(nameRes, vars, binaryOp(op), left, right)
       case Term.Comb(Term.Const(op), tm) if unaryOp.get(op).isDefined =>
-        printUnary(unaryOp(op), tm)
+        printUnary(nameRes, vars, unaryOp(op), tm)
       case Term.Const(op) if nullaryOp.get(op).isDefined =>
         nullaryOp(op)
       case Term.Comb(Term.Comb(Term.PolyConst(Kernel.equals, _), left), right) =>
-        printBinary("=", left, right)
+        printBinary(nameRes, vars, "=", left, right)
       case Term.Comb(Term.Comb(Term.Const(Kernel.funapply), f), x) =>
-        protect(printTerm(f)) + " " + protect(printTerm(x))
+        protect(printTerm(nameRes, vars, f)) + " " + protect(printTerm(nameRes, vars, x))
       case Term.Comb(Term.Const(Kernel.set_singleton), tm) =>
-        "{" + printTerm(tm) + "}"
+        "{" + printTerm(nameRes, vars, tm) + "}"
       case Term.Comb(Term.Comb(Term.Const(Kernel.set_replacement), 
         Term.Comb(Term.Comb(Term.Const(Kernel.set_separation), tm), Term.Abs(pname, _, pred))), Term.Abs(name, _, body)) if name == pname =>
-        "{" + printTerm(body) + " | " + printName(name) + " ∈ " + printTerm(tm) + ". " + printTerm(pred) + "}"
+        "{" + printTerm(nameRes, vars + name, body) + " | " + printName(name) + " ∈ " + printTerm(nameRes, vars, tm) + ". " + printTerm(nameRes, vars + pname, pred) + "}"
       case Term.Comb(Term.Comb(Term.Const(Kernel.set_replacement), tm), Term.Abs(name, _, body)) =>
-        "{" + printTerm(body) + " | " + printName(name) + " ∈ " + printTerm(tm) + "}"
+        "{" + printTerm(nameRes, vars + name, body) + " | " + printName(name) + " ∈ " + printTerm(nameRes, vars, tm) + "}"
       case Term.PolyConst(name, alpha) =>
         val ty = 
           name match {
@@ -502,13 +511,13 @@ object TermSyntax {
             case Kernel.equals => Type.Fun(alpha, Type.Fun(alpha, Type.Prop))
             case _ => Utils.failwith("this is not a polymorphic name: "+name)
           }
-        printName(name) + " : " + printType(ty)
-      case Term.Const(name : Name) =>
-        printName(name)
+        printNameInContext(nameRes, vars, name) + printTypeAnnotation(ty)
+      case Term.Const(name : Name) => 
+        printNameInContext(nameRes, vars, name)
       case Term.Comb(f, x) =>
-        protect(printTerm(f)) + " " + protect(printTerm(x))
+        protect(printTerm(nameRes, vars, f)) + " " + protect(printTerm(nameRes, vars, x))
       case Term.Abs(name, ty, body) =>
-        printName(name) + printTypeAnnotation(ty) + " ↦ " + printTerm(body)
+        printName(name) + printTypeAnnotation(ty) + " ↦ " + printTerm(nameRes, vars + name, body)
       case Term.Var(name) =>
         printName(name)
     }
