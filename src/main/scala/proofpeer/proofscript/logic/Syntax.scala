@@ -239,10 +239,15 @@ object TermSyntax {
     rule("AtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("CombTerm", "AtomicTerm", _.AtomicTerm.result) ++
     rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
-    rule("Binding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
-    rule("Binding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
-    rule("Binding", "IndexedName Elem Term", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.Term.resultAs[Preterm])))) ++ 
-    rule("Bindings", "Binding", c => List(c.Binding.resultAs[Binding])) ++
+    rule("PureBinding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
+    rule("AnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
+    rule("AnnotatedBinding", "IndexedName Elem Term", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.Term.resultAs[Preterm])))) ++ 
+    rule("Binding", "PureBinding", _.PureBinding.result) ++
+    rule("Binding", "AnnotatedBinding", _.AnnotatedBinding.result) ++    
+    rule("PureBindings", "PureBinding", c => List(c.PureBinding.resultAs[Binding])) ++
+    rule("PureBindings", "PureBindings PureBinding", c => c.PureBinding.resultAs[Binding] :: c.PureBindings.resultAs[List[Binding]]) ++ 
+    rule("Bindings", "PureBindings", _.PureBindings.result) ++
+    rule("Bindings", "AnnotatedBinding", c => List(c.AnnotatedBinding.resultAs[Binding])) ++
     rule("Bindings", "Bindings Comma Binding", c => c.Binding.resultAs[Binding] :: c.Bindings.resultAs[List[Binding]]) ++ 
     rule("SetUnaryOpTerm", "CombTerm", _.CombTerm.result) ++
     rule("SetUnaryOpTerm", "Powerset SetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.SetUnaryOpTerm.resultAs[Preterm])) ++
@@ -282,9 +287,13 @@ object TermSyntax {
     rule("ImpliesTerm", "OrTerm", _.OrTerm.result) ++
     rule("PropTerm", "ImpliesTerm", _.ImpliesTerm.result) ++
     rule("AbsTerm", "PropTerm", _.PropTerm.result) ++
-    rule("AbsTerm", "Forall Bindings Dot AbsTerm", c => pTmForall(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
-    rule("AbsTerm", "Exists Bindings Dot AbsTerm", c => pTmExists(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
-    rule("AbsTerm", "NotExists Bindings Dot AbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm]))) ++
+    rule("AbsTerm", "QuantifierTerm", _.QuantifierTerm.result) ++
+    rule("QuantifierTerm", "Forall Bindings QuantifierTerm", c => pTmForall(c.Bindings.resultAs[List[Binding]], c.QuantifierTerm.resultAs[Preterm])) ++
+    rule("QuantifierTerm", "Exists Bindings QuantifierTerm", c => pTmExists(c.Bindings.resultAs[List[Binding]], c.QuantifierTerm.resultAs[Preterm])) ++
+    rule("QuantifierTerm", "NotExists Bindings QuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.Bindings.resultAs[List[Binding]], c.QuantifierTerm.resultAs[Preterm]))) ++
+    rule("QuantifierTerm", "Forall Bindings Dot AbsTerm", c => pTmForall(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
+    rule("QuantifierTerm", "Exists Bindings Dot AbsTerm", c => pTmExists(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
+    rule("QuantifierTerm", "NotExists Bindings Dot AbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm]))) ++
     rule("AbsTerm", "Bindings MapsTo AbsTerm", c => pTmAbs(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
     rule("TermList", "Term", c => List(c.Term.resultAs[Preterm])) ++
     rule("TermList", "TermList Comma Term", c => c.Term.resultAs[Preterm] :: c.TermList.resultAs[List[Preterm]]) ++

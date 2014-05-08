@@ -158,6 +158,8 @@ object Root {
 	  test("x ↦ y ↦ z ↦ x y z")
 	  test("∀ X, f, x ∈ X. fun X f x = f x")
 	  test("A, p ↦ {x | x ∈ A. p x}")
+	  test("∀ X f x. fun X f x = f x")
+	  test("∀ X ∀ f ∀ x ∈ X. fun X f x = f x")	  
 	  testScope()
 	}
 
