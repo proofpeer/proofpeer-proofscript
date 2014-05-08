@@ -28,7 +28,7 @@ object Root {
 		println("")
 		println("input:\n  " + s)
 		val t = read(s)
-		println("parsed:\n  " + TermSyntax.printTerm(t))
+		println("parsed:\n  " + checkPrinting(context, t))
 	}
 
 	def setupRoot() {
@@ -101,7 +101,28 @@ object Root {
 		axiom("pair", "∀ x, y. (x, y) = {{x}, {x, y}}")
 		axiom("fun", "∀ X, f. fun X f = {(x, f x)| x ∈ X}")
 		axiom("apply", "∀ X, f, x ∈ X. fun X f x = f x")
+	}
 
+	def checkPrinting(context : Context, tm : Term) : String = {
+		val u = TermSyntax.printTerm(nr.resolveContext(context), tm)
+		val tm2 = parse(context, u)
+		if (!KernelUtils.alpha_equivalent(tm, tm2))
+			Utils.failwith("term '"+u+"' is not a correct representation of: "+tm)
+		else
+			u
+	}
+
+	def testScope() {
+		import Term._
+		import Type._
+		val c = context.introduce(Name(None, IndexedName("x", None)), Universe)
+		val r = parse(c, "y ↦ x y")
+		val s = Abs(IndexedName("x",None),Universe,Comb(Comb(Const(Name(Some("root"),IndexedName("apply",None))),Const(Name(None,IndexedName("x",None)))),Var(IndexedName("x",None))))
+		println("s = "+checkPrinting(c, s))
+		val th_r = c.reflexive(r)
+		val th_s = c.reflexive(s)
+		val th = c.transitive(th_r, th_s)
+		println("th = "+checkPrinting(c, th.proposition)) 
 	}
 	
 	def main(args : Array[String]) {
@@ -137,6 +158,7 @@ object Root {
 	  test("x ↦ y ↦ z ↦ x y z")
 	  test("∀ X, f, x ∈ X. fun X f x = f x")
 	  test("A, p ↦ {x | x ∈ A. p x}")
+	  testScope()
 	}
 
 }

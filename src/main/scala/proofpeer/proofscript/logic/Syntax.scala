@@ -400,7 +400,52 @@ object TermSyntax {
       Kernel.logical_false -> "⊥"
     )
 
-  def printTerm(tm : Term) : String = {
+  def printTerm(nameRes : NameResolution.Resolution, tm : Term) : String = {
+    val (t, _) = preparePrinting(tm)
+    printTerm(t)
+  }
+
+  // We check whether there are unqualified constants in this term which clash with variables. 
+  // If yes, we rename the variables that cause the clash. 
+  private def preparePrinting(tm : Term) : (Term, Set[IndexedName]) = {
+    import Term._
+    tm match {
+      case Const(name) =>
+        if (name.namespace.isDefined) 
+          (tm, Set())
+        else 
+          (tm, Set(name.name))
+      case Comb(f, g) =>
+        val (u, fconsts) = preparePrinting(f)
+        val (v, gconsts) = preparePrinting(g)
+        (Comb(u, v), fconsts ++ gconsts)
+      case Abs(name, ty, body) =>
+        val (u, consts) = preparePrinting(body)
+        if (consts.contains(name)) {
+          var i : Integer = 
+            KernelUtils.findHighestVarIndex(body) match {
+              case Some(Some(i)) => i
+              case _ => 1
+            }
+          var n : IndexedName = null
+          do {
+            n = IndexedName(name.name, Some(i))
+            i = i + 1
+          } while (consts.contains(n))
+          (Abs(n, ty, KernelUtils.substVar(u, name, Var(n))), consts)
+        } else {
+          (Abs(name, ty, u), consts)
+        }
+      case _ => 
+        (tm, Set()) 
+    }
+  }
+
+  type priority = Int
+  val QUANTIFIER = 1 
+
+  // Returns the 
+  private def printTerm(tm : Term) : String = {
     tm match {
       case Term.Comb(Term.PolyConst(Kernel.forall, _), Term.Abs(name, ty, body)) =>
         "∀ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(body)

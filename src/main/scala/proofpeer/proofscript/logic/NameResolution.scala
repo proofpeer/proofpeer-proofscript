@@ -75,7 +75,7 @@ class NameResolution(kernel : Kernel, localNames : Context => Set[Name]) {
 				var r = computeBaseResolution(context)
 				val locals = localNames(context)
 				for (localname <- locals) {
-						r = r + (localname.name -> localname)
+					r = r + (localname.name -> localname)
 				}
 				r
 		}

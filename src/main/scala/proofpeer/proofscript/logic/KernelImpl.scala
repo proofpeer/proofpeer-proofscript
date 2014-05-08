@@ -305,10 +305,10 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def transitive(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)
-      val (a, b1, _) = dest_equals(p.proposition)
-      val (b2, c, _) = dest_equals(q.proposition)
-      if (alpha_equivalent(b1, b2))
-        mk_theorem(this, mk_equals(a, c, Prop))
+      val (a, b1, ty_a) = dest_equals(p.proposition)
+      val (b2, c, ty_c) = dest_equals(q.proposition)
+      if (ty_a == ty_c && alpha_equivalent(b1, b2))
+        mk_theorem(this, mk_equals(a, c, ty_a))
       else
         failwith("transitive: middle propositions are not alpha equivalent")
     }
