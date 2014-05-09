@@ -383,13 +383,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
 
   }
   
-  private var namespaces : Map[String, Context] = Map()
+  private var namespaces : Map[Namespace, Context] = Map()
   
   def completedNamespaces = namespaces.keySet
   
-  def contextOfNamespace(namespace : String) : Option[Context] = namespaces.get(namespace)
+  def contextOfNamespace(namespace : Namespace) : Option[Context] = namespaces.get(namespace)
   
-  private def completedContext(namespace : String) : ContextImpl = {
+  private def completedContext(namespace : Namespace) : ContextImpl = {
     contextOfNamespace(namespace) match {
       case Some(c) => c.asInstanceOf[ContextImpl]
       case None => failwith("there is no completed namespace '" + namespace + "'")
@@ -417,8 +417,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     completedContext
   }
   
-  def createNewNamespace(namespace : String, parents : Set[String]) : Context = {
-    var ancestors : Set[String] = Set()
+  def createNewNamespace(namespace : Namespace, parents : Set[Namespace]) : Context = {
+    var ancestors : Set[Namespace] = Set()
     if (contextOfNamespace(namespace).isDefined)
       failwith("namespace already exists: "+namespace)
     for (parent <- parents) {

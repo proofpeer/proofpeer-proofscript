@@ -15,7 +15,17 @@ object Utils {
 import Utils._
 
 sealed case class IndexedName(val name : String, val index : Option[Integer]) 
-sealed case class Name(val namespace : Option[String], val name : IndexedName)
+sealed class Namespace(namespace : String) {
+  override def toString : String = namespace
+  override def hashCode : Int = namespace.toLowerCase.hashCode
+  override def equals(other : Any): Boolean = {
+    other match {
+      case that: Namespace => namespace.toLowerCase == that.toString.toLowerCase
+      case _ => false
+    }
+  }
+}
+sealed case class Name(val namespace : Option[Namespace], val name : IndexedName)
 
 sealed abstract class Type
 object Type {
@@ -44,7 +54,7 @@ object ContextKind {
   case class Define(const_name : Name, ty : Type, thm_name : Name, tm : Term) extends ContextKind
   case class Choose(const_name : Name, ty : Type, thm_name : Name, property : Term) extends ContextKind
   case class Introduce(const_name : Name, ty : Type) extends ContextKind
-  case class Created(namespace : String, parentNamespaces : Set[String], ancestorNamespaces : Set[String]) extends ContextKind
+  case class Created(namespace : Namespace, parentNamespaces : Set[Namespace], ancestorNamespaces : Set[Namespace]) extends ContextKind
   case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
   case object Complete extends ContextKind
 }
@@ -57,10 +67,10 @@ trait Context {
   def kind : ContextKind
 
   // The namespace of the context.
-  def namespace : String
+  def namespace : Namespace
   
   // The namespaces that were used to create this (or its ancestor) context.
-  def parentNamespaces : Set[String]
+  def parentNamespaces : Set[Namespace]
 
   // The immediate parent context of this context.
   def parentContext : Option[Context]
@@ -139,18 +149,18 @@ trait Context {
 
 trait Kernel {
   
-  def completedNamespaces : Set[String]
+  def completedNamespaces : Set[Namespace]
   
-  def contextOfNamespace(namespace : String) : Option[Context]
+  def contextOfNamespace(namespace : Namespace) : Option[Context]
   
-  def createNewNamespace(namespace : String, parents : Set[String]) : Context
+  def createNewNamespace(namespace : Namespace, parents : Set[Namespace]) : Context
   
   def completeNamespace(context : Context) : Context
   
 }
 
 object Kernel {
-  val root_namespace = "root"
+  val root_namespace = new Namespace("root")
   def rootname(name : String) = Name(Some(root_namespace), IndexedName(name, None))
   
   // names which are essential to the kernel

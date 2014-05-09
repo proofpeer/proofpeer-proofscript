@@ -245,7 +245,7 @@ object KernelUtils {
   def alpha_equivalent(u : Term, v : Term) : Boolean = {
     if (u == v) return true
     incIndex(maxIndex(findHighestVarIndex(u), findHighestVarIndex(v))) match {
-      case None => println("NOT ALPHA, STRANGE!!!!"); false
+      case None => false
       case Some(freshIndex) => alpha_equivalent(u, Map(), v, Map(), freshIndex)
     }
   }

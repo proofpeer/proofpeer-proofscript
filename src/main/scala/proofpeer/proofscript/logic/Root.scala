@@ -117,7 +117,7 @@ object Root {
 		import Type._
 		val c = context.introduce(Name(None, IndexedName("x", None)), Universe)
 		val r = parse(c, "y ↦ x y")
-		val s = Abs(IndexedName("x",None),Universe,Comb(Comb(Const(Name(Some("root"),IndexedName("apply",None))),Const(Name(None,IndexedName("x",None)))),Var(IndexedName("x",None))))
+		val s = Abs(IndexedName("x",None),Universe,Comb(Comb(Const(Name(Some(new Namespace("root")),IndexedName("apply",None))),Const(Name(None,IndexedName("x",None)))),Var(IndexedName("x",None))))
 		println("s = "+checkPrinting(c, s))
 		val th_r = c.reflexive(r)
 		val th_s = c.reflexive(s)
@@ -159,7 +159,9 @@ object Root {
 	  test("∀ X, f, x ∈ X. fun X f x = f x")
 	  test("A, p ↦ {x | x ∈ A. p x}")
 	  test("∀ X f x. fun X f x = f x")
-	  test("∀ X ∀ f ∀ x ∈ X. fun X f x = f x")	  
+	  test("∀ X ∀ f ∀ x ∈ X. fun X f x = f x")	 
+	  test("root\\forallin") 
+	  test("Root\\forallin") 
 	  testScope()
 	}
 

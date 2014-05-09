@@ -153,7 +153,7 @@ object TermSyntax {
     } else {
       val namespace = if (index == 0) "\\" else s.substring(0, index)
       val indexedname = parseIndexedName(s.substring(index + 1))
-      Name(Some(namespace), indexedname)
+      Name(Some(new Namespace(namespace)), indexedname)
     }
   }
    
@@ -480,7 +480,7 @@ object TermSyntax {
         case Some(n) if n == name => printName(name.name)
         case _ => printName(name)
       }
-    } else printName(name) 
+    } else printName(name)
   }
 
   private def printTerm(nameRes : NameResolution.Resolution, vars : Set[IndexedName], tm : Term) : String = {

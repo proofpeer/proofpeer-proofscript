@@ -36,7 +36,7 @@ class NameResolution(kernel : Kernel, localNames : Context => Set[Name]) {
 		m
 	}
 
-	private var resolutions : Map[String, Resolution] = Map()
+	private var resolutions : Map[Namespace, Resolution] = Map()
 
 	private def computeBaseResolution(context : Context) : Resolution = {
 		var r : ResolutionWithConflicts = Map()
@@ -46,7 +46,7 @@ class NameResolution(kernel : Kernel, localNames : Context => Set[Name]) {
 		removeConflicts(r)
 	}
 
-	private def resolveCompletedNamespace(namespace : String) : Resolution = {
+	private def resolveCompletedNamespace(namespace : Namespace) : Resolution = {
 		resolutions.get(namespace) match {
 		  case Some(r) => r
 			case None =>
