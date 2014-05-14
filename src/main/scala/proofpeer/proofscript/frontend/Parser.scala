@@ -165,6 +165,14 @@ val x ≔ 3 * (do
   parse("3 + 'A, p ↦ {x | x ∈ A. p x}'")
 
   parse("3 + 'A, p ↦ {x | x ∈ A. p x ∧ «q» x}'")
+
+  parse("""
+match x 
+case '{ «q» x | x ∈ A. x = «3»}' ⇒ 2
+case 2 ⇒ 3
+case y ⇒ y + 2
+      """) 
+
    
 }  
   

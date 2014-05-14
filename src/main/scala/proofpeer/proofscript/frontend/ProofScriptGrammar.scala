@@ -101,7 +101,7 @@ val g_expr =
       c => ControlFlowExpr(c.ControlFlowExpr.resultAs[ControlFlow])) ++
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
-  arule("PrimitiveExpr", "Apostrophe PrefixTerm Apostrophe", c => LogicTerm(c.PrefixTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
+  arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
   arule("OrExpr", "AndExpr", _.AndExpr.result) ++
@@ -259,6 +259,7 @@ val g_pattern =
   arule("Pattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
   arule("Pattern", "ScriptTrue", c => PBool(true)) ++
   arule("Pattern", "ScriptFalse", c => PBool(false)) ++
+  arule("Pattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
   arule("OptPattern", "", c => None) ++
   arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern]))
 
@@ -317,7 +318,8 @@ val g_prog =
   g_expr ++
   g_statement ++
   g_controlflow ++
-  arule("PrefixQuotedTerm", "Block", _.Block.result) ++
+  arule("ValueQuotedTerm", "Block", _.Block.result) ++
+  arule("PatternQuotedTerm", "Pattern", _.Pattern.result) ++
   arule("Prog", "Block", _.Block.result)
 
 }

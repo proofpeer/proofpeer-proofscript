@@ -309,10 +309,172 @@ object Syntax {
     rule("PrefixTermList", "PrefixTermList Comma PrefixTerm", c => c.PrefixTerm.resultAs[Preterm] :: c.PrefixTermList.resultAs[List[Preterm]]) ++
     rule("PrefixTerm", "PrefixAbsTerm", _.PrefixAbsTerm.result)
 
+val g_Value_term = 
+    rule("ValueNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
+    rule("ValueNameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
+    rule("ValueSetComprehensionTerm", "CurlyBracketOpen ValueTerm Bar ValueBindings CurlyBracketClose", 
+      c => pTmSetComprehension(c.ValueBindings.resultAs[List[Binding]], c.ValueTerm.resultAs[Preterm], None)) ++
+    rule("ValueSetComprehensionTerm", "CurlyBracketOpen ValueTerm_1 Bar ValueBindings Dot ValueTerm_2 CurlyBracketClose",  
+      c => pTmSetComprehension(c.ValueBindings.resultAs[List[Binding]], c.ValueTerm_1.resultAs[Preterm], Some(c.ValueTerm_2.resultAs[Preterm]))) ++ 
+    rule("ValueConcreteSetTerm", "CurlyBracketOpen ValueTermList CurlyBracketClose", c => pTmSet(c.ValueTermList.resultAs[List[Preterm]])) ++
+    rule("ValueConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
+    rule("ValueAtomicTerm", "ValueNameTerm", _.ValueNameTerm.result) ++
+    rule("ValueAtomicTerm", "RoundBracketOpen ValueTermList RoundBracketClose", c => pTmTuple(c.ValueTermList.resultAs[List[Preterm]])) ++
+    rule("ValueAtomicTerm", "ValueSetComprehensionTerm", _.ValueSetComprehensionTerm.result) ++
+    rule("ValueAtomicTerm", "ValueConcreteSetTerm", _.ValueConcreteSetTerm.result) ++    
+    rule("ValueAtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
+    rule("ValueAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
+    rule("ValueAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
+    rule("ValueAtomicTerm", "QuoteOpen ValueQuotedTerm QuoteClose", c => pTmQuote(c.ValueQuotedTerm.result)) ++
+    rule("ValueCombTerm", "ValueAtomicTerm", _.ValueAtomicTerm.result) ++
+    rule("ValueCombTerm", "ValueCombTerm ValueAtomicTerm", 
+      c => PTmComb(c.ValueCombTerm.resultAs[Preterm], c.ValueAtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
+    rule("ValuePureBinding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
+    rule("ValueAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
+    rule("ValueAnnotatedBinding", "IndexedName Elem ValueTerm", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.ValueTerm.resultAs[Preterm])))) ++ 
+    rule("ValueBinding", "ValuePureBinding", _.ValuePureBinding.result) ++
+    rule("ValueBinding", "ValueAnnotatedBinding", _.ValueAnnotatedBinding.result) ++    
+    rule("ValuePureBindings", "ValuePureBinding", c => List(c.ValuePureBinding.resultAs[Binding])) ++
+    rule("ValuePureBindings", "ValuePureBindings ValuePureBinding", c => c.ValuePureBinding.resultAs[Binding] :: c.ValuePureBindings.resultAs[List[Binding]]) ++ 
+    rule("ValueBindings", "ValuePureBindings", _.ValuePureBindings.result) ++
+    rule("ValueBindings", "ValueAnnotatedBinding", c => List(c.ValueAnnotatedBinding.resultAs[Binding])) ++
+    rule("ValueBindings", "ValueBindings Comma ValueBinding", c => c.ValueBinding.resultAs[Binding] :: c.ValueBindings.resultAs[List[Binding]]) ++ 
+    rule("ValueSetUnaryOpTerm", "ValueCombTerm", _.ValueCombTerm.result) ++
+    rule("ValueSetUnaryOpTerm", "Powerset ValueSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.ValueSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("ValueSetUnaryOpTerm", "SetBigUnion ValueSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigunion, c.ValueSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("ValueSetUnaryOpTerm", "SetBigIntersection ValueSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigintersection, c.ValueSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("ValueSetIntersectionTerm", "ValueSetUnaryOpTerm", _.ValueSetUnaryOpTerm.result) ++
+    rule("ValueSetIntersectionTerm", "ValueSetIntersectionTerm SetIntersection ValueSetUnaryOpTerm",
+      c => pTmBinaryOp(Kernel.set_intersection, c.ValueSetIntersectionTerm.resultAs[Preterm], c.ValueSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("ValueSetUnionTerm", "ValueSetIntersectionTerm", _.ValueSetIntersectionTerm.result) ++
+    rule("ValueSetUnionTerm", "ValueSetUnionTerm SetUnion ValueSetIntersectionTerm",
+      c => pTmBinaryOp(Kernel.set_union, c.ValueSetUnionTerm.resultAs[Preterm], c.ValueSetIntersectionTerm.resultAs[Preterm])) ++
+    rule("ValueSetDiffTerm", "ValueSetUnionTerm", _.ValueSetUnionTerm.result) ++
+    rule("ValueSetDiffTerm", "ValueSetDiffTerm SetDiff ValueSetUnionTerm", 
+      c => pTmBinaryOp(Kernel.set_difference, c.ValueSetDiffTerm.resultAs[Preterm], c.ValueSetUnionTerm.resultAs[Preterm])) ++
+    rule("ValueSetTerm", "ValueSetDiffTerm", _.ValueSetDiffTerm.result) ++
+    rule("ValueSetBinaryRelationTerm", "ValueSetTerm", _.ValueSetTerm.result) ++
+    rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 Elem ValueSetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_elementOf, c.ValueSetTerm_1.resultAs[Preterm], c.ValueSetTerm_2.resultAs[Preterm])) ++
+    rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 NotElem ValueSetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_elementOf, c.ValueSetTerm_1.resultAs[Preterm], c.ValueSetTerm_2.resultAs[Preterm]))) ++    
+    rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 Subset ValueSetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_subsetOf, c.ValueSetTerm_1.resultAs[Preterm], c.ValueSetTerm_2.resultAs[Preterm])) ++
+    rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 NotSubset ValueSetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.ValueSetTerm_1.resultAs[Preterm], c.ValueSetTerm_2.resultAs[Preterm]))) ++    
+    rule("ValueTypedTerm", "ValueSetBinaryRelationTerm", _.ValueSetBinaryRelationTerm.result) ++
+    rule("ValueTypedTerm", "ValueTypedTerm Colon Type", c => PTmTyping(c.ValueTypedTerm.resultAs[Preterm], c.Type.resultAs[Pretype])) ++
+    rule("ValueEqTerm", "ValueTypedTerm", _.ValueTypedTerm.result) ++
+    rule("ValueEqTerm", "ValueTypedTerm_1 Eq ValueTypedTerm_2", c => pTmEquals(c.ValueTypedTerm_1.resultAs[Preterm], c.ValueTypedTerm_2.resultAs[Preterm])) ++
+    rule("ValueEqTerm", "ValueTypedTerm_1 NotEq ValueTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.ValueTypedTerm_1.resultAs[Preterm], c.ValueTypedTerm_2.resultAs[Preterm]))) ++
+    rule("ValueNotTerm", "Not ValueNotTerm", c => pTmUnaryOp(Kernel.logical_not, c.ValueNotTerm.resultAs[Preterm])) ++
+    rule("ValueNotTerm", "ValueEqTerm", _.ValueEqTerm.result) ++
+    rule("ValueAndTerm", "ValueAndTerm And ValueNotTerm", c => pTmBinaryOp(Kernel.logical_and, c.ValueAndTerm.resultAs[Preterm], c.ValueNotTerm.resultAs[Preterm])) ++
+    rule("ValueAndTerm", "ValueNotTerm", _.ValueNotTerm.result) ++
+    rule("ValueOrTerm", "ValueOrTerm Or ValueAndTerm", c => pTmBinaryOp(Kernel.logical_or, c.ValueOrTerm.resultAs[Preterm], c.ValueAndTerm.resultAs[Preterm])) ++
+    rule("ValueOrTerm", "ValueAndTerm", _.ValueAndTerm.result) ++
+    rule("ValueImpliesTerm", "ValueOrTerm RightArrow ValueImpliesTerm", c => pTmBinaryOp(Kernel.implies, c.ValueOrTerm.resultAs[Preterm], c.ValueImpliesTerm.resultAs[Preterm])) ++
+    rule("ValueImpliesTerm", "ValueOrTerm", _.ValueOrTerm.result) ++
+    rule("ValuePropTerm", "ValueImpliesTerm", _.ValueImpliesTerm.result) ++
+    rule("ValueAbsTerm", "ValuePropTerm", _.ValuePropTerm.result) ++
+    rule("ValueAbsTerm", "ValueQuantifierTerm", _.ValueQuantifierTerm.result) ++
+    rule("ValueQuantifierTerm", "Forall ValueBindings ValueQuantifierTerm", c => pTmForall(c.ValueBindings.resultAs[List[Binding]], c.ValueQuantifierTerm.resultAs[Preterm])) ++
+    rule("ValueQuantifierTerm", "Exists ValueBindings ValueQuantifierTerm", c => pTmExists(c.ValueBindings.resultAs[List[Binding]], c.ValueQuantifierTerm.resultAs[Preterm])) ++
+    rule("ValueQuantifierTerm", "NotExists ValueBindings ValueQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.ValueBindings.resultAs[List[Binding]], c.ValueQuantifierTerm.resultAs[Preterm]))) ++
+    rule("ValueQuantifierTerm", "Forall ValueBindings Dot ValueAbsTerm", c => pTmForall(c.ValueBindings.resultAs[List[Binding]], c.ValueAbsTerm.resultAs[Preterm])) ++
+    rule("ValueQuantifierTerm", "Exists ValueBindings Dot ValueAbsTerm", c => pTmExists(c.ValueBindings.resultAs[List[Binding]], c.ValueAbsTerm.resultAs[Preterm])) ++
+    rule("ValueQuantifierTerm", "NotExists ValueBindings Dot ValueAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.ValueBindings.resultAs[List[Binding]], c.ValueAbsTerm.resultAs[Preterm]))) ++
+    rule("ValueAbsTerm", "ValueBindings MapsTo ValueAbsTerm", c => pTmAbs(c.ValueBindings.resultAs[List[Binding]], c.ValueAbsTerm.resultAs[Preterm])) ++
+    rule("ValueTermList", "ValueTerm", c => List(c.ValueTerm.resultAs[Preterm])) ++
+    rule("ValueTermList", "ValueTermList Comma ValueTerm", c => c.ValueTerm.resultAs[Preterm] :: c.ValueTermList.resultAs[List[Preterm]]) ++
+    rule("ValueTerm", "ValueAbsTerm", _.ValueAbsTerm.result)
+
+val g_Pattern_term = 
+    rule("PatternNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
+    rule("PatternNameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
+    rule("PatternSetComprehensionTerm", "CurlyBracketOpen PatternTerm Bar PatternBindings CurlyBracketClose", 
+      c => pTmSetComprehension(c.PatternBindings.resultAs[List[Binding]], c.PatternTerm.resultAs[Preterm], None)) ++
+    rule("PatternSetComprehensionTerm", "CurlyBracketOpen PatternTerm_1 Bar PatternBindings Dot PatternTerm_2 CurlyBracketClose",  
+      c => pTmSetComprehension(c.PatternBindings.resultAs[List[Binding]], c.PatternTerm_1.resultAs[Preterm], Some(c.PatternTerm_2.resultAs[Preterm]))) ++ 
+    rule("PatternConcreteSetTerm", "CurlyBracketOpen PatternTermList CurlyBracketClose", c => pTmSet(c.PatternTermList.resultAs[List[Preterm]])) ++
+    rule("PatternConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
+    rule("PatternAtomicTerm", "PatternNameTerm", _.PatternNameTerm.result) ++
+    rule("PatternAtomicTerm", "RoundBracketOpen PatternTermList RoundBracketClose", c => pTmTuple(c.PatternTermList.resultAs[List[Preterm]])) ++
+    rule("PatternAtomicTerm", "PatternSetComprehensionTerm", _.PatternSetComprehensionTerm.result) ++
+    rule("PatternAtomicTerm", "PatternConcreteSetTerm", _.PatternConcreteSetTerm.result) ++    
+    rule("PatternAtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
+    rule("PatternAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
+    rule("PatternAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
+    rule("PatternAtomicTerm", "QuoteOpen PatternQuotedTerm QuoteClose", c => pTmQuote(c.PatternQuotedTerm.result)) ++
+    rule("PatternCombTerm", "PatternAtomicTerm", _.PatternAtomicTerm.result) ++
+    rule("PatternCombTerm", "PatternCombTerm PatternAtomicTerm", 
+      c => PTmComb(c.PatternCombTerm.resultAs[Preterm], c.PatternAtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
+    rule("PatternPureBinding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
+    rule("PatternAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
+    rule("PatternAnnotatedBinding", "IndexedName Elem PatternTerm", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.PatternTerm.resultAs[Preterm])))) ++ 
+    rule("PatternBinding", "PatternPureBinding", _.PatternPureBinding.result) ++
+    rule("PatternBinding", "PatternAnnotatedBinding", _.PatternAnnotatedBinding.result) ++    
+    rule("PatternPureBindings", "PatternPureBinding", c => List(c.PatternPureBinding.resultAs[Binding])) ++
+    rule("PatternPureBindings", "PatternPureBindings PatternPureBinding", c => c.PatternPureBinding.resultAs[Binding] :: c.PatternPureBindings.resultAs[List[Binding]]) ++ 
+    rule("PatternBindings", "PatternPureBindings", _.PatternPureBindings.result) ++
+    rule("PatternBindings", "PatternAnnotatedBinding", c => List(c.PatternAnnotatedBinding.resultAs[Binding])) ++
+    rule("PatternBindings", "PatternBindings Comma PatternBinding", c => c.PatternBinding.resultAs[Binding] :: c.PatternBindings.resultAs[List[Binding]]) ++ 
+    rule("PatternSetUnaryOpTerm", "PatternCombTerm", _.PatternCombTerm.result) ++
+    rule("PatternSetUnaryOpTerm", "Powerset PatternSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.PatternSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PatternSetUnaryOpTerm", "SetBigUnion PatternSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigunion, c.PatternSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PatternSetUnaryOpTerm", "SetBigIntersection PatternSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigintersection, c.PatternSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PatternSetIntersectionTerm", "PatternSetUnaryOpTerm", _.PatternSetUnaryOpTerm.result) ++
+    rule("PatternSetIntersectionTerm", "PatternSetIntersectionTerm SetIntersection PatternSetUnaryOpTerm",
+      c => pTmBinaryOp(Kernel.set_intersection, c.PatternSetIntersectionTerm.resultAs[Preterm], c.PatternSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PatternSetUnionTerm", "PatternSetIntersectionTerm", _.PatternSetIntersectionTerm.result) ++
+    rule("PatternSetUnionTerm", "PatternSetUnionTerm SetUnion PatternSetIntersectionTerm",
+      c => pTmBinaryOp(Kernel.set_union, c.PatternSetUnionTerm.resultAs[Preterm], c.PatternSetIntersectionTerm.resultAs[Preterm])) ++
+    rule("PatternSetDiffTerm", "PatternSetUnionTerm", _.PatternSetUnionTerm.result) ++
+    rule("PatternSetDiffTerm", "PatternSetDiffTerm SetDiff PatternSetUnionTerm", 
+      c => pTmBinaryOp(Kernel.set_difference, c.PatternSetDiffTerm.resultAs[Preterm], c.PatternSetUnionTerm.resultAs[Preterm])) ++
+    rule("PatternSetTerm", "PatternSetDiffTerm", _.PatternSetDiffTerm.result) ++
+    rule("PatternSetBinaryRelationTerm", "PatternSetTerm", _.PatternSetTerm.result) ++
+    rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 Elem PatternSetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_elementOf, c.PatternSetTerm_1.resultAs[Preterm], c.PatternSetTerm_2.resultAs[Preterm])) ++
+    rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 NotElem PatternSetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_elementOf, c.PatternSetTerm_1.resultAs[Preterm], c.PatternSetTerm_2.resultAs[Preterm]))) ++    
+    rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 Subset PatternSetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_subsetOf, c.PatternSetTerm_1.resultAs[Preterm], c.PatternSetTerm_2.resultAs[Preterm])) ++
+    rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 NotSubset PatternSetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.PatternSetTerm_1.resultAs[Preterm], c.PatternSetTerm_2.resultAs[Preterm]))) ++    
+    rule("PatternTypedTerm", "PatternSetBinaryRelationTerm", _.PatternSetBinaryRelationTerm.result) ++
+    rule("PatternTypedTerm", "PatternTypedTerm Colon Type", c => PTmTyping(c.PatternTypedTerm.resultAs[Preterm], c.Type.resultAs[Pretype])) ++
+    rule("PatternEqTerm", "PatternTypedTerm", _.PatternTypedTerm.result) ++
+    rule("PatternEqTerm", "PatternTypedTerm_1 Eq PatternTypedTerm_2", c => pTmEquals(c.PatternTypedTerm_1.resultAs[Preterm], c.PatternTypedTerm_2.resultAs[Preterm])) ++
+    rule("PatternEqTerm", "PatternTypedTerm_1 NotEq PatternTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.PatternTypedTerm_1.resultAs[Preterm], c.PatternTypedTerm_2.resultAs[Preterm]))) ++
+    rule("PatternNotTerm", "Not PatternNotTerm", c => pTmUnaryOp(Kernel.logical_not, c.PatternNotTerm.resultAs[Preterm])) ++
+    rule("PatternNotTerm", "PatternEqTerm", _.PatternEqTerm.result) ++
+    rule("PatternAndTerm", "PatternAndTerm And PatternNotTerm", c => pTmBinaryOp(Kernel.logical_and, c.PatternAndTerm.resultAs[Preterm], c.PatternNotTerm.resultAs[Preterm])) ++
+    rule("PatternAndTerm", "PatternNotTerm", _.PatternNotTerm.result) ++
+    rule("PatternOrTerm", "PatternOrTerm Or PatternAndTerm", c => pTmBinaryOp(Kernel.logical_or, c.PatternOrTerm.resultAs[Preterm], c.PatternAndTerm.resultAs[Preterm])) ++
+    rule("PatternOrTerm", "PatternAndTerm", _.PatternAndTerm.result) ++
+    rule("PatternImpliesTerm", "PatternOrTerm RightArrow PatternImpliesTerm", c => pTmBinaryOp(Kernel.implies, c.PatternOrTerm.resultAs[Preterm], c.PatternImpliesTerm.resultAs[Preterm])) ++
+    rule("PatternImpliesTerm", "PatternOrTerm", _.PatternOrTerm.result) ++
+    rule("PatternPropTerm", "PatternImpliesTerm", _.PatternImpliesTerm.result) ++
+    rule("PatternAbsTerm", "PatternPropTerm", _.PatternPropTerm.result) ++
+    rule("PatternAbsTerm", "PatternQuantifierTerm", _.PatternQuantifierTerm.result) ++
+    rule("PatternQuantifierTerm", "Forall PatternBindings PatternQuantifierTerm", c => pTmForall(c.PatternBindings.resultAs[List[Binding]], c.PatternQuantifierTerm.resultAs[Preterm])) ++
+    rule("PatternQuantifierTerm", "Exists PatternBindings PatternQuantifierTerm", c => pTmExists(c.PatternBindings.resultAs[List[Binding]], c.PatternQuantifierTerm.resultAs[Preterm])) ++
+    rule("PatternQuantifierTerm", "NotExists PatternBindings PatternQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PatternBindings.resultAs[List[Binding]], c.PatternQuantifierTerm.resultAs[Preterm]))) ++
+    rule("PatternQuantifierTerm", "Forall PatternBindings Dot PatternAbsTerm", c => pTmForall(c.PatternBindings.resultAs[List[Binding]], c.PatternAbsTerm.resultAs[Preterm])) ++
+    rule("PatternQuantifierTerm", "Exists PatternBindings Dot PatternAbsTerm", c => pTmExists(c.PatternBindings.resultAs[List[Binding]], c.PatternAbsTerm.resultAs[Preterm])) ++
+    rule("PatternQuantifierTerm", "NotExists PatternBindings Dot PatternAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PatternBindings.resultAs[List[Binding]], c.PatternAbsTerm.resultAs[Preterm]))) ++
+    rule("PatternAbsTerm", "PatternBindings MapsTo PatternAbsTerm", c => pTmAbs(c.PatternBindings.resultAs[List[Binding]], c.PatternAbsTerm.resultAs[Preterm])) ++
+    rule("PatternTermList", "PatternTerm", c => List(c.PatternTerm.resultAs[Preterm])) ++
+    rule("PatternTermList", "PatternTermList Comma PatternTerm", c => c.PatternTerm.resultAs[Preterm] :: c.PatternTermList.resultAs[List[Preterm]]) ++
+    rule("PatternTerm", "PatternAbsTerm", _.PatternAbsTerm.result)
+
+
   def grammar = 
     literals ++
     g_type ++
-    g_Prefix_term
+    g_Value_term ++
+    g_Pattern_term
  
   def parse(g_prog : Grammar, nonterminal : Nonterminal, input : String) {
     if (!g_prog.info.wellformed) {
@@ -342,7 +504,7 @@ object Syntax {
   def parsePreterm(input : String) : Option[Preterm] = {
     if (!grammar.info.wellformed) Utils.failwith("Syntax.grammar is not wellformed")
     val d = UnicodeDocument.fromString(input)
-    grammar.parser.parse(d, "PrefixTerm", 0) match {
+    grammar.parser.parse(d, "ValueTerm", 0) match {
       case None => None
       case Some((v, i)) =>
         if (v.isUnique && i == d.size) {

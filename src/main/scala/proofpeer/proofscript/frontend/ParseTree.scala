@@ -151,6 +151,22 @@ object ParseTree {
   case class PBool(value : Boolean) extends Pattern {
     protected def calcVars = (Set(), Set())      
   }
+
+  case class PLogic(tm : Preterm) extends Pattern {
+    protected def calcVars = {
+      var frees : Set[String] = Set()
+      var intros : Set[String] = Set()
+      for (q <- Preterm.listQuotes(tm)) {
+        q.quoted match {
+          case p : ParseTree => 
+            frees = frees ++ p.freeVars
+            intros = intros ++ p.introVars
+          case _ => 
+        }
+      }
+      (frees, intros)
+    }
+  }
   
   sealed trait Statement extends ParseTree
   
