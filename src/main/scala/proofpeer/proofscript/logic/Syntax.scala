@@ -229,91 +229,91 @@ object Syntax {
     rule("Type", "AtomicType", _.AtomicType.result) ++
     rule("Type", "AtomicType RightArrow Type", c => PTyFun(c.AtomicType.resultAs[Pretype], c.Type.resultAs[Pretype]))
     
-  val g_term = 
-    rule("NameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
-    rule("NameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
-    rule("SetComprehensionTerm", "CurlyBracketOpen Term Bar Bindings CurlyBracketClose", 
-      c => pTmSetComprehension(c.Bindings.resultAs[List[Binding]], c.Term.resultAs[Preterm], None)) ++
-    rule("SetComprehensionTerm", "CurlyBracketOpen Term_1 Bar Bindings Dot Term_2 CurlyBracketClose",  
-      c => pTmSetComprehension(c.Bindings.resultAs[List[Binding]], c.Term_1.resultAs[Preterm], Some(c.Term_2.resultAs[Preterm]))) ++ 
-    rule("ConcreteSetTerm", "CurlyBracketOpen TermList CurlyBracketClose", c => pTmSet(c.TermList.resultAs[List[Preterm]])) ++
-    rule("ConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
-    rule("AtomicTerm", "NameTerm", _.NameTerm.result) ++
-    rule("AtomicTerm", "RoundBracketOpen TermList RoundBracketClose", c => pTmTuple(c.TermList.resultAs[List[Preterm]])) ++
-    rule("AtomicTerm", "SetComprehensionTerm", _.SetComprehensionTerm.result) ++
-    rule("AtomicTerm", "ConcreteSetTerm", _.ConcreteSetTerm.result) ++    
-    rule("AtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
-    rule("AtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
-    rule("AtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
-    rule("AtomicTerm", "QuoteOpen QuotedTerm QuoteClose", c => pTmQuote(c.QuotedTerm.result)) ++
-    rule("CombTerm", "AtomicTerm", _.AtomicTerm.result) ++
-    rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
-    rule("PureBinding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
-    rule("AnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
-    rule("AnnotatedBinding", "IndexedName Elem Term", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.Term.resultAs[Preterm])))) ++ 
-    rule("Binding", "PureBinding", _.PureBinding.result) ++
-    rule("Binding", "AnnotatedBinding", _.AnnotatedBinding.result) ++    
-    rule("PureBindings", "PureBinding", c => List(c.PureBinding.resultAs[Binding])) ++
-    rule("PureBindings", "PureBindings PureBinding", c => c.PureBinding.resultAs[Binding] :: c.PureBindings.resultAs[List[Binding]]) ++ 
-    rule("Bindings", "PureBindings", _.PureBindings.result) ++
-    rule("Bindings", "AnnotatedBinding", c => List(c.AnnotatedBinding.resultAs[Binding])) ++
-    rule("Bindings", "Bindings Comma Binding", c => c.Binding.resultAs[Binding] :: c.Bindings.resultAs[List[Binding]]) ++ 
-    rule("SetUnaryOpTerm", "CombTerm", _.CombTerm.result) ++
-    rule("SetUnaryOpTerm", "Powerset SetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.SetUnaryOpTerm.resultAs[Preterm])) ++
-    rule("SetUnaryOpTerm", "SetBigUnion SetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigunion, c.SetUnaryOpTerm.resultAs[Preterm])) ++
-    rule("SetUnaryOpTerm", "SetBigIntersection SetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigintersection, c.SetUnaryOpTerm.resultAs[Preterm])) ++
-    rule("SetIntersectionTerm", "SetUnaryOpTerm", _.SetUnaryOpTerm.result) ++
-    rule("SetIntersectionTerm", "SetIntersectionTerm SetIntersection SetUnaryOpTerm",
-      c => pTmBinaryOp(Kernel.set_intersection, c.SetIntersectionTerm.resultAs[Preterm], c.SetUnaryOpTerm.resultAs[Preterm])) ++
-    rule("SetUnionTerm", "SetIntersectionTerm", _.SetIntersectionTerm.result) ++
-    rule("SetUnionTerm", "SetUnionTerm SetUnion SetIntersectionTerm",
-      c => pTmBinaryOp(Kernel.set_union, c.SetUnionTerm.resultAs[Preterm], c.SetIntersectionTerm.resultAs[Preterm])) ++
-    rule("SetDiffTerm", "SetUnionTerm", _.SetUnionTerm.result) ++
-    rule("SetDiffTerm", "SetDiffTerm SetDiff SetUnionTerm", 
-      c => pTmBinaryOp(Kernel.set_difference, c.SetDiffTerm.resultAs[Preterm], c.SetUnionTerm.resultAs[Preterm])) ++
-    rule("SetTerm", "SetDiffTerm", _.SetDiffTerm.result) ++
-    rule("SetBinaryRelationTerm", "SetTerm", _.SetTerm.result) ++
-    rule("SetBinaryRelationTerm", "SetTerm_1 Elem SetTerm_2", 
-      c => pTmBinaryOp(Kernel.set_elementOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm])) ++
-    rule("SetBinaryRelationTerm", "SetTerm_1 NotElem SetTerm_2", 
-      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_elementOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm]))) ++    
-    rule("SetBinaryRelationTerm", "SetTerm_1 Subset SetTerm_2", 
-      c => pTmBinaryOp(Kernel.set_subsetOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm])) ++
-    rule("SetBinaryRelationTerm", "SetTerm_1 NotSubset SetTerm_2", 
-      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.SetTerm_1.resultAs[Preterm], c.SetTerm_2.resultAs[Preterm]))) ++    
-    rule("TypedTerm", "SetBinaryRelationTerm", _.SetBinaryRelationTerm.result) ++
-    rule("TypedTerm", "TypedTerm Colon Type", c => PTmTyping(c.TypedTerm.resultAs[Preterm], c.Type.resultAs[Pretype])) ++
-    rule("EqTerm", "TypedTerm", _.TypedTerm.result) ++
-    rule("EqTerm", "TypedTerm_1 Eq TypedTerm_2", c => pTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm])) ++
-    rule("EqTerm", "TypedTerm_1 NotEq TypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.TypedTerm_1.resultAs[Preterm], c.TypedTerm_2.resultAs[Preterm]))) ++
-    rule("NotTerm", "Not NotTerm", c => pTmUnaryOp(Kernel.logical_not, c.NotTerm.resultAs[Preterm])) ++
-    rule("NotTerm", "EqTerm", _.EqTerm.result) ++
-    rule("AndTerm", "AndTerm And NotTerm", c => pTmBinaryOp(Kernel.logical_and, c.AndTerm.resultAs[Preterm], c.NotTerm.resultAs[Preterm])) ++
-    rule("AndTerm", "NotTerm", _.NotTerm.result) ++
-    rule("OrTerm", "OrTerm Or AndTerm", c => pTmBinaryOp(Kernel.logical_or, c.OrTerm.resultAs[Preterm], c.AndTerm.resultAs[Preterm])) ++
-    rule("OrTerm", "AndTerm", _.AndTerm.result) ++
-    rule("ImpliesTerm", "OrTerm RightArrow ImpliesTerm", c => pTmBinaryOp(Kernel.implies, c.OrTerm.resultAs[Preterm], c.ImpliesTerm.resultAs[Preterm])) ++
-    rule("ImpliesTerm", "OrTerm", _.OrTerm.result) ++
-    rule("PropTerm", "ImpliesTerm", _.ImpliesTerm.result) ++
-    rule("AbsTerm", "PropTerm", _.PropTerm.result) ++
-    rule("AbsTerm", "QuantifierTerm", _.QuantifierTerm.result) ++
-    rule("QuantifierTerm", "Forall Bindings QuantifierTerm", c => pTmForall(c.Bindings.resultAs[List[Binding]], c.QuantifierTerm.resultAs[Preterm])) ++
-    rule("QuantifierTerm", "Exists Bindings QuantifierTerm", c => pTmExists(c.Bindings.resultAs[List[Binding]], c.QuantifierTerm.resultAs[Preterm])) ++
-    rule("QuantifierTerm", "NotExists Bindings QuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.Bindings.resultAs[List[Binding]], c.QuantifierTerm.resultAs[Preterm]))) ++
-    rule("QuantifierTerm", "Forall Bindings Dot AbsTerm", c => pTmForall(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
-    rule("QuantifierTerm", "Exists Bindings Dot AbsTerm", c => pTmExists(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
-    rule("QuantifierTerm", "NotExists Bindings Dot AbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm]))) ++
-    rule("AbsTerm", "Bindings MapsTo AbsTerm", c => pTmAbs(c.Bindings.resultAs[List[Binding]], c.AbsTerm.resultAs[Preterm])) ++
-    rule("TermList", "Term", c => List(c.Term.resultAs[Preterm])) ++
-    rule("TermList", "TermList Comma Term", c => c.Term.resultAs[Preterm] :: c.TermList.resultAs[List[Preterm]]) ++
-    rule("Term", "AbsTerm", _.AbsTerm.result)
+  val g_Prefix_term = 
+    rule("PrefixNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
+    rule("PrefixNameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
+    rule("PrefixSetComprehensionTerm", "CurlyBracketOpen PrefixTerm Bar PrefixBindings CurlyBracketClose", 
+      c => pTmSetComprehension(c.PrefixBindings.resultAs[List[Binding]], c.PrefixTerm.resultAs[Preterm], None)) ++
+    rule("PrefixSetComprehensionTerm", "CurlyBracketOpen PrefixTerm_1 Bar PrefixBindings Dot PrefixTerm_2 CurlyBracketClose",  
+      c => pTmSetComprehension(c.PrefixBindings.resultAs[List[Binding]], c.PrefixTerm_1.resultAs[Preterm], Some(c.PrefixTerm_2.resultAs[Preterm]))) ++ 
+    rule("PrefixConcreteSetTerm", "CurlyBracketOpen PrefixTermList CurlyBracketClose", c => pTmSet(c.PrefixTermList.resultAs[List[Preterm]])) ++
+    rule("PrefixConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
+    rule("PrefixAtomicTerm", "PrefixNameTerm", _.PrefixNameTerm.result) ++
+    rule("PrefixAtomicTerm", "RoundBracketOpen PrefixTermList RoundBracketClose", c => pTmTuple(c.PrefixTermList.resultAs[List[Preterm]])) ++
+    rule("PrefixAtomicTerm", "PrefixSetComprehensionTerm", _.PrefixSetComprehensionTerm.result) ++
+    rule("PrefixAtomicTerm", "PrefixConcreteSetTerm", _.PrefixConcreteSetTerm.result) ++    
+    rule("PrefixAtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
+    rule("PrefixAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
+    rule("PrefixAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
+    rule("PrefixAtomicTerm", "QuoteOpen PrefixQuotedTerm QuoteClose", c => pTmQuote(c.PrefixQuotedTerm.result)) ++
+    rule("PrefixCombTerm", "PrefixAtomicTerm", _.PrefixAtomicTerm.result) ++
+    rule("PrefixCombTerm", "PrefixCombTerm PrefixAtomicTerm", 
+      c => PTmComb(c.PrefixCombTerm.resultAs[Preterm], c.PrefixAtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
+    rule("PrefixPureBinding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
+    rule("PrefixAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.IndexedName.text), Some(TypeDomain(c.Type.resultAs[Pretype])))) ++    
+    rule("PrefixAnnotatedBinding", "IndexedName Elem PrefixTerm", c => Binding(parseIndexedName(c.IndexedName.text), Some(SetDomain(c.PrefixTerm.resultAs[Preterm])))) ++ 
+    rule("PrefixBinding", "PrefixPureBinding", _.PrefixPureBinding.result) ++
+    rule("PrefixBinding", "PrefixAnnotatedBinding", _.PrefixAnnotatedBinding.result) ++    
+    rule("PrefixPureBindings", "PrefixPureBinding", c => List(c.PrefixPureBinding.resultAs[Binding])) ++
+    rule("PrefixPureBindings", "PrefixPureBindings PrefixPureBinding", c => c.PrefixPureBinding.resultAs[Binding] :: c.PrefixPureBindings.resultAs[List[Binding]]) ++ 
+    rule("PrefixBindings", "PrefixPureBindings", _.PrefixPureBindings.result) ++
+    rule("PrefixBindings", "PrefixAnnotatedBinding", c => List(c.PrefixAnnotatedBinding.resultAs[Binding])) ++
+    rule("PrefixBindings", "PrefixBindings Comma PrefixBinding", c => c.PrefixBinding.resultAs[Binding] :: c.PrefixBindings.resultAs[List[Binding]]) ++ 
+    rule("PrefixSetUnaryOpTerm", "PrefixCombTerm", _.PrefixCombTerm.result) ++
+    rule("PrefixSetUnaryOpTerm", "Powerset PrefixSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.PrefixSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PrefixSetUnaryOpTerm", "SetBigUnion PrefixSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigunion, c.PrefixSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PrefixSetUnaryOpTerm", "SetBigIntersection PrefixSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigintersection, c.PrefixSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PrefixSetIntersectionTerm", "PrefixSetUnaryOpTerm", _.PrefixSetUnaryOpTerm.result) ++
+    rule("PrefixSetIntersectionTerm", "PrefixSetIntersectionTerm SetIntersection PrefixSetUnaryOpTerm",
+      c => pTmBinaryOp(Kernel.set_intersection, c.PrefixSetIntersectionTerm.resultAs[Preterm], c.PrefixSetUnaryOpTerm.resultAs[Preterm])) ++
+    rule("PrefixSetUnionTerm", "PrefixSetIntersectionTerm", _.PrefixSetIntersectionTerm.result) ++
+    rule("PrefixSetUnionTerm", "PrefixSetUnionTerm SetUnion PrefixSetIntersectionTerm",
+      c => pTmBinaryOp(Kernel.set_union, c.PrefixSetUnionTerm.resultAs[Preterm], c.PrefixSetIntersectionTerm.resultAs[Preterm])) ++
+    rule("PrefixSetDiffTerm", "PrefixSetUnionTerm", _.PrefixSetUnionTerm.result) ++
+    rule("PrefixSetDiffTerm", "PrefixSetDiffTerm SetDiff PrefixSetUnionTerm", 
+      c => pTmBinaryOp(Kernel.set_difference, c.PrefixSetDiffTerm.resultAs[Preterm], c.PrefixSetUnionTerm.resultAs[Preterm])) ++
+    rule("PrefixSetTerm", "PrefixSetDiffTerm", _.PrefixSetDiffTerm.result) ++
+    rule("PrefixSetBinaryRelationTerm", "PrefixSetTerm", _.PrefixSetTerm.result) ++
+    rule("PrefixSetBinaryRelationTerm", "PrefixSetTerm_1 Elem PrefixSetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_elementOf, c.PrefixSetTerm_1.resultAs[Preterm], c.PrefixSetTerm_2.resultAs[Preterm])) ++
+    rule("PrefixSetBinaryRelationTerm", "PrefixSetTerm_1 NotElem PrefixSetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_elementOf, c.PrefixSetTerm_1.resultAs[Preterm], c.PrefixSetTerm_2.resultAs[Preterm]))) ++    
+    rule("PrefixSetBinaryRelationTerm", "PrefixSetTerm_1 Subset PrefixSetTerm_2", 
+      c => pTmBinaryOp(Kernel.set_subsetOf, c.PrefixSetTerm_1.resultAs[Preterm], c.PrefixSetTerm_2.resultAs[Preterm])) ++
+    rule("PrefixSetBinaryRelationTerm", "PrefixSetTerm_1 NotSubset PrefixSetTerm_2", 
+      c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.PrefixSetTerm_1.resultAs[Preterm], c.PrefixSetTerm_2.resultAs[Preterm]))) ++    
+    rule("PrefixTypedTerm", "PrefixSetBinaryRelationTerm", _.PrefixSetBinaryRelationTerm.result) ++
+    rule("PrefixTypedTerm", "PrefixTypedTerm Colon Type", c => PTmTyping(c.PrefixTypedTerm.resultAs[Preterm], c.Type.resultAs[Pretype])) ++
+    rule("PrefixEqTerm", "PrefixTypedTerm", _.PrefixTypedTerm.result) ++
+    rule("PrefixEqTerm", "PrefixTypedTerm_1 Eq PrefixTypedTerm_2", c => pTmEquals(c.PrefixTypedTerm_1.resultAs[Preterm], c.PrefixTypedTerm_2.resultAs[Preterm])) ++
+    rule("PrefixEqTerm", "PrefixTypedTerm_1 NotEq PrefixTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.PrefixTypedTerm_1.resultAs[Preterm], c.PrefixTypedTerm_2.resultAs[Preterm]))) ++
+    rule("PrefixNotTerm", "Not PrefixNotTerm", c => pTmUnaryOp(Kernel.logical_not, c.PrefixNotTerm.resultAs[Preterm])) ++
+    rule("PrefixNotTerm", "PrefixEqTerm", _.PrefixEqTerm.result) ++
+    rule("PrefixAndTerm", "PrefixAndTerm And PrefixNotTerm", c => pTmBinaryOp(Kernel.logical_and, c.PrefixAndTerm.resultAs[Preterm], c.PrefixNotTerm.resultAs[Preterm])) ++
+    rule("PrefixAndTerm", "PrefixNotTerm", _.PrefixNotTerm.result) ++
+    rule("PrefixOrTerm", "PrefixOrTerm Or PrefixAndTerm", c => pTmBinaryOp(Kernel.logical_or, c.PrefixOrTerm.resultAs[Preterm], c.PrefixAndTerm.resultAs[Preterm])) ++
+    rule("PrefixOrTerm", "PrefixAndTerm", _.PrefixAndTerm.result) ++
+    rule("PrefixImpliesTerm", "PrefixOrTerm RightArrow PrefixImpliesTerm", c => pTmBinaryOp(Kernel.implies, c.PrefixOrTerm.resultAs[Preterm], c.PrefixImpliesTerm.resultAs[Preterm])) ++
+    rule("PrefixImpliesTerm", "PrefixOrTerm", _.PrefixOrTerm.result) ++
+    rule("PrefixPropTerm", "PrefixImpliesTerm", _.PrefixImpliesTerm.result) ++
+    rule("PrefixAbsTerm", "PrefixPropTerm", _.PrefixPropTerm.result) ++
+    rule("PrefixAbsTerm", "PrefixQuantifierTerm", _.PrefixQuantifierTerm.result) ++
+    rule("PrefixQuantifierTerm", "Forall PrefixBindings PrefixQuantifierTerm", c => pTmForall(c.PrefixBindings.resultAs[List[Binding]], c.PrefixQuantifierTerm.resultAs[Preterm])) ++
+    rule("PrefixQuantifierTerm", "Exists PrefixBindings PrefixQuantifierTerm", c => pTmExists(c.PrefixBindings.resultAs[List[Binding]], c.PrefixQuantifierTerm.resultAs[Preterm])) ++
+    rule("PrefixQuantifierTerm", "NotExists PrefixBindings PrefixQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PrefixBindings.resultAs[List[Binding]], c.PrefixQuantifierTerm.resultAs[Preterm]))) ++
+    rule("PrefixQuantifierTerm", "Forall PrefixBindings Dot PrefixAbsTerm", c => pTmForall(c.PrefixBindings.resultAs[List[Binding]], c.PrefixAbsTerm.resultAs[Preterm])) ++
+    rule("PrefixQuantifierTerm", "Exists PrefixBindings Dot PrefixAbsTerm", c => pTmExists(c.PrefixBindings.resultAs[List[Binding]], c.PrefixAbsTerm.resultAs[Preterm])) ++
+    rule("PrefixQuantifierTerm", "NotExists PrefixBindings Dot PrefixAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PrefixBindings.resultAs[List[Binding]], c.PrefixAbsTerm.resultAs[Preterm]))) ++
+    rule("PrefixAbsTerm", "PrefixBindings MapsTo PrefixAbsTerm", c => pTmAbs(c.PrefixBindings.resultAs[List[Binding]], c.PrefixAbsTerm.resultAs[Preterm])) ++
+    rule("PrefixTermList", "PrefixTerm", c => List(c.PrefixTerm.resultAs[Preterm])) ++
+    rule("PrefixTermList", "PrefixTermList Comma PrefixTerm", c => c.PrefixTerm.resultAs[Preterm] :: c.PrefixTermList.resultAs[List[Preterm]]) ++
+    rule("PrefixTerm", "PrefixAbsTerm", _.PrefixAbsTerm.result)
 
   def grammar = 
     literals ++
     g_type ++
-    g_term
-
-    
+    g_Prefix_term
+ 
   def parse(g_prog : Grammar, nonterminal : Nonterminal, input : String) {
     if (!g_prog.info.wellformed) {
       println("grammar errors:\n"+g_prog.info.errors)
@@ -342,7 +342,7 @@ object Syntax {
   def parsePreterm(input : String) : Option[Preterm] = {
     if (!grammar.info.wellformed) Utils.failwith("Syntax.grammar is not wellformed")
     val d = UnicodeDocument.fromString(input)
-    grammar.parser.parse(d, "Term", 0) match {
+    grammar.parser.parse(d, "PrefixTerm", 0) match {
       case None => None
       case Some((v, i)) =>
         if (v.isUnique && i == d.size) {
