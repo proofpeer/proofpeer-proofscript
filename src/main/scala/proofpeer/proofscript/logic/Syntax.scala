@@ -116,9 +116,17 @@ Unicode: U+220E, UTF-8: E2 88 8E
 NOT EQUAL TO
 Unicode: U+2260, UTF-8: E2 89 A0
 
+«
+LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+Unicode: U+00AB, UTF-8: C2 AB
+
+»
+RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
+Unicode: U+00BB, UTF-8: C2 BB
+
 */
 
-object TermSyntax {
+object Syntax {
   
   import Preterm._
   import Pretype._
@@ -188,6 +196,8 @@ object TermSyntax {
     ltokenrule("Bar", '|') ++      
     ltokenrule("RightArrow", Range.singleton(0x2192)) ++
     ltokenrule("Colon", ':') ++
+    ltokenrule("QuoteOpen", Range.singleton(0x00AB)) ++
+    ltokenrule("QuoteClose", Range.singleton(0x00BB)) ++
     ltokenrule("Forall", Range.singleton(0x2200)) ++
     ltokenrule("Exists", Range.singleton(0x2203)) ++
     ltokenrule("NotExists", Range.singleton(0x2204)) ++    
@@ -219,9 +229,7 @@ object TermSyntax {
     rule("Type", "AtomicType", _.AtomicType.result) ++
     rule("Type", "AtomicType RightArrow Type", c => PTyFun(c.AtomicType.resultAs[Pretype], c.Type.resultAs[Pretype]))
     
-  val grammar = 
-    literals ++
-    g_type ++
+  val g_term = 
     rule("NameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
     rule("NameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
     rule("SetComprehensionTerm", "CurlyBracketOpen Term Bar Bindings CurlyBracketClose", 
@@ -237,6 +245,7 @@ object TermSyntax {
     rule("AtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
     rule("AtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("AtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
+    rule("AtomicTerm", "QuoteOpen QuotedTerm QuoteClose", c => pTmQuote(c.QuotedTerm.result)) ++
     rule("CombTerm", "AtomicTerm", _.AtomicTerm.result) ++
     rule("CombTerm", "CombTerm AtomicTerm", c => PTmComb(c.CombTerm.resultAs[Preterm], c.AtomicTerm.resultAs[Preterm], None, Pretype.PTyAny)) ++
     rule("PureBinding", "IndexedName", c => Binding(parseIndexedName(c.IndexedName.text), None)) ++
@@ -298,6 +307,12 @@ object TermSyntax {
     rule("TermList", "Term", c => List(c.Term.resultAs[Preterm])) ++
     rule("TermList", "TermList Comma Term", c => c.Term.resultAs[Preterm] :: c.TermList.resultAs[List[Preterm]]) ++
     rule("Term", "AbsTerm", _.AbsTerm.result)
+
+  def grammar = 
+    literals ++
+    g_type ++
+    g_term
+
     
   def parse(g_prog : Grammar, nonterminal : Nonterminal, input : String) {
     if (!g_prog.info.wellformed) {

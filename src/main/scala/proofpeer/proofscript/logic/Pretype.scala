@@ -6,7 +6,7 @@ object Pretype {
   case object PTyProp extends Pretype
   case class PTyFun(domain : Pretype, range : Pretype) extends Pretype
   case object PTyAny extends Pretype
-  case class PTyVar(n : Integer) extends Pretype // type variables are only used during type inference 
+  case class PTyVar(n : Integer) extends Pretype // type variables are only used during type inference
 
   // Computes an integer n such that
   // 1. n >= min 

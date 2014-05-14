@@ -7,7 +7,7 @@ import Derivation.Context
 import proofpeer.indent.{Constraints => CS}
 import ParseTree._
 
-class ScriptGrammar(annotate : (Any, Option[Span]) => Any) {
+class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
   
 def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar = 
   tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal)
@@ -17,46 +17,50 @@ def ltokenrule(nonterminal : String, c : Char) : Grammar = ltokenrule(nontermina
 def ltokenrule(nonterminal : String, i : Int) : Grammar = 
   tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal)
   
+/*
 
-val g_literals = 
-  ltokenrule("LowerLetter", 'a', 'z') ++
-  ltokenrule("UpperLetter", 'A', 'Z') ++
-  lexrule("Letter", "UpperLetter") ++
-  lexrule("Letter", "LowerLetter") ++  
-  ltokenrule("Comma", ',') ++
-  ltokenrule("Underscore", '_') ++ 
+≤
+LESS-THAN OR EQUAL TO
+Unicode: U+2264, UTF-8: E2 89 A4
+
+≥
+GREATER-THAN OR EQUAL TO
+Unicode: U+2265, UTF-8: E2 89 A5
+
+⇒
+RIGHTWARDS DOUBLE ARROW
+Unicode: U+21D2, UTF-8: E2 87 92
+
+≔
+COLON EQUALS
+Unicode: U+2254, UTF-8: E2 89 94
+
+'
+APOSTROPHE
+Unicode: U+0027, UTF-8: 27
+
+*/ 
+
+val g_literals =
   ltokenrule("Plus", '+') ++  
   ltokenrule("Minus", '-') ++
   ltokenrule("Times", '*') ++
   ltokenrule("Slash", '/') ++
   ltokenrule("Le", '<') ++
   ltokenrule("Gr", '>') ++
-  ltokenrule("Eq", '=') ++
-  ltokenrule("ExclamationMark", '!') ++
-  ltokenrule("QuestionMark", '?') ++
-  lexrule("Leq", "Le Eq") ++
-  lexrule("Geq", "Gr Eq") ++
-  lexrule("NEquals", "ExclamationMark Eq") ++
-  lexrule("Equals", "Eq_1 Eq_2") ++
-  ltokenrule("RoundBracketOpen", '(') ++
-  ltokenrule("RoundBracketClose", ')') ++  
-  ltokenrule("Digit", '0', '9') ++
-  lexrule("Arrow", "Eq Gr") ++
-  lexrule("Nat", "Nat Digit") ++
-  lexrule("Nat", "Digit") ++
-  lexrule("Id", "Id Digit") ++
-  lexrule("Id", "Id Letter") ++
-  lexrule("Id", "Id Underscore Letter") ++
-  lexrule("Id", "Id Underscore Digit") ++
-  lexrule("Id", "LowerLetter") ++
+  ltokenrule("Leq", 0x2264) ++
+  ltokenrule("Geq", 0x2265) ++
+  ltokenrule("DoubleArrow", 0x21D2) ++
+  ltokenrule("AssignEq", 0x2254) ++
+  ltokenrule("Apostrophe", 0x27) ++
   lexrule("Val", literal("val")) ++
   lexrule("Def", literal("def")) ++
   lexrule("Mod", literal("mod")) ++
-  lexrule("Or", literal("or")) ++
-  lexrule("And", literal("and")) ++
-  lexrule("Not", literal("not")) ++
-  lexrule("True", literal("true")) ++
-  lexrule("False", literal("false")) ++
+  lexrule("ScriptOr", literal("or")) ++
+  lexrule("ScriptAnd", literal("and")) ++
+  lexrule("ScriptNot", literal("not")) ++
+  lexrule("ScriptTrue", literal("true")) ++
+  lexrule("ScriptFalse", literal("false")) ++
   lexrule("Lazy", literal("lazy")) ++
   lexrule("If", literal("if")) ++
   lexrule("Then", literal("then")) ++
@@ -67,7 +71,7 @@ val g_literals =
   lexrule("In", literal("in")) ++
   lexrule("Match", literal("match")) ++
   lexrule("Case", literal("case")) ++
-  lexrule("Return", literal("return"))
+  lexrule("Return", literal("return")) 
   
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -89,22 +93,23 @@ def arule(n : Nonterminal, rhs : String, action : Derivation.Context => Any) : G
   
 val g_expr =
   arule("PrimitiveExpr", "Id", c => Id(c.Id.text)) ++
-  arule("Int", "Nat", c => Integer(BigInt(c.Nat.text, 10))) ++
-  arule("Int", "Minus Nat", c => Integer(-BigInt(c.Nat.text, 10))) ++  
-  arule("PrimitiveExpr", "Nat", c => Integer(BigInt(c.Nat.text, 10))) ++
+  arule("Int", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
+  arule("Int", "Minus Digits", c => Integer(-BigInt(c.Digits.text, 10))) ++  
+  arule("PrimitiveExpr", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
   arule("PrimitiveExpr", "RoundBracketOpen Expr RoundBracketClose", c => c.Expr.resultAs[Expr]) ++
   arule("PrimitiveExpr", "RoundBracketOpen ControlFlowExpr RoundBracketClose", 
       c => ControlFlowExpr(c.ControlFlowExpr.resultAs[ControlFlow])) ++
-  arule("PrimitiveExpr", "True", c => Bool(true)) ++  
-  arule("PrimitiveExpr", "False", c => Bool(false)) ++  
-  arule("OrExpr", "OrExpr Or AndExpr", 
-      c => BinaryOperation(annotateBinop(Or, c.Or.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
+  arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
+  arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
+  arule("PrimitiveExpr", "Apostrophe Term Apostrophe", c => LogicTerm(c.Term.resultAs[proofpeer.proofscript.logic.Preterm])) ++
+  arule("OrExpr", "OrExpr ScriptOr AndExpr", 
+      c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
   arule("OrExpr", "AndExpr", _.AndExpr.result) ++
-  arule("AndExpr", "AndExpr And NotExpr", 
-      c => BinaryOperation(annotateBinop(And, c.And.span), c.AndExpr.resultAs[Expr], c.NotExpr.resultAs[Expr])) ++
+  arule("AndExpr", "AndExpr ScriptAnd NotExpr", 
+      c => BinaryOperation(annotateBinop(And, c.ScriptAnd.span), c.AndExpr.resultAs[Expr], c.NotExpr.resultAs[Expr])) ++
   arule("AndExpr", "NotExpr", _.NotExpr.result) ++
-  arule("NotExpr", "Not NotExpr", 
-      c => UnaryOperation(annotateUnop(Not, c.Not.span), c.NotExpr.resultAs[Expr])) ++
+  arule("NotExpr", "ScriptNot NotExpr", 
+      c => UnaryOperation(annotateUnop(Not, c.ScriptNot.span), c.NotExpr.resultAs[Expr])) ++
   arule("NotExpr", "CmpExpr", _.CmpExpr.result) ++
   arule("CmpExpr", "CmpExpr CmpOp AddExpr", { c =>
     val operator = c.CmpOp.resultAs[CmpOperator]
@@ -121,8 +126,8 @@ val g_expr =
   arule("CmpOp", "Gr", c => Gr) ++
   arule("CmpOp", "Leq", c => Leq) ++
   arule("CmpOp", "Geq", c => Geq) ++
-  arule("CmpOp", "Equals", c => Eq) ++
-  arule("CmpOp", "NEquals", c => NEq) ++
+  arule("CmpOp", "Eq", c => Eq) ++
+  arule("CmpOp", "NotEq", c => NEq) ++
   arule("AddExpr", "AddExpr Plus NegExpr", 
       c => BinaryOperation(annotateBinop(Add, c.Plus.span), c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++
   arule("AddExpr", "AddExpr Minus NegExpr", 
@@ -143,7 +148,7 @@ val g_expr =
   arule("AppExpr", "AppExpr PrimitiveExpr", c => App(c.AppExpr.resultAs[Expr], c.PrimitiveExpr.resultAs[Expr])) ++
   arule("LazyExpr", "OrExpr", _.OrExpr.result) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr.resultAs[Expr])) ++ 
-  arule("FunExpr", "Pattern Arrow Block", c => Fun(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++
+  arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++
   arule("FunExpr", "LazyExpr", _.LazyExpr.result) ++
   arule("Expr", "FunExpr", _.FunExpr.result) ++
   arule("ExprList", "", c => Vector[Expr]()) ++
@@ -221,10 +226,10 @@ val g_match =
       CS.or(CS.Align("STMatchCases", "STMatchCase"), CS.Line("STMatchCases", "STMatchCase")),
       c => c.STMatchCases.resultAs[Vector[MatchCase]] :+ c.STMatchCase.resultAs[MatchCase]) ++
   arule("STMatchCases", "", c => Vector[MatchCase]()) ++
-  arule("STMatchCase", "Case Pattern Arrow Block", 
+  arule("STMatchCase", "Case Pattern DoubleArrow Block", 
       CS.and(
         CS.Indent("Case", "Pattern"),
-        CS.SameLine("Pattern", "Arrow"),
+        CS.SameLine("Pattern", "DoubleArrow"),
         CS.Indent("Case", "Block")),
       c => MatchCase(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++     
   arule("MatchExpr", "Match Expr MatchCases",
@@ -232,7 +237,7 @@ val g_match =
   arule("MatchCases", "MatchCases MatchCase", 
       c => c.MatchCases.resultAs[Vector[MatchCase]] :+ c.MatchCase.resultAs[MatchCase]) ++
   arule("MatchCases", "", c => Vector[MatchCase]()) ++
-  arule("MatchCase", "Case Pattern Arrow Block", 
+  arule("MatchCase", "Case Pattern DoubleArrow Block", 
       c => MatchCase(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))      
       
 val g_controlflow = 
@@ -252,25 +257,25 @@ val g_pattern =
   arule("Pattern", "Underscore", c => PAny) ++
   arule("Pattern", "Id", c => PId(c.Id.text)) ++
   arule("Pattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
-  arule("Pattern", "True", c => PBool(true)) ++
-  arule("Pattern", "False", c => PBool(false)) ++
+  arule("Pattern", "ScriptTrue", c => PBool(true)) ++
+  arule("Pattern", "ScriptFalse", c => PBool(false)) ++
   arule("OptPattern", "", c => None) ++
   arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern]))
 
 val g_val = 
-  arule("ST", "Val Pattern Eq Block",
+  arule("ST", "Val Pattern AssignEq Block",
       CS.and(
           CS.Indent("Val", "Pattern"),
-          CS.SameLine("Pattern", "Eq"),
-          CS.or(CS.Line("Eq", "Block"), CS.Indent("Val", "Block"))),
+          CS.SameLine("Pattern", "AssignEq"),
+          CS.or(CS.Line("AssignEq", "Block"), CS.Indent("Val", "Block"))),
       c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
 
 val g_assign = 
-  arule("ST", "Pattern Eq Block",
+  arule("ST", "Pattern AssignEq Block",
       CS.and(
-          CS.SameLine("Pattern", "Eq"),
+          CS.SameLine("Pattern", "AssignEq"),
           CS.Protrude("Pattern"),
-          CS.or(CS.Line("Eq", "Block"), CS.Indent("Pattern", "Block"))),
+          CS.or(CS.Line("AssignEq", "Block"), CS.Indent("Pattern", "Block"))),
       c => STAssign(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
   
 val g_def =
@@ -281,10 +286,10 @@ val g_def =
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
       c => c.DefCases.resultAs[Vector[DefCase]] :+ c.DefCase.resultAs[DefCase]) ++
-  arule("DefCase", "Id OptPattern Eq Block",
+  arule("DefCase", "Id OptPattern AssignEq Block",
       CS.and(
           CS.Indent("Id", "OptPattern"),
-          CS.or(CS.SameLine("OptPattern", "Eq"), CS.SameLine("Id", "Eq")),
+          CS.or(CS.SameLine("OptPattern", "AssignEq"), CS.SameLine("Id", "AssignEq")),
           CS.Indent("Id", "Block")),
       c => DefCase(c.Id.text, c.OptPattern.resultAs[Option[Pattern]], c.Block.resultAs[Block]))
       
@@ -306,11 +311,13 @@ val g_statement =
       c => Block(c.Statements.resultAs[Vector[Statement]] :+ STExpr(c.Expr.resultAs[Expr])))
 
 val g_prog = 
+  proofpeer.proofscript.logic.Syntax.grammar ++
   g_literals ++
   g_pattern ++
   g_expr ++
   g_statement ++
   g_controlflow ++
-  arule("Prog", "Block", _.Block.result) 
+  arule("QuotedTerm", "Block", _.Block.result) ++
+  arule("Prog", "Block", _.Block.result)
 
 }

@@ -17,7 +17,7 @@ def annotate(v : Any, span : Option[Span]) : Any = {
   v
 }
 
-val scriptGrammar = new ScriptGrammar(annotate)
+val scriptGrammar = new ProofScriptGrammar(annotate)
 import scriptGrammar._
   
 def parse(prog : String) {
@@ -45,8 +45,10 @@ def parse(prog : String) {
   println()
 } 
 
-def mainl(args : Array[String]) {
-  parse("x - y == 10 < y <= z - 4")
+def main(args : Array[String]) {
+  parse("x - y")
+
+  parse("x - y = 10 < y ≤ z - 4")
   
   parse("not 2 * (x + 4) + y mod 7 or 2 and 3")
   
@@ -72,7 +74,7 @@ def mainl(args : Array[String]) {
   
   parse("lazy lazy x + y")
   
-  parse("3 * (x => _ => x + 10)")
+  parse("3 * (x ⇒ _ ⇒ x + 10)")
   
   parse("""
 return 3 * 4
@@ -109,56 +111,60 @@ if true then
 
   parse("""
 def 
-  u = 10
-  f x = 
-    val y = 13  
-    y = y * 42
+  u ≔ 10
+  f x ≔ 
+    val y ≔ 13  
+    y ≔ y * 42
     return y + 1   
-  v = u + 1
+  v ≔ u + 1
 """)
 
   parse("""
-val x = ((10 + 5) -
+val x ≔ ((10 + 5) -
    y)
 """)
 
   parse("""
 match x 
-case 1 => 2
-case 2 => 3
-case y => y + 2
-      """)
-      
-  parse("match x case 1 => 2 case x => x * x")
+case 1 ⇒ 2
+case 2 ⇒ 3
+case y ⇒ y + 2
+      """) 
+     
+  parse("match x case 1 ⇒ 2 case x ⇒ x * x")
 
-  parse("val x = match x case 1 => 2 case x => x * x")
+  parse("val x ≔ match x case 1 ⇒ 2 case x ⇒ x * x")
   
   parse("""
-  def f = 10
-  val u = 20
+  def f ≔ 10
+  val u ≔ 20
   u - f""")
   
   parse("""
   def 
-    f = 10
+    f ≔ 10
   val 
-    u = 20
+    u ≔ 20
   u - f""")
   
   parse("""
-val x = 3 * (do
-  def f = 10
-  val u = 20
+val x ≔ 3 * (do
+  def f ≔ 10
+  val u ≔ 20
   u - f)""")
 
   
-  parse("match x case 1 => match y case 2 => x*y")
+  parse("match x case 1 ⇒ match y case 2 ⇒ x*y")
 
-  parse("match x case 1 => (match y) case 2 => x*y")
+  parse("match x case 1 ⇒ (match y) case 2 ⇒ x*y")
 
-  parse("match x case 1 => (match y case 2 => x*y)")
+  parse("match x case 1 ⇒ (match y case 2 ⇒ x*y)")
   
-  parse("val x = return 2")
+  parse("val x ≔ return 2")
+
+  parse("3 + 'A, p ↦ {x | x ∈ A. p x}'")
+
+  parse("3 + 'A, p ↦ {x | x ∈ A. p x ∧ «q» x}'")
    
 }  
   

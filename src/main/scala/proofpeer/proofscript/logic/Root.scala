@@ -5,7 +5,7 @@ object Root {
 	val nr = new NameResolution(kernel, c => c.localConstants)
 
 	def parse(context : Context, s : String) : Term = {
-		TermSyntax.parsePreterm(s) match {
+		Syntax.parsePreterm(s) match {
 			case None => Utils.failwith("cannot parse as preterm: '"+s+"'")
 			case Some(ptm) => 
 				val typingContext = Preterm.obtainTypingContext(nr, context)
@@ -104,7 +104,7 @@ object Root {
 	}
 
 	def checkPrinting(context : Context, tm : Term) : String = {
-		val u = TermSyntax.printTerm(nr.resolveContext(context), tm)
+		val u = Syntax.printTerm(nr.resolveContext(context), tm)
 		val tm2 = parse(context, u)
 		if (!KernelUtils.alpha_equivalent(tm, tm2))
 			Utils.failwith("term '"+u+"' is not a correct representation of: "+tm)
@@ -162,6 +162,17 @@ object Root {
 	  test("∀ X ∀ f ∀ x ∈ X. fun X f x = f x")	 
 	  test("root\\forallin") 
 	  test("Root\\forallin") 
+	  test("∀ x y z. x (y z) = (x y) z")
+	  test("∀ a b c d. a b c d")	  
+	  test("∀ a b c d. a b c d ∧ b c d")
+	  test("∀ a b c d. a b c d ∧ b c d ∧ c d")
+	  test("a b c d ↦ a b c d ∧ b c d ∧ c d ∧ d")
+	  test("∀ a b c d. a b c d ∧ d")
+	  test("a b c d ↦ a b c d")
+	  test("a b c d ↦ a b c d ∧ b")
+
+
+	  //test("∀ x y z. x (y z) → (x y) z")
 	  testScope()
 	}
 

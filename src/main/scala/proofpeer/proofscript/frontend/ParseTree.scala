@@ -1,6 +1,7 @@
 package proofpeer.proofscript.frontend
 
 import proofpeer.indent.Span
+import proofpeer.proofscript.logic.Preterm
 
 trait Source {}
 
@@ -59,6 +60,19 @@ object ParseTree {
   
   case class Lazy(expr : Expr) extends Expr {
     protected def calcFreeVars = expr.freeVars
+  }
+
+  case class LogicTerm(tm : Preterm) extends Expr {
+    protected def calcFreeVars = {
+      var fs : Set[String] = Set()
+      for (q <- Preterm.listQuotes(tm)) {
+        q.quoted match {
+          case p : ParseTree => fs = fs ++ p.freeVars
+          case _ => 
+        }
+      }
+      fs
+    }  
   }
   
   case class ControlFlowExpr(controlflow : ControlFlow) extends Expr {

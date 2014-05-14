@@ -16,6 +16,7 @@ object Preterm {
   	def typeOf = Pretype.PTyFun(ty, body_ty)
   }
   case class PTmComb(f : Preterm, x : Preterm, higherorder : Option[Boolean], typeOf : Pretype) extends Preterm
+  case class PTmQuote(quoted : Any, typeOf : Pretype) extends Preterm 
   case class PTmError(reason : String) extends Preterm {
   	def typeOf = Pretype.PTyAny
   }
@@ -131,6 +132,8 @@ object Preterm {
 
   def pTmConst(name : Name) : Preterm = PTmName(name, Pretype.PTyAny)
 
+  def pTmQuote(quoted : Any) : Preterm = PTmQuote(quoted, Pretype.PTyAny)
+
   def computeFresh(tm : Preterm, min : Integer) : Integer = {
   	tm match {
   		case PTmTyping(tm, ty) => 
@@ -141,7 +144,9 @@ object Preterm {
   		  computeFresh(f, computeFresh(x, Pretype.computeFresh(ty, min)))
   		case PTmName(name, ty) =>
   		  Pretype.computeFresh(ty, min)
-  		case PTmError(_) => min
+      case PTmQuote(_, ty) =>
+        Pretype.computeFresh(ty, min)
+  		case _ => Utils.failwith("internal error: computeFresh")
   	}
   }
 
@@ -150,12 +155,27 @@ object Preterm {
   		case PTmTyping(tm, _) => listErrors(tm, errors)
   		case PTmAbs(_, _, body, _) => listErrors(body, errors)
   		case PTmComb(f, x, _, _) => listErrors(f, listErrors(x, errors))
-  		case PTmName(_,_) => errors
   		case e : PTmError => e::errors
+  		case _ : PTmName => errors
+  		case _ : PTmQuote => errors
   	}
   }
 
+  def listQuotes(tm : Preterm, quotes : List[PTmQuote]) : List[PTmQuote] = {
+  	tm match {
+  		case PTmTyping(tm, _) => listQuotes(tm, quotes)
+  		case PTmAbs(_, _, body, _) => listQuotes(body, quotes)
+  		case PTmComb(f, x, _, _) => listQuotes(f, listQuotes(x, quotes))
+  		case q : PTmQuote => q::quotes
+  		case _ : PTmError => quotes
+  		case _ : PTmName => quotes
+  	}
+  }
+
+
   def listErrors(tm : Preterm) : List[PTmError] = listErrors(tm, List())
+
+  def listQuotes(tm : Preterm) : List[PTmQuote] = listQuotes(tm, List())
 
   def removeAny(tm : Preterm, fresh : Integer) : (Preterm, Integer) = {
   	tm match {
@@ -176,7 +196,10 @@ object Preterm {
   		case PTmName(name, ty) =>
   		  val (rty, u) = Pretype.removeAny(ty, fresh)
   		  (PTmName(name, rty), u)
-  		case PTmError(_)  => (tm, fresh)
+      case PTmQuote(q, ty) =>
+        val (rty, u) = Pretype.removeAny(ty, fresh)
+        (PTmQuote(q, rty), u)
+  		case _ => Utils.failwith("internal error: removeAny")
   	}
   } 
 
@@ -228,7 +251,9 @@ object Preterm {
   	    	case None =>
   	    	  eqs1
   	    }
-  	  case _ : PTmError => eqs
+      case PTmQuote(q, ty) =>
+        eqs
+  		case _ => Utils.failwith("internal error: computeTypeEqualities")
   	}
   }
 
@@ -240,7 +265,8 @@ object Preterm {
   		case PTmName(name, ty) => PTmName(name, sty(ty))
   		case PTmAbs(x, ty, body, body_ty) => PTmAbs(x, sty(ty), stm(body), sty(body_ty))
   		case PTmComb(f, x, higherorder, ty) => PTmComb(stm(f), stm(x), higherorder, sty(ty))
-  		case e : PTmError => e
+  		case PTmQuote(q, ty) => PTmQuote(q, sty(ty))
+      case _ => Utils.failwith("internal error: subst")
   	}
   } 
 
@@ -263,7 +289,7 @@ object Preterm {
   	  	} else {
   	  		Term.Comb(u, v)
   	  	}
-  		case e : PTmError => Utils.failwith("preterm contains error")  		
+  		case _ => Utils.failwith("internal error: translate")  		
   	}
   }
 
@@ -293,7 +319,9 @@ object Preterm {
   			val (t1, fresh1) = checkNameTypes(context, f, fresh)
   			val (t2, fresh2) = checkNameTypes(context, x, fresh1)
   			(PTmComb(t1, t2, higherorder, ty), fresh2)
-  		case e : PTmError => (e, fresh)
+      case q: PTmQuote => 
+        (q, fresh)
+  		case _ => Utils.failwith("internal error: checkNameTypes")
   	}
   }
 
@@ -316,7 +344,7 @@ object Preterm {
   	Utils.failwith("internal error")
   }
 
-  def inferTerm(context : TypingContext, term : Preterm) : Either[Term, List[PTmError]] = {
+  def inferPreterm(context : TypingContext, term : Preterm) : Either[Preterm, List[PTmError]] = {
   	val (checkedTerm, checkedFresh) = checkNameTypes(context, term, computeFresh(term, 0))
   	val errors = listErrors(checkedTerm)
   	if (!errors.isEmpty) return Right(errors)
@@ -347,9 +375,16 @@ object Preterm {
   				  //    replaces all variables by universe, so no conflict can arise.
   					Utils.failwith("internal error: term is ill-typed after eliminating all type variables")
   				case Some(t) => 
-  				  Left(translate(context, t))
+  				  Left(t)
   			}
   	}
+  }
+
+  def inferTerm(context : TypingContext, term : Preterm) : Either[Term, List[PTmError]] = {
+    inferPreterm(context, term) match {
+      case Left(t) => Left(translate(context, t))
+      case Right(errors) => Right(errors)
+    }
   }
 
   trait TypingContext {
