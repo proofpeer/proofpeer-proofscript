@@ -50,12 +50,12 @@ sealed trait Theorem {
 
 sealed trait ContextKind 
 object ContextKind {
-  case class Assume(thm_name : Name, assumption : Term) extends ContextKind
-  case class Define(const_name : Name, ty : Type, thm_name : Name, tm : Term) extends ContextKind
-  case class Choose(const_name : Name, ty : Type, thm_name : Name, property : Term) extends ContextKind
+  case class Assume(assumption : Term) extends ContextKind
+  case class Define(const_name : Name, ty : Type, tm : Term) extends ContextKind
+  case class Choose(const_name : Name, ty : Type, property : Term) extends ContextKind
   case class Introduce(const_name : Name, ty : Type) extends ContextKind
   case class Created(namespace : Namespace, parentNamespaces : Set[Namespace], ancestorNamespaces : Set[Namespace]) extends ContextKind
-  case class StoreTheorem(thm_name : Name, proposition : Term) extends ContextKind
+  case class StoreTheorem(proposition : Term) extends ContextKind
   case object Complete extends ContextKind
 }
 
@@ -90,25 +90,18 @@ trait Context {
   // Introduces an assumption with a given name. 
   // The name must either have no namespace, or must be equal to the current namespace.
   // The new context can be obtained from the theorem.
-  def assume(thm_name : Name, assumption : Term) : Theorem
+  def assume(assumption : Term) : Theorem
   
   // Defines a new constant. 
-  // The names must either have no namespace, or must be equal to the current namespace.
-  def define(const_name : Name, thm_name : Name, tm : Term) : Theorem
+  // The name must either have no namespace, or it must be equal to the current namespace.
+  def define(const_name : Name, tm : Term) : Theorem
   
   // Defines a new constant for which a given property holds. 
   // The property is given in the shape of an existential theorem.
   // The theorem may have leading all-quantifiers; in this case the constant will be skolemized. 
-  // The names must either have no namespace, or must be equal to the current namespace.
-  def choose(const_name : Name, thm_name : Name, thm : Theorem) : Theorem
-   
-  // Looks up the theorem with the given name.
-  def lookupTheorem(thm_name : Name) : Option[Theorem]
-  
-  // Stores the theorem under the given name.
-  // The name must either have no namespace, or must be equal to the current namespace.
-  def storeTheorem(thm_name : Name, thm : Theorem) : Context
-    
+  // The name must either have no namespace, or it must be equal to the current namespace.
+  def choose(const_name : Name, thm : Theorem) : Theorem
+         
   // Converts a theorem into a theorem of this context (if possible). 
   def lift(thm : Theorem, preserve_structure : Boolean) : Theorem
   
@@ -141,9 +134,6 @@ trait Context {
 
   // All constants of this context which are NOT constants of a parent namespace.
   def localConstants : Set[Name]
-
-  // All stored theorems of this context which are NOT theorems of a parent namespace.
-  def localTheorems : Set[Name]
   
 }
 

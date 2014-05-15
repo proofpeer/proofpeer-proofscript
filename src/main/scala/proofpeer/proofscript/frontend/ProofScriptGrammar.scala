@@ -71,7 +71,11 @@ val g_literals =
   lexrule("In", literal("in")) ++
   lexrule("Match", literal("match")) ++
   lexrule("Case", literal("case")) ++
-  lexrule("Return", literal("return")) 
+  lexrule("Return", literal("return")) ++
+  lexrule("Assume", literal("assume")) ++
+  lexrule("Define", literal("define")) ++
+  lexrule("Choose", literal("choose")) ++
+  lexrule("Introduce", literal("intro"))
   
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 

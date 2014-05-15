@@ -43,7 +43,7 @@ object Root {
 		}
 		def axiom(name : String, ax : String) {
 			val t = read(ax)
-			val th = context.assume(Kernel.rootname(name), t)
+			val th = context.assume(t)
 			context = th.context
 		}
 		intro(Kernel.logical_and, ty_log2)

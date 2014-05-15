@@ -11,8 +11,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
                             val depth : Integer,
                             val created : ContextKind.Created,
                             val parentContext : Option[ContextImpl],
-                            val constants : Map[Name, Type],
-                            val theorems : Map[Name, Term]) extends Context 
+                            val constants : Map[Name, Type]) extends Context 
   {
     
     def kernel : Kernel = KernelImpl.this
@@ -79,68 +78,49 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           depth + 1,
           created,
           Some(this),
-          constants + (const_name -> ty),
-          theorems)
+          constants + (const_name -> ty))
     } 
 
-    def assume(thm_name : Name, assumption : Term) : Theorem = {
+    def assume(assumption : Term) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
-      ensureContextScope(thm_name)
-      if (contains(thm_name, theorems))
-        failwith("theorem name " + thm_name + " has already been defined")
       if (typeOfTerm(assumption) != Some(Prop))
         failwith("assumption is not a valid proposition")
-      if (isQualifiedName(thm_name) && !isQualifiedTerm(assumption))
-        failwith("theorem name is qualified, but proposition contains unqualified constants")
       val context = 
         new ContextImpl(
-            ContextKind.Assume(thm_name, assumption),
+            ContextKind.Assume(assumption),
             depth + 1,
             created,
             Some(this),
-            constants,
-            theorems + (thm_name -> assumption))
+            constants)
       mk_theorem(context, assumption)
     }
   
-    def define(const_name : Name, thm_name : Name, tm : Term) : Theorem = {
+    def define(const_name : Name, tm : Term) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
-      ensureContextScope(thm_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      if (contains(thm_name, theorems))
-        failwith("theorem name "+thm_name+" has already been defined")
-      if (isQualifiedName(thm_name) && !isQualifiedTerm(tm))
-        failwith("theorem name is qualified, but proposition contains unqualified constants")
       typeOfTerm(tm) match {
-        case None =>
-          failwith("the defining term is not a valid term")
+        case None => failwith("the defining term is not a valid term")
         case Some(ty) =>
           val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
           val context = 
             new ContextImpl(
-              ContextKind.Define(const_name, ty, thm_name, tm),
+              ContextKind.Define(const_name, ty, tm),
               depth + 1,
               created,
               Some(this),
-              constants + (const_name -> ty),
-              theorems + (thm_name -> eq))
+              constants + (const_name -> ty))
           mk_theorem(context, eq)         
       }
     }
 
-    def choose(const_name : Name, thm_name : Name, thm : Theorem) : Theorem = {
+    def choose(const_name : Name, thm : Theorem) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
       checkTheoremContext(thm)
       ensureContextScope(const_name)
-      ensureContextScope(thm_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      if (contains(thm_name, theorems))
-        failwith("theorem name "+thm_name+" has already been defined")
-      if (isQualifiedName(thm_name) && !isQualifiedTerm(thm.proposition))
-        failwith("theorem name is qualified, but proposition contains unqualified constants")
       val (quantifiers, th) = strip_forall_unique(thm.proposition)
       val (x, ty, p) = dest_exists(th)
       var c : Term = Const(const_name)
@@ -155,12 +135,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       }
       val context = 
         new ContextImpl(
-              ContextKind.Choose(const_name, cty, thm_name, prop),
+              ContextKind.Choose(const_name, cty, prop),
               depth + 1,
               created,
               Some(this),
-              constants + (const_name -> cty),
-              theorems + (thm_name -> prop))
+              constants + (const_name -> cty))
       mk_theorem(context, prop)             
     }
     
@@ -168,35 +147,14 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       checkTheoremContext(thm)
       mk_theorem(this, KernelUtils.instantiate(this, thm.proposition, insts))
     } 
-        
-    def lookupTheorem(thm_name : Name) : Option[Theorem] = {
-      val context = contextOfName(thm_name)
-      context.theorems.get(thm_name).map(mk_theorem(context, _))
-    }
-    
+            
     def checkTheoremContext(thm : Theorem) {
       if (KernelImpl.this != thm.context.kernel)   
         failwith("theorem belongs to a different kernel")
       if (thm.context != this)
         failwith("theorem belongs to a different context")      
     }
-  
-    def storeTheorem(thm_name : Name, thm : Theorem) : Context = {
-      ensureContextScope(thm_name)
-      if (contains(thm_name, theorems))
-        failwith("theorem name "+thm_name+" has already been defined")
-      checkTheoremContext(thm)
-      if (isQualifiedName(thm_name) && !isQualifiedTerm(thm.proposition))
-        failwith("theorem name is qualified, but proposition contains unqualified constants")
-      new ContextImpl(
-          ContextKind.StoreTheorem(thm_name, thm.proposition),
-          depth + 1,
-          created,
-          Some(this),
-          constants,
-          theorems + (thm_name -> thm.proposition))
-    }
-    
+      
     def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       if (KernelImpl.this != thm.context.kernel)
         failwith("theorem belongs to a different kernel")
@@ -234,13 +192,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (preserve_structure) {
         while (context.depth > depth) {
           context.kind match {
-            case Assume(_, hyp) => 
+            case Assume(hyp) => 
               prop = mk_implies(hyp, prop)
             case Introduce(c, ty) => 
               prop = mk_forall(c, ty, prop)
-            case Define(c, ty, _, _) =>
+            case Define(c, ty, _) =>
               prop = mk_exists(c, ty, prop)
-            case Choose(c, ty, _, _) =>
+            case Choose(c, ty, _) =>
               prop = mk_exists(c, ty, prop)
             case _ => 
               // nothing to do, the context is non-logical
@@ -251,7 +209,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         var consts : Set[Name] = collectConsts(prop)
         while (context.depth > depth) {
           context.kind match {
-            case Assume(_, hyp) => 
+            case Assume(hyp) => 
               prop = mk_implies_prenex(hyp, prop)
               consts = collectConsts(hyp, consts)
             case Introduce(c, ty) => 
@@ -259,12 +217,12 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
                 prop = mk_forall(c, ty, prop)
                 consts = consts - c
               }
-            case Define(c, ty, _, _) =>
+            case Define(c, ty, _) =>
               if (consts.contains(c)) {
                 prop = mk_exists(c, ty, prop)
                 consts = consts - c
               }
-            case Choose(c, ty, _, _) =>
+            case Choose(c, ty, _) =>
               if (consts.contains(c)) {
                 prop = mk_exists(c, ty, prop)
                 consts = consts - c
@@ -371,16 +329,6 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       set
     }
 
-    def localTheorems : Set[Name] = {
-      var set : Set[Name] = Set()
-      for ((name, _) <- theorems) {
-        if (!name.namespace.isDefined || name.namespace == Some(namespace)) {
-          set = set + name
-        }
-      }
-      set
-    }
-
   }
   
   private var namespaces : Map[Namespace, Context] = Map()
@@ -403,7 +351,6 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     if (namespaces.contains(namespace)) 
       failwith("this namespace has already been completed: "+namespace)
     val ctx = context.asInstanceOf[ContextImpl]
-    val theorems = ctx.theorems.filterKeys(n => isQualifiedName(n))
     val constants = ctx.constants.filterKeys(n => isQualifiedName(n))   
     val completedContext = 
       new ContextImpl(
@@ -411,8 +358,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           ctx.depth + 1,
           ctx.created,
           Some(ctx),
-          constants,
-          theorems)  
+          constants)  
     namespaces += (namespace -> completedContext)
     completedContext
   }
@@ -437,12 +383,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       else 
         Map()
     new ContextImpl(
-        created,
-        0,
-        created,
-        None,
-        constants,
-        Map())
+      created,
+      0,
+      created,
+      None,
+      constants)
   }
         
   // This assumes that c1 and c2 belong to the same kernel and the same context
