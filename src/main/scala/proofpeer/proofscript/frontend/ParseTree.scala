@@ -49,6 +49,10 @@ object ParseTree {
   case class CmpOperation(operators : Vector[CmpOperator], operands : Vector[Expr]) extends Expr {
     protected def calcFreeVars = operands.foldLeft(Set[String]())((x, y) => x ++ y.freeVars)   
   }
+
+  case class Tuple(elements : Vector[Expr]) extends Expr {
+    protected def calcFreeVars = elements.foldLeft(Set[String]())((x, y) => x ++ y.freeVars)
+  }
     
   case class App(f : Expr, g : Expr) extends Expr {
     protected def calcFreeVars = f.freeVars ++ g.freeVars
@@ -125,6 +129,9 @@ object ParseTree {
   case object Mod extends BinaryOperator
   case object And extends BinaryOperator
   case object Or extends BinaryOperator
+  case object Prepend extends BinaryOperator
+  case object Append extends BinaryOperator
+  case object Concat extends BinaryOperator
   
   sealed trait CmpOperator extends Operator
   case object Eq extends CmpOperator
@@ -165,6 +172,30 @@ object ParseTree {
         }
       }
       (frees, intros)
+    }
+  }
+
+  case class PTuple(elements : Vector[Pattern]) extends Pattern {
+    protected def calcVars = {
+      var frees : Set[String] = Set()
+      var intros : Set[String] = Set()
+      for (e <- elements) {
+        frees = frees ++ e.freeVars
+        intros = intros ++ e.introVars
+      }
+      (frees, intros)      
+    }
+  }
+
+  case class PPrepend(x : Pattern, xs : Pattern) extends Pattern {
+    protected def calcVars = {
+      (x.freeVars ++ xs.freeVars, x.introVars ++ xs.introVars)
+    }
+  }
+
+  case class PAppend(xs : Pattern, x : Pattern) extends Pattern {
+    protected def calcVars = {
+      (xs.freeVars ++ x.freeVars, xs.introVars ++ x.introVars)
     }
   }
   

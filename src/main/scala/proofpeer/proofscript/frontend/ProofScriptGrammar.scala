@@ -50,9 +50,14 @@ val g_literals =
   ltokenrule("Gr", '>') ++
   ltokenrule("Leq", 0x2264) ++
   ltokenrule("Geq", 0x2265) ++
+  ltokenrule("SquareBracketOpen", '[') ++
+  ltokenrule("SquareBracketClose", ']') ++
   ltokenrule("DoubleArrow", 0x21D2) ++
   ltokenrule("AssignEq", 0x2254) ++
   ltokenrule("Apostrophe", 0x27) ++
+  lexrule("Prepend", literal("<+")) ++
+  lexrule("Append", literal("+>")) ++
+  lexrule("Concat", literal("++")) ++
   lexrule("Val", literal("val")) ++
   lexrule("Def", literal("def")) ++
   lexrule("Mod", literal("mod")) ++
@@ -75,8 +80,8 @@ val g_literals =
   lexrule("Assume", literal("assume")) ++
   lexrule("Define", literal("define")) ++
   lexrule("Choose", literal("choose")) ++
-  lexrule("Introduce", literal("intro"))
-  
+  lexrule("Introduce", literal("intro")) 
+
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
 {
@@ -94,13 +99,28 @@ def annotateBinop(b : BinaryOperator, span : Option[Span]) : BinaryOperator =
 
 def arule(n : Nonterminal, rhs : String, action : Derivation.Context => Any) : Grammar = 
   arule(n, rhs, Constraints.Unconstrained[IndexedSymbol], action)
-  
+
+def mkTuple(elements : Vector[Expr], collapse : Boolean) : Expr = {
+  if (collapse && elements.size == 1) 
+    elements.head
+  else
+    Tuple(elements)
+}
+
+def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
+  if (collapse && elements.size == 1) 
+    elements.head
+  else
+    PTuple(elements)
+}
+
 val g_expr =
   arule("PrimitiveExpr", "Id", c => Id(c.Id.text)) ++
   arule("Int", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
   arule("Int", "Minus Digits", c => Integer(-BigInt(c.Digits.text, 10))) ++  
   arule("PrimitiveExpr", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
-  arule("PrimitiveExpr", "RoundBracketOpen Expr RoundBracketClose", c => c.Expr.resultAs[Expr]) ++
+  arule("PrimitiveExpr", "RoundBracketOpen ExprList RoundBracketClose", c => mkTuple(c.ExprList.resultAs[Vector[Expr]], true)) ++
+  arule("PrimitiveExpr", "SquareBracketOpen ExprList SquareBracketClose", c => mkTuple(c.ExprList.resultAs[Vector[Expr]], false)) ++
   arule("PrimitiveExpr", "RoundBracketOpen ControlFlowExpr RoundBracketClose", 
       c => ControlFlowExpr(c.ControlFlowExpr.resultAs[ControlFlow])) ++
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
@@ -115,9 +135,9 @@ val g_expr =
   arule("NotExpr", "ScriptNot NotExpr", 
       c => UnaryOperation(annotateUnop(Not, c.ScriptNot.span), c.NotExpr.resultAs[Expr])) ++
   arule("NotExpr", "CmpExpr", _.CmpExpr.result) ++
-  arule("CmpExpr", "CmpExpr CmpOp AddExpr", { c =>
+  arule("CmpExpr", "CmpExpr CmpOp GeneralArithExpr", { c =>
     val operator = c.CmpOp.resultAs[CmpOperator]
-    val operand = c.AddExpr.resultAs[Expr]
+    val operand = c.GeneralArithExpr.resultAs[Expr]
     c.CmpExpr.resultAs[Expr] match {
       case op : CmpOperation =>
         CmpOperation(op.operators :+ operator, op.operands :+ operand)
@@ -125,13 +145,21 @@ val g_expr =
         CmpOperation(Vector(operator), Vector(e, operand))
     }
   }) ++
-  arule("CmpExpr", "AddExpr", _.AddExpr.result) ++
+  arule("CmpExpr", "GeneralArithExpr", _.GeneralArithExpr.result) ++
   arule("CmpOp", "Le", c => Le) ++
   arule("CmpOp", "Gr", c => Gr) ++
   arule("CmpOp", "Leq", c => Leq) ++
   arule("CmpOp", "Geq", c => Geq) ++
   arule("CmpOp", "Eq", c => Eq) ++
   arule("CmpOp", "NotEq", c => NEq) ++
+  arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr.result) ++
+  arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr.result) ++
+  arule("ConcatExpr", "ConcatExpr Append ArithExpr", c => BinaryOperation(annotateBinop(Append, c.Append.span), c.ConcatExpr.resultAs[Expr], c.ArithExpr.resultAs[Expr])) ++
+  arule("PrependConcatExpr", "PrependExpr", _.PrependExpr.result) ++ 
+  arule("PrependConcatExpr", "PrependConcatExpr Concat ArithExpr", c => BinaryOperation(annotateBinop(Concat, c.Concat.span), c.PrependConcatExpr.resultAs[Expr], c.ArithExpr.resultAs[Expr])) ++
+  arule("PrependExpr", "ArithExpr Prepend PrependExpr", c => BinaryOperation(annotateBinop(Prepend, c.Prepend.span), c.ArithExpr.resultAs[Expr], c.PrependExpr.resultAs[Expr])) ++
+  arule("PrependExpr", "ArithExpr", _.ArithExpr.result) ++
+  arule("ArithExpr", "AddExpr", _.AddExpr.result) ++
   arule("AddExpr", "AddExpr Plus NegExpr", 
       c => BinaryOperation(annotateBinop(Add, c.Plus.span), c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++
   arule("AddExpr", "AddExpr Minus NegExpr", 
@@ -258,14 +286,24 @@ val g_controlflow =
   arule("ControlFlowExpr", "MatchExpr", _.MatchExpr.result) 
 
 val g_pattern = 
-  arule("Pattern", "Underscore", c => PAny) ++
-  arule("Pattern", "Id", c => PId(c.Id.text)) ++
-  arule("Pattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
-  arule("Pattern", "ScriptTrue", c => PBool(true)) ++
-  arule("Pattern", "ScriptFalse", c => PBool(false)) ++
-  arule("Pattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
+  arule("AtomicPattern", "Underscore", c => PAny) ++
+  arule("AtomicPattern", "Id", c => PId(c.Id.text)) ++
+  arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
+  arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
+  arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
+  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
+  arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList.resultAs[Vector[Pattern]], true)) ++
+  arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList.resultAs[Vector[Pattern]], false)) ++  
+  arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern.resultAs[Pattern], c.PrependPattern.resultAs[Pattern])) ++
+  arule("PrependPattern", "AppendPattern", _.AppendPattern.result) ++
+  arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern.resultAs[Pattern], c.AtomicPattern.resultAs[Pattern])) ++
+  arule("AppendPattern", "AtomicPattern", _.AtomicPattern.result) ++
+  arule("Pattern", "PrependPattern", _.PrependPattern.result) ++
   arule("OptPattern", "", c => None) ++
-  arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern]))
+  arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern])) ++
+  arule("PatternList", "", c => Vector[Pattern]()) ++
+  arule("PatternList", "Pattern", c => Vector[Pattern](c.Pattern.resultAs[Pattern])) ++
+  arule("PatternList", "PatternList Comma Pattern", c => c.PatternList.resultAs[Vector[Pattern]] :+ c.Pattern.resultAs[Pattern])
 
 val g_val = 
   arule("ST", "Val Pattern AssignEq Block",

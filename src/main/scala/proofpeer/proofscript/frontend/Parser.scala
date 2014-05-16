@@ -173,7 +173,38 @@ case 2 ⇒ 3
 case y ⇒ y + 2
       """) 
 
+  parse("(7)")
+
+  parse("[7]")
+
+  parse("[7, 13]")
+
+  parse("(7, 13)")
+
+  parse("val (x,y) ≔ s")
+
+  parse("x <+ y ≔ t")
+
+  parse("x +> y ≔ t")
+
+  parse("x <+ y +> z ≔ t")
+
+  parse("x <+ y <+ z ≔ t")
+
+  parse("x +> y +> z ≔ t")
+
+  parse("x <+ y +> z <+ r ≔ t")  
    
+  parse("(x <+ y +> z) <+ r ≔ t")  
+
+  parse("x <+ y +> (z <+ r) ≔ t")  
+
+  parse("x +> y <+ z ≔ t")
+
+  parse("x <+ y ++ u +> z ≔ t")
+
+  parse("t ≔ x <+ y ++ u +> z")
+
 }  
   
   
