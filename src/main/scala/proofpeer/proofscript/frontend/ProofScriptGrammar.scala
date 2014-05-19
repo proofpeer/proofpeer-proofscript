@@ -6,13 +6,15 @@ import proofpeer.indent.APIConversions._
 import Derivation.Context  
 import proofpeer.indent.{Constraints => CS}
 import ParseTree._
+import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
 
 class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
   
 def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar = 
   tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal)
   
-def ltokenrule(nonterminal : String, c : Char) : Grammar = ltokenrule(nonterminal, c, c)
+def ltokenrule(nonterminal : String, c : Char) : Grammar = 
+  ltokenrule(nonterminal, c, c)
 
 def ltokenrule(nonterminal : String, i : Int) : Grammar = 
   tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal)
@@ -78,9 +80,11 @@ val g_literals =
   lexrule("Case", literal("case")) ++
   lexrule("Return", literal("return")) ++
   lexrule("Assume", literal("assume")) ++
-  lexrule("Define", literal("define")) ++
+  lexrule("Let", literal("let")) ++
   lexrule("Choose", literal("choose")) ++
-  lexrule("Introduce", literal("intro")) 
+  lexrule("From", literal("from")) ++
+  lexrule("Theory", literal("theory")) ++
+  lexrule("Extends", literal("extends"))
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -125,7 +129,7 @@ val g_expr =
       c => ControlFlowExpr(c.ControlFlowExpr.resultAs[ControlFlow])) ++
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
-  arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
+  arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
   arule("OrExpr", "AndExpr", _.AndExpr.result) ++
@@ -291,7 +295,7 @@ val g_pattern =
   arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
   arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
   arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
-  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[proofpeer.proofscript.logic.Preterm])) ++
+  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[Preterm])) ++
   arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList.resultAs[Vector[Pattern]], true)) ++
   arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList.resultAs[Vector[Pattern]], false)) ++  
   arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern.resultAs[Pattern], c.PrependPattern.resultAs[Pattern])) ++
@@ -339,8 +343,41 @@ val g_def =
 val g_return =
   arule("ST", "Return Expr", CS.Indent("Return", "Expr"), c => STReturn(c.Expr.resultAs[Expr]))
     
+val g_assume =
+  arule("ST", "Assume OptAssign LogicTerm", 
+    CS.and(
+      CS.Indent("Assume", "OptAssign"),
+      CS.Indent("Assume", "LogicTerm")),
+    c => STAssume(c.OptAssign.resultAs[Option[String]], c.LogicTerm.resultAs[LogicTerm]))
+
+val g_let = 
+  arule("ST", "Let OptAssign LogicTerm",
+    CS.and(
+      CS.Indent("Let", "OptAssign"),
+      CS.Indent("Let", "LogicTerm")),
+    c => STLet(c.OptAssign.resultAs[Option[String]], c.LogicTerm.resultAs[LogicTerm]))
+
+val g_choose = 
+  arule("ST", "Choose OptAssign LogicTerm From Expr",
+    CS.and(
+      CS.Indent("Choose", "OptAssign"),
+      CS.Indent("Choose", "LogicTerm"),
+      CS.ifThenElse(CS.Line("Choose", "From"),
+        CS.Indent("Choose", "Expr"),
+        CS.and(CS.Align("Choose", "From"), CS.Indent("From", "Expr")))),
+    c => STChoose(c.OptAssign.resultAs[Option[String]], 
+                  c.LogicTerm.resultAs[LogicTerm],
+                  c.Expr.resultAs[Expr])) 
+
+val g_logic_statements = 
+  arule("OptAssign", "", c => None) ++
+  arule("OptAssign", "Id AssignEq", c => Some(c.Id.text)) ++
+  arule("LogicTerm", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
+  g_assume ++ g_let ++ g_choose
+
 val g_statement = 
   g_val ++ g_assign ++ g_def ++ g_return ++ 
+  g_logic_statements ++
   arule("Statement", "ST", _.ST.result) ++
   arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow.resultAs[ControlFlow])) ++ 
   arule("Statements", "", c => Vector[Statement]()) ++
@@ -353,13 +390,28 @@ val g_statement =
           CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr")))),
       c => Block(c.Statements.resultAs[Vector[Statement]] :+ STExpr(c.Expr.resultAs[Expr])))
 
+val g_header = 
+  arule("ST", "Theory Namespace Extends NamespaceList", 
+    CS.and(
+      CS.Indent("Theory", "Namespace"),
+      CS.ifThenElse(CS.Line("Theory", "Extends"),
+        CS.Indent("Theory", "NamespaceList"),
+        CS.and(CS.Align("Theory", "Extends"), CS.Indent("Extends", "NamespaceList")))),
+    c => STTheory(new Namespace(c.Namespace.text), c.NamespaceList.resultAs[List[Namespace]])) ++
+  arule("NamespaceList", "", c => List[Namespace]()) ++
+  arule("NamespaceList", "Namespace NamespaceList",
+    c => (new Namespace(c.Namespace.text)) :: c.NamespaceList.resultAs[List[Namespace]])
+
+
+
 val g_prog = 
-  proofpeer.proofscript.logic.Syntax.grammar ++
+  Syntax.grammar ++
   g_literals ++
   g_pattern ++
   g_expr ++
   g_statement ++
   g_controlflow ++
+  g_header ++
   arule("ValueQuotedTerm", "Block", _.Block.result) ++
   arule("PatternQuotedTerm", "Pattern", _.Pattern.result) ++
   arule("Prog", "Block", _.Block.result)

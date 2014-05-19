@@ -164,11 +164,11 @@ val x ≔ 3 * (do
 
   parse("3 + 'A, p ↦ {x | x ∈ A. p x}'")
 
-  parse("3 + 'A, p ↦ {x | x ∈ A. p x ∧ «q» x}'")
+  parse("3 + 'A, p ↦ {x | x ∈ A. p x ∧ ‹q› x}'")
 
   parse("""
 match x 
-case '{ «q» x | x ∈ A. x = «3»}' ⇒ 2
+case '{‹q› x | x ∈ A. x = ‹3›}' ⇒ 2
 case 2 ⇒ 3
 case y ⇒ y + 2
       """) 
@@ -204,6 +204,25 @@ case y ⇒ y + 2
   parse("x <+ y ++ u +> z ≔ t")
 
   parse("t ≔ x <+ y ++ u +> z")
+
+  parse("assume 'x'")
+
+  parse("assume t ≔ 'x'")
+
+  parse("""
+assume 
+  t ≔ 'x'
+""")
+
+  parse("""
+let 'x = (x ↦ x)'
+choose 'y' from t
+""")
+
+  parse("""
+theory root 
+extends squares \blub\whatever great 
+""")
 
 }  
   

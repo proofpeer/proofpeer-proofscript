@@ -55,7 +55,6 @@ object ContextKind {
   case class Choose(const_name : Name, ty : Type, property : Term) extends ContextKind
   case class Introduce(const_name : Name, ty : Type) extends ContextKind
   case class Created(namespace : Namespace, parentNamespaces : Set[Namespace], ancestorNamespaces : Set[Namespace]) extends ContextKind
-  case class StoreTheorem(proposition : Term) extends ContextKind
   case object Complete extends ContextKind
 }
 

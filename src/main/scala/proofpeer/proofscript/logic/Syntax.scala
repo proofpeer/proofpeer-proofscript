@@ -124,6 +124,14 @@ Unicode: U+00AB, UTF-8: C2 AB
 RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
 Unicode: U+00BB, UTF-8: C2 BB
 
+‹
+SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+Unicode: U+2039, UTF-8: E2 80 B9
+
+›
+SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+Unicode: U+203A, UTF-8: E2 80 BA
+
 */
 
 object Syntax {
@@ -164,7 +172,7 @@ object Syntax {
       Name(Some(new Namespace(namespace)), indexedname)
     }
   }
-   
+ 
   val literals = 
     ltokenrule("LowerLetter", 'a', 'z') ++
     ltokenrule("UpperLetter", 'A', 'Z') ++
@@ -181,8 +189,13 @@ object Syntax {
     lexrule("Id", "Id Digit") ++
     lexrule("Id", "Id Letter") ++
     lexrule("Id", "Id Underscore Letter") ++
+    lexrule("RelativeNamespace", "Id") ++
+    lexrule("RelativeNamespace", "RelativeNamespace Backslash Id") ++
+    lexrule("AbsoluteNamespace", "Backslash RelativeNamespace") ++
+    lexrule("Namespace", "AbsoluteNamespace") ++
+    lexrule("Namespace", "RelativeNamespace") ++
     lexrule("RelativeName", "IndexedName") ++
-    lexrule("RelativeName", "Id Backslash Name") ++
+    lexrule("RelativeName", "Id Backslash RelativeName") ++
     lexrule("Name", "RelativeName") ++
     lexrule("Name", "Backslash RelativeName") ++
     lexrule("IndexedName", "Id") ++
@@ -196,8 +209,8 @@ object Syntax {
     ltokenrule("Bar", '|') ++      
     ltokenrule("RightArrow", Range.singleton(0x2192)) ++
     ltokenrule("Colon", ':') ++
-    ltokenrule("QuoteOpen", Range.singleton(0x00AB)) ++
-    ltokenrule("QuoteClose", Range.singleton(0x00BB)) ++
+    ltokenrule("QuoteOpen", Range.singleton(0x2039)) ++
+    ltokenrule("QuoteClose", Range.singleton(0x203A)) ++
     ltokenrule("Forall", Range.singleton(0x2200)) ++
     ltokenrule("Exists", Range.singleton(0x2203)) ++
     ltokenrule("NotExists", Range.singleton(0x2204)) ++    

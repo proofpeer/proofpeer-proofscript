@@ -1,7 +1,7 @@
 package proofpeer.proofscript.frontend
 
 import proofpeer.indent.Span
-import proofpeer.proofscript.logic.Preterm
+import proofpeer.proofscript.logic.{Preterm, Namespace}
 
 trait Source {}
 
@@ -241,7 +241,29 @@ object ParseTree {
   case class STReturn(expr : Expr) extends Statement {
     protected def calcVars = (expr.freeVars, Set())
   }
+
+  case class STAssume(thm_name : Option[String], tm : LogicTerm) extends Statement {
+    protected def calcVars = 
+      (tm.freeVars, 
+       if (thm_name.isDefined) Set(thm_name.get) else Set())
+  }
   
+  case class STLet(thm_name : Option[String], tm : LogicTerm) extends Statement {
+    protected def calcVars = 
+      (tm.freeVars, 
+       if (thm_name.isDefined) Set(thm_name.get) else Set())
+  }
+
+  case class STChoose(thm_name : Option[String], tm : LogicTerm, thm : Expr) extends Statement {
+    protected def calcVars = 
+      (tm.freeVars ++ thm.freeVars, 
+       if (thm_name.isDefined) Set(thm_name.get) else Set())
+  }
+
+  case class STTheory(namespace : Namespace, parents : List[Namespace]) extends Statement {
+    protected def calcVars = (Set(), Set())
+  }
+
   case class Block(statements : Vector[Statement]) extends ParseTree {
     protected def calcVars : (Set[String], Set[String]) = {
       var frees : Set[String] = Set()
