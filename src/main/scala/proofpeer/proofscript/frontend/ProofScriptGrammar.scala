@@ -120,7 +120,7 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
 }
 
 val g_expr =
-  arule("PrimitiveExpr", "Id", c => Id(c.Id.text)) ++
+  arule("PrimitiveExpr", "Name", c => mkId(Syntax.parseName(c.Name.text))) ++
   arule("Int", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
   arule("Int", "Minus Digits", c => Integer(-BigInt(c.Digits.text, 10))) ++  
   arule("PrimitiveExpr", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
@@ -292,7 +292,6 @@ val g_context =
       c => ContextControl(c.OptContextParam.resultAs[Option[Expr]], c.Block.resultAs[Block])) ++
   arule("OptContextParam", "", c => None) ++
   arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr.resultAs[Expr]))
-
       
 val g_controlflow = 
   g_do ++ g_if ++ g_while ++ g_for ++ g_match ++ g_context ++

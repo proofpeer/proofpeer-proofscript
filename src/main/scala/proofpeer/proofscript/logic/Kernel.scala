@@ -14,7 +14,11 @@ object Utils {
 
 import Utils._
 
-sealed case class IndexedName(val name : String, val index : Option[Integer]) 
+sealed case class IndexedName(val name : String, val index : Option[Integer]) {
+  override def toString : String = {
+    if (index.isDefined) name + "_" + index.get else name
+  }
+}
 sealed class Namespace(namespace : String) {
   override def toString : String = namespace
   override def hashCode : Int = namespace.toLowerCase.hashCode

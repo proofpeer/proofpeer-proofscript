@@ -1,7 +1,7 @@
 package proofpeer.proofscript.frontend
 
 import proofpeer.indent.Span
-import proofpeer.proofscript.logic.{Preterm, Namespace}
+import proofpeer.proofscript.logic.{Preterm, Namespace, Name}
 
 trait Source {}
 
@@ -20,6 +20,13 @@ sealed trait ParseTree extends TracksSourcePosition {
 }
 
 object ParseTree {
+
+  def mkId(name : Name) : Expr = {
+    if (name.namespace.isDefined)
+      QualifiedId(name.namespace.get, name.name.toString)
+    else 
+      Id(name.name.toString)
+  }
   
   sealed trait Expr extends ParseTree {
     protected def calcFreeVars : Set[String]
@@ -34,6 +41,10 @@ object ParseTree {
     protected def calcFreeVars = Set()
   }
   
+  case class QualifiedId(namespace : Namespace, name : String) extends Expr {
+    protected def calcFreeVars = Set()
+  } 
+
   case class Id(name : String) extends Expr {
     protected def calcFreeVars = Set(name)
   }
