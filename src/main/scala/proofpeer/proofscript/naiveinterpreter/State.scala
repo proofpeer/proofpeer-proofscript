@@ -44,5 +44,7 @@ object States {
 		}
 	}
 
+	def empty : States = new SimpleStates()
+
 }
 

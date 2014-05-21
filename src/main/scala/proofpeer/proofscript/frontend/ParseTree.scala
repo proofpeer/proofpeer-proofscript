@@ -88,7 +88,7 @@ object ParseTree {
     protected def calcVars = (calcFreeVars, Set())    
   }
 
-  case class Do(block : Block) extends ControlFlow {
+  case class Do(block : Block, star : Boolean) extends ControlFlow {
     protected def calcFreeVars = block.freeVars
   }
   
@@ -113,6 +113,11 @@ object ParseTree {
   
   case class Match(expr : Expr, cases : Vector[MatchCase]) extends ControlFlow {
     protected def calcFreeVars = cases.foldLeft(expr.freeVars)((fvars, mc) => fvars ++ mc.freeVars) 
+  }
+
+  case class ContextControl(ctx : Option[Expr], body : Block) extends ControlFlow {
+    protected def calcFreeVars = 
+      if (ctx.isDefined) ctx.get.freeVars ++ body.freeVars else body.freeVars
   }
 
   sealed trait Operator extends TracksSourcePosition

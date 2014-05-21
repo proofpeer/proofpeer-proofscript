@@ -224,6 +224,18 @@ theory root
 extends squares \blub\whatever great 
 """)
 
+  parse("context")
+
+  parse("(context)")
+
+parse("""
+context
+context
+  context<context>
+context
+  context<(context)>
+""")
+
 }  
   
   
