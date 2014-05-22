@@ -140,12 +140,12 @@ object Syntax {
   import Pretype._
   
   def ltokenrule(nonterminal : Nonterminal, c1 : Char, c2 : Char) : Grammar = 
-      tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal)
+      tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, None))
   
   def ltokenrule(nonterminal : Nonterminal, c : Char) : Grammar = ltokenrule(nonterminal, c, c)
 
   def ltokenrule(nonterminal : Nonterminal, r : Range) : Grammar =
-      tokenrule(nonterminal, r) ++ lexical(nonterminal)
+      tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(0, None))
       
   def parseIndexedName(s : String) : IndexedName = {
     val index = s.lastIndexOf("_")
@@ -172,6 +172,14 @@ object Syntax {
       Name(Some(new Namespace(namespace)), indexedname)
     }
   }
+
+  def lexrule(n : Nonterminal, rhs : String) : Grammar = {
+    API.lexrule(n, rhs, LexicalPriority(0, None))
+  }
+
+  def lexrule(n : Nonterminal, rhs : String, prio : Int) : Grammar = {
+    API.lexrule(n, rhs, LexicalPriority(0, Some(prio)))
+  }
  
   val literals = 
     ltokenrule("LowerLetter", 'a', 'z') ++
@@ -185,7 +193,7 @@ object Syntax {
     ltokenrule("Backslash", '\\') ++
     ltokenrule("Dot", '.') ++
     ltokenrule("Comma", ',') ++
-    lexrule("Id", "Letter") ++
+    lexrule("Id", "Letter", 1) ++
     lexrule("Id", "Id Digit") ++
     lexrule("Id", "Id Letter") ++
     lexrule("Id", "Id Underscore Letter") ++
@@ -196,9 +204,9 @@ object Syntax {
     lexrule("Namespace", "RelativeNamespace") ++
     lexrule("RelativeName", "IndexedName") ++
     lexrule("RelativeName", "Id Backslash RelativeName") ++
-    lexrule("Name", "RelativeName") ++
+    lexrule("Name", "RelativeName", 1) ++
     lexrule("Name", "Backslash RelativeName") ++
-    lexrule("IndexedName", "Id") ++
+    lexrule("IndexedName", "Id", 1) ++
     lexrule("IndexedName", "Id Underscore Digits") ++
     ltokenrule("Eq", '=') ++
     ltokenrule("NotEq", Range.singleton(0x2260)) ++
@@ -323,7 +331,7 @@ object Syntax {
     rule("PrefixTerm", "PrefixAbsTerm", _.PrefixAbsTerm.result)
 
 val g_Value_term = 
-    rule("ValueNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
+    //rule("ValueNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
     rule("ValueNameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
     rule("ValueSetComprehensionTerm", "CurlyBracketOpen ValueTerm Bar ValueBindings CurlyBracketClose", 
       c => pTmSetComprehension(c.ValueBindings.resultAs[List[Binding]], c.ValueTerm.resultAs[Preterm], None)) ++
@@ -403,7 +411,7 @@ val g_Value_term =
     rule("ValueTerm", "ValueAbsTerm", _.ValueAbsTerm.result)
 
 val g_Pattern_term = 
-    rule("PatternNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
+    //rule("PatternNameTerm", "IndexedName", c => PTmName(parseName(c.IndexedName.text), PTyAny)) ++
     rule("PatternNameTerm", "Name", c => PTmName(parseName(c.Name.text), Pretype.PTyAny)) ++
     rule("PatternSetComprehensionTerm", "CurlyBracketOpen PatternTerm Bar PatternBindings CurlyBracketClose", 
       c => pTmSetComprehension(c.PatternBindings.resultAs[List[Binding]], c.PatternTerm.resultAs[Preterm], None)) ++

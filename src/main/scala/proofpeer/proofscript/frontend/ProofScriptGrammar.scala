@@ -11,13 +11,21 @@ import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
 class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
   
 def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar = 
-  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal)
+  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, None))
   
 def ltokenrule(nonterminal : String, c : Char) : Grammar = 
   ltokenrule(nonterminal, c, c)
 
 def ltokenrule(nonterminal : String, i : Int) : Grammar = 
-  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal)
+  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(0, None))
+
+def lexrule(n : Nonterminal, rhs : String) : Grammar = {
+  API.lexrule(n, rhs, LexicalPriority(0, None))
+}
+
+def litrule(n : Nonterminal, lit : String) : Grammar = {
+  API.lexrule(n, literal(lit), LexicalPriority(0, Some(2)))
+}
   
 /*
 
@@ -60,32 +68,32 @@ val g_literals =
   lexrule("Prepend", literal("<+")) ++
   lexrule("Append", literal("+>")) ++
   lexrule("Concat", literal("++")) ++
-  lexrule("Val", literal("val")) ++
-  lexrule("Def", literal("def")) ++
-  lexrule("Mod", literal("mod")) ++
-  lexrule("ScriptOr", literal("or")) ++
-  lexrule("ScriptAnd", literal("and")) ++
-  lexrule("ScriptNot", literal("not")) ++
-  lexrule("ScriptTrue", literal("true")) ++
-  lexrule("ScriptFalse", literal("false")) ++
-  lexrule("Lazy", literal("lazy")) ++
-  lexrule("If", literal("if")) ++
-  lexrule("Then", literal("then")) ++
-  lexrule("Else", literal("else")) ++
-  lexrule("While", literal("while")) ++
-  lexrule("Do", literal("do")) ++
-  lexrule("For", literal("for")) ++
-  lexrule("In", literal("in")) ++
-  lexrule("Match", literal("match")) ++
-  lexrule("Case", literal("case")) ++
-  lexrule("Return", literal("return")) ++
-  lexrule("Assume", literal("assume")) ++
-  lexrule("Let", literal("let")) ++
-  lexrule("Choose", literal("choose")) ++
-  lexrule("From", literal("from")) ++
-  lexrule("Theory", literal("theory")) ++
-  lexrule("Extends", literal("extends")) ++
-  lexrule("Context", literal("context"))
+  litrule("Val", "val") ++
+  litrule("Def", "def") ++
+  litrule("Mod", "mod") ++
+  litrule("ScriptOr", "or") ++
+  litrule("ScriptAnd", "and") ++
+  litrule("ScriptNot", "not") ++
+  litrule("ScriptTrue", "true") ++
+  litrule("ScriptFalse", "false") ++
+  litrule("Lazy", "lazy") ++
+  litrule("If", "if") ++
+  litrule("Then", "then") ++
+  litrule("Else", "else") ++
+  litrule("While", "while") ++
+  litrule("Do", "do") ++
+  litrule("For", "for") ++
+  litrule("In", "in") ++
+  litrule("Match", "match") ++
+  litrule("Case", "case") ++
+  litrule("Return", "return") ++
+  litrule("Assume", "assume") ++
+  litrule("Let", "let") ++
+  litrule("Choose", "choose") ++
+  litrule("From", "from") ++
+  litrule("Theory", "theory") ++
+  litrule("Extends", "extends") ++
+  litrule("Context", "context")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 

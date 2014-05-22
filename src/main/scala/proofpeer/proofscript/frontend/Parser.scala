@@ -236,6 +236,10 @@ context
   context<(context)>
 """)
 
+parse("val x ≔ 3")
+
+parse("def x ≔ 3")
+
 }  
   
   
