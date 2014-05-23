@@ -5,8 +5,11 @@ object Parser {
 import proofpeer.indent._
 import proofpeer.indent.APIConversions._
 
+var currentSource : Source = null
+
 class SourcePos(val span : Option[Span]) extends SourcePosition {
-  def source : Source = null
+  val src = currentSource
+  def source : Source = src
 }
 
 def annotate(v : Any, span : Option[Span]) : Any = {
@@ -45,12 +48,40 @@ def parse(prog : String) {
   println()
 } 
 
+sealed trait ParseResult
+case class SuccessfulParse(tree : ParseTree.Block) extends ParseResult 
+case class AmbiguousParse(pos : SourcePosition) extends ParseResult
+case class FailedParse(pos : SourcePosition) extends ParseResult
+
+def parseFromSource(source : Source, prog : String) : ParseResult = {
+  currentSource = source
+  if (!g_prog.info.wellformed) {
+    throw new RuntimeException("ProofScript grammar is not wellformed:\n" + g_prog.info.errors)
+  } 
+  val document = UnicodeDocument.fromString(prog)
+  g_prog.parser.parse(document, "Prog", 0) match {
+    case None => FailedParse(new SourcePos(None))
+    case Some((v, i)) =>
+      if (v.isUnique && i == document.size) {
+        val result = Derivation.computeParseResult(g_prog, document, t => null, v)
+        SuccessfulParse(result.resultAs[ParseTree.Block])
+      } else if (i < document.size) {
+        val token = document.getToken(i)
+        FailedParse(new SourcePos(Some(token.span)))
+      } else {
+        AmbiguousParse(new SourcePos(None))
+      }
+  }
+}
+
 def main(args : Array[String]) {
   parse("x - y")
 
   parse("x - y = 10 < y ≤ z - 4")
   
   parse("not 2 * (x + 4) + y mod 7 or 2 and 3")
+
+  parse("not 2 * (x + 4)")
   
   parse("not x or y")
   
