@@ -72,12 +72,61 @@ object Interpreter {
 		}
 	}
 
+	val root_namespace = new Namespace("\\root")
+
+	def topsort(theories : Map[Namespace, Theory]) : List[Theory] = {
+		var sorted : List[Theory] = List()
+		var sortedNamespaces : Set[Namespace] = Set()
+		var unsorted : Map[Namespace, Theory] = theories
+
+		def sort(initial : Boolean) : Boolean = {
+			var did_something = false
+			var sorted_ns = sortedNamespaces
+			for ((ns, thy) <- unsorted) {
+				if (thy.parents subsetOf sorted_ns) {
+					sorted = thy :: sorted
+					sortedNamespaces = sortedNamespaces + ns
+					unsorted = unsorted - ns	
+					did_something = true
+				}
+				if (!initial) sorted_ns = sortedNamespaces
+			}
+			did_something
+		}
+
+		if (!sort(true)) {
+			println("theory graph has no root")
+			return List()
+		} else if (sorted.size != 1) {
+			println("theory graph has more than one root:")
+			for (thy <- sorted) {
+				println("  " + thy.namespace)
+			}
+			return List()
+		} else if (sorted.head.namespace != root_namespace) {
+			println("theory graph has invalid root: " + sorted.head.namespace)
+			return List()
+		} 
+
+		while (sort(false)) {}
+
+		if (!unsorted.isEmpty) { 
+			println("these theories have invalid dependencies and will not be processed:")
+			for ((ns, _) <- unsorted) {
+				println("  " + ns)
+			}
+		} 
+
+		sorted.reverse
+	}
+
 	def main(args : Array[String]) {
 		for (arg <- args) {
 			val f = new File(arg)
 			if (f.isDirectory) findTheoriesInDirectory(f)
 			else addTheory(f)
 		}
+		val sorted_theories = topsort(theories)	
 	}
 
 }
