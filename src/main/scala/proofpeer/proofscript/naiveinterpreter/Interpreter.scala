@@ -2,7 +2,7 @@ package proofpeer.proofscript.naiveinterpreter
 
 import java.io.File
 import proofpeer.proofscript.frontend._
-import proofpeer.proofscript.logic.Namespace
+import proofpeer.proofscript.logic._
 
 object Interpreter {
 
@@ -72,8 +72,6 @@ object Interpreter {
 		}
 	}
 
-	val root_namespace = new Namespace("\\root")
-
 	def topsort(theories : Map[Namespace, Theory]) : List[Theory] = {
 		var sorted : List[Theory] = List()
 		var sortedNamespaces : Set[Namespace] = Set()
@@ -103,7 +101,7 @@ object Interpreter {
 				println("  " + thy.namespace)
 			}
 			return List()
-		} else if (sorted.head.namespace != root_namespace) {
+		} else if (sorted.head.namespace != Kernel.root_namespace) {
 			println("theory graph has invalid root: " + sorted.head.namespace)
 			return List()
 		} 
@@ -120,6 +118,47 @@ object Interpreter {
 		sorted.reverse
 	}
 
+	def rootState : State = {
+		var values : Map[String, StateValue] = Map()
+		for ((n, th) <- Root.axioms) {
+			values = values + (n -> TheoremValue(th))
+		}
+		new State(Root.context, values)
+	}
+
+	def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace]) : Option[State] = {
+		for (p <- parentNamespaces) {
+			if (!states.lookup(p).isDefined) return None
+		}
+		val context = Root.kernel.createNewNamespace(namespace, parentNamespaces)
+		Some(new State(context, Map()))
+	} 
+
+	def evalTheory(states : States, thy : Theory) {
+		val evaluator = new Eval(states, Root.kernel, Root.nr, thy.resolve, thy.namespace)
+		val state : State = 
+			if (thy.namespace == Kernel.root_namespace) 
+				rootState
+			else {
+				makeState(states, thy.namespace, thy.parents) match {
+					case None =>
+						println("skipping theory "+thy.namespace)
+						return
+					case Some(state) =>
+						state
+				}
+			}
+		evaluator.evalStatements(state, thy.statements) match {
+			case None =>
+				println("failed executing theory "+thy.namespace)
+			case Some(state) => {
+				val completed = Root.kernel.completeNamespace(state.context)
+				states.register(thy.namespace, new State(completed, state.values))
+				println("successfully executed theory "+thy.namespace)
+			}
+		}
+	}
+
 	def main(args : Array[String]) {
 		for (arg <- args) {
 			val f = new File(arg)
@@ -127,6 +166,10 @@ object Interpreter {
 			else addTheory(f)
 		}
 		val sorted_theories = topsort(theories)	
+		if (sorted_theories.isEmpty) return
+		Root.setupRoot
+		val states = States.empty
+		for (thy <- sorted_theories) evalTheory(states, thy)
 	}
 
 }

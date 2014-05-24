@@ -21,6 +21,7 @@ object Root {
 	}
 
 	var context : Context = kernel.createNewNamespace(Kernel.root_namespace, Set())	
+	var axioms : Map[String, Theorem] = Map()
 
 	def read(s : String) : Term = parse(context, s)	
 
@@ -45,6 +46,7 @@ object Root {
 			val t = read(ax)
 			val th = context.assume(t)
 			context = th.context
+			axioms = axioms + (name -> th)
 		}
 		intro(Kernel.logical_and, ty_log2)
 		intro(Kernel.logical_or, ty_log2)

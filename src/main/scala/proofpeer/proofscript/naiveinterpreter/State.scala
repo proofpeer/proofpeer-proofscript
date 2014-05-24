@@ -12,7 +12,7 @@ case class IntValue(value : BigInt) extends StateValue
 case class FunctionValue(value : StateValue => StateValue) extends StateValue
 case class TupleValue(value : Vector[StateValue]) extends StateValue
 
-class State(val context : Context, values : Map[String, StateValue]) {
+class State(val context : Context, val values : Map[String, StateValue]) {
 
 	def lookup(id : String) : Option[StateValue] = values.get(id)
 

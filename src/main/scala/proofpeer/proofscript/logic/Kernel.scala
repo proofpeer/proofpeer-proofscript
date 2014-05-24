@@ -172,7 +172,7 @@ trait Kernel {
 }
 
 object Kernel {
-  val root_namespace = new Namespace("root")
+  val root_namespace = new Namespace("\\root")
   def rootname(name : String) = Name(Some(root_namespace), IndexedName(name, None))
   
   // names which are essential to the kernel
