@@ -15,8 +15,9 @@ class Eval(states : States, kernel : Kernel, nameresolution : NameResolution,
 
 	def fail[T](p : ParseTree, error : String) : Failed[T] = Failed(p.sourcePosition, error)
 
-	def evalStatements(_state : State, statements : Vector[Statement]) : Result[State] = {
+	def evalStatements(_state : State, statements : Vector[Statement], _collect : Collect) : Result[(State, Collect)] = {
 		var state = _state
+		var collect = _collect
 		val num = statements.size
 		var i = 0
 		for (st <- statements) {
@@ -40,7 +41,7 @@ class Eval(states : States, kernel : Kernel, nameresolution : NameResolution,
 			}
 			i = i + 1
 		}
-		Success(state)
+		Success((state, collect))
 	}
 
 	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
