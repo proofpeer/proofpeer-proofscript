@@ -34,20 +34,40 @@ case class IntValue(value : BigInt) extends StateValue
 case class FunctionValue(value : StateValue => StateValue) extends StateValue
 case class TupleValue(value : Vector[StateValue]) extends StateValue
 
-class State(val context : Context, val values : Map[String, StateValue], val assignables : Set[String]) {
+class State(val context : Context, val values : Map[String, StateValue], 
+	val assignables : Set[String], val collect : Collect) {
 
 	def lookup(id : String) : Option[StateValue] = values.get(id)
 
 	def put(id : String, v : StateValue) : State = {
-		new State(context, values + (id -> v), assignables + id)
+		new State(context, values + (id -> v), assignables + id, collect)
 	}
 
 	def freeze : State = {
-		new State(context, values, Set())
+		new State(context, values, Set(), Collect.Zero)
 	}
 
 	def put(ctx : Context) : State = {
-		new State(ctx, values, assignables)
+		new State(ctx, values, assignables, collect)
+	}
+
+	def addToCollect(value : StateValue) : State = {
+		collect match {
+			case Collect.Multiple(collector) =>
+				new State(context, values, assignables, Collect.Multiple(collector.add(value)))
+			case _ => 
+				throw new RuntimeException("internal error: wrong collector multiplicty")
+
+		}
+	}
+
+	def reapCollect : StateValue = {
+		collect match {
+			case Collect.Multiple(collector) => 
+				collector.reap
+			case _ =>
+				throw new RuntimeException("internal error: wrong collector multiplicity")
+		}
 	}
 
 }

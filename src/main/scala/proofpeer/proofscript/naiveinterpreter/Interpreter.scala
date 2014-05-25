@@ -123,7 +123,7 @@ object Interpreter {
 		for ((n, th) <- Root.axioms) {
 			values = values + (n -> TheoremValue(th))
 		}
-		new State(Root.context, values, Set())
+		new State(Root.context, values, Set(), Collect.Zero)
 	}
 
 	def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace]) : Option[State] = {
@@ -131,7 +131,7 @@ object Interpreter {
 			if (!states.lookup(p).isDefined) return None
 		}
 		val context = Root.kernel.createNewNamespace(namespace, parentNamespaces)
-		Some(new State(context, Map(), Set()))
+		Some(new State(context, Map(), Set(), Collect.Zero))
 	} 
 
 	def evalTheory(states : States, thy : Theory) {
@@ -148,7 +148,7 @@ object Interpreter {
 						state
 				}
 			}
-		evaluator.evalStatements(state, thy.statements, Collect.Zero) match {
+		evaluator.evalStatements(state, thy.statements) match {
 			case Failed(pos, error) =>
 				println("failed executing theory "+thy.namespace)
 				pos.span match {
@@ -157,9 +157,9 @@ object Interpreter {
 						println("row = "+(span.firstRow + 1)+", column = "+(span.leftMostFirst + 1))				
 				}
 				println(error)
-			case Success((state, _)) => {
+			case Success(state) => {
 				val completed = Root.kernel.completeNamespace(state.context)
-				states.register(thy.namespace, new State(completed, state.values, Set()))
+				states.register(thy.namespace, new State(completed, state.values, Set(), Collect.Zero))
 				println("successfully executed theory "+thy.namespace)
 			}
 		}
