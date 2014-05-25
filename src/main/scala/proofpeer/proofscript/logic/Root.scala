@@ -127,7 +127,7 @@ object Root {
 		println("th = "+checkPrinting(c, th.proposition)) 
 	}
 	
-	def main(args : Array[String]) {
+	def oldmain(args : Array[String]) {
 		setupRoot()
 		test("root\\forall")
 		test("root\\forall : ((_ → ℙ) → ℙ) → ℙ")

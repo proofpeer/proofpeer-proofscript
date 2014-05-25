@@ -224,6 +224,10 @@ object ParseTree {
   case class STControlFlow(controlflow : ControlFlow) extends Statement {
     protected def calcVars = (controlflow.freeVars, Set())    
   }
+
+  case class STShow(expr : Expr) extends Statement {
+    protected def calcVars = (expr.freeVars, Set())
+  }
   
   case class STVal(pat : Pattern, body : Block) extends Statement {
     protected def calcVars = (pat.freeVars ++ body.freeVars, pat.introVars)

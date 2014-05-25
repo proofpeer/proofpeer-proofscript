@@ -93,7 +93,8 @@ val g_literals =
   litrule("From", "from") ++
   litrule("Theory", "theory") ++
   litrule("Extends", "extends") ++
-  litrule("Context", "context")
+  litrule("Context", "context") ++
+  litrule("Show", "show")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -336,6 +337,11 @@ val g_pattern =
   arule("PatternList", "Pattern", c => Vector[Pattern](c.Pattern.resultAs[Pattern])) ++
   arule("PatternList", "PatternList Comma Pattern", c => c.PatternList.resultAs[Vector[Pattern]] :+ c.Pattern.resultAs[Pattern])
 
+val g_show =
+  arule("ST", "Show PExpr",
+    CS.Indent("Show", "PExpr"),
+    c => STShow(c.PExpr.resultAs[Expr]))
+
 val g_val = 
   arule("ST", "Val Pattern AssignEq Block",
       CS.and(
@@ -403,7 +409,7 @@ val g_logic_statements =
   g_assume ++ g_let ++ g_choose
 
 val g_statement = 
-  g_val ++ g_assign ++ g_def ++ g_return ++ 
+  g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++
   g_logic_statements ++
   arule("Statement", "ST", _.ST.result) ++
   arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow.resultAs[ControlFlow])) ++ 
