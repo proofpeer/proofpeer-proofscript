@@ -411,17 +411,20 @@ val g_logic_statements =
 val g_statement = 
   g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++
   g_logic_statements ++
+  arule("Statement", "Expr", 
+    CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
+    c => STExpr(c.Expr.resultAs[Expr])) ++
   arule("Statement", "ST", _.ST.result) ++
   arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow.resultAs[ControlFlow])) ++ 
   arule("Statements", "", c => Vector[Statement]()) ++
   arule("Statements", "Statements Statement", CS.Align("Statements", "Statement"),
       c => c.Statements.resultAs[Vector[Statement]] :+ c.Statement.resultAs[Statement]) ++
-  arule("Block", "Statements", c => Block(c.Statements.resultAs[Vector[Statement]])) ++
-  arule("Block", "Statements Expr", 
+  arule("Block", "Statements", c => Block(c.Statements.resultAs[Vector[Statement]])) 
+  /*arule("Block", "Statements Expr", 
       CS.and(
           CS.Align("Statements", "Expr"), 
           CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr")))),
-      c => Block(c.Statements.resultAs[Vector[Statement]] :+ STExpr(c.Expr.resultAs[Expr])))
+      c => Block(c.Statements.resultAs[Vector[Statement]] :+ STExpr(c.Expr.resultAs[Expr])))*/
 
 val g_header = 
   arule("ST", "Theory Namespace Extends NamespaceList", 

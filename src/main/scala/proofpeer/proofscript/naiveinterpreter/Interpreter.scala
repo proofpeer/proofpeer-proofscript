@@ -151,10 +151,12 @@ object Interpreter {
 		evaluator.evalStatements(state, thy.statements) match {
 			case Failed(pos, error) =>
 				println("failed executing theory "+thy.namespace)
-				pos.span match {
-					case None =>
-					case Some(span) =>
-						println("row = "+(span.firstRow + 1)+", column = "+(span.leftMostFirst + 1))				
+				if (pos != null) {
+					pos.span match {
+						case None =>
+						case Some(span) =>
+							println("row = "+(span.firstRow + 1)+", column = "+(span.leftMostFirst + 1))				
+					}
 				}
 				println(error)
 			case Success(state) => {

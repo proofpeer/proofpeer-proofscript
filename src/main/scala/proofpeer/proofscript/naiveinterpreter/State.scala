@@ -7,7 +7,7 @@ trait StateValue {}
 trait Collect {}
 object Collect {
 	case object Zero extends Collect
-	case object One extends Collect
+	case class One(collected : Option[StateValue]) extends Collect
 	case class Multiple(collector : Collector) extends Collect 
 
 	trait Collector {
@@ -23,6 +23,8 @@ object Collect {
 	private val emptyTupleCollector = new TupleCollector(List())
 
 	def emptyMultiple : Multiple = Multiple(emptyTupleCollector)
+
+	def emptyOne : One = One(None)
 }
 
 
@@ -43,16 +45,34 @@ class State(val context : Context, val values : Map[String, StateValue],
 		new State(context, values + (id -> v), assignables + id, collect)
 	}
 
+	def add(vs : Map[String, StateValue]) : State = {
+		new State(context, values ++ vs, assignables ++ vs.keySet, collect)
+	}
+
+	def subsume(state : State, intros : Set[String], c : Collect) : State = {
+		var vs : Map[String, StateValue] = values
+		for (name <- assignables -- intros) {
+			vs = vs + (name -> state.values(name))
+		}
+		new State(state.context, vs, assignables, c)
+	}
+
 	def freeze : State = {
-		new State(context, values, Set(), Collect.Zero)
+		new State(context, values, Set(), collect)
 	}
 
 	def put(ctx : Context) : State = {
 		new State(ctx, values, assignables, collect)
 	}
 
+	def setCollect(c : Collect) : State = {
+		new State(context, values, assignables, c)
+	}
+
 	def addToCollect(value : StateValue) : State = {
 		collect match {
+			case Collect.One(None) =>
+				new State(context, values, assignables, Collect.One(Some(value)))
 			case Collect.Multiple(collector) =>
 				new State(context, values, assignables, Collect.Multiple(collector.add(value)))
 			case _ => 
@@ -63,6 +83,7 @@ class State(val context : Context, val values : Map[String, StateValue],
 
 	def reapCollect : StateValue = {
 		collect match {
+			case Collect.One(Some(v)) => v
 			case Collect.Multiple(collector) => 
 				collector.reap
 			case _ =>
