@@ -53,7 +53,8 @@ object Interpreter {
 			println("  theory is empty and will be ignored")
 		} else {
 			thy.statements.head match {
-				case ParseTree.STTheory(namespace, parents) =>
+				case ParseTree.STTheory(namespace, aliases, parents) =>
+					println("aliases: "+aliases)
 					val ns = namespace.absolute
 					val master_ns = ns.parent
 					def resolve_ns(m : Namespace) = m.absolute(master_ns)

@@ -344,11 +344,11 @@ val g_show =
 
 val g_val = 
   arule("ST", "Val Pattern AssignEq Block",
-      CS.and(
-          CS.Indent("Val", "Pattern"),
-          CS.SameLine("Pattern", "AssignEq"),
-          CS.or(CS.Line("AssignEq", "Block"), CS.Indent("Val", "Block"))),
-      c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
+    CS.and(
+      CS.Indent("Val", "Pattern"),
+      CS.SameLine("Pattern", "AssignEq"),
+      CS.or(CS.Line("AssignEq", "Block"), CS.Indent("Val", "Block"))),
+    c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
 
 val g_assign = 
   arule("ST", "Pattern AssignEq Block",
@@ -420,23 +420,24 @@ val g_statement =
   arule("Statements", "Statements Statement", CS.Align("Statements", "Statement"),
       c => c.Statements.resultAs[Vector[Statement]] :+ c.Statement.resultAs[Statement]) ++
   arule("Block", "Statements", c => Block(c.Statements.resultAs[Vector[Statement]])) 
-  /*arule("Block", "Statements Expr", 
-      CS.and(
-          CS.Align("Statements", "Expr"), 
-          CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr")))),
-      c => Block(c.Statements.resultAs[Vector[Statement]] :+ STExpr(c.Expr.resultAs[Expr])))*/
 
 val g_header = 
-  arule("ST", "Theory Namespace Extends NamespaceList", 
+  arule("ST", "Theory Namespace AliasList Extends NamespaceList", 
     CS.and(
       CS.Indent("Theory", "Namespace"),
       CS.ifThenElse(CS.Line("Theory", "Extends"),
         CS.Indent("Theory", "NamespaceList"),
         CS.and(CS.Align("Theory", "Extends"), CS.Indent("Extends", "NamespaceList")))),
-    c => STTheory(new Namespace(c.Namespace.text), c.NamespaceList.resultAs[List[Namespace]])) ++
+    c => STTheory(new Namespace(c.Namespace.text), c.AliasList.resultAs[List[(Id, Namespace)]].reverse, c.NamespaceList.resultAs[List[Namespace]].reverse)) ++
   arule("NamespaceList", "", c => List[Namespace]()) ++
-  arule("NamespaceList", "Namespace NamespaceList",
-    c => (new Namespace(c.Namespace.text)) :: c.NamespaceList.resultAs[List[Namespace]])
+  arule("NamespaceList", "NamespaceList Namespace",
+    c => (new Namespace(c.Namespace.text)) :: c.NamespaceList.resultAs[List[Namespace]]) ++
+  arule("AliasList", "", c => List[(Id, Namespace)]()) ++
+  arule("AliasList", "AliasList Alias", 
+    CS.Align("AliasList", "Alias"),
+    c => c.Alias.resultAs[(Id, Namespace)] :: c.AliasList.resultAs[List[(Id, Namespace)]]) ++
+  arule("Alias", "Id AssignEq Namespace", 
+    c => (Id(c.Id.text), new Namespace(c.Namespace.text)))
 
 val g_prog = 
   Syntax.grammar ++
