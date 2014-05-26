@@ -1,7 +1,5 @@
 package proofpeer.proofscript.logic
 
-import proofpeer.scala.lang._
-
 object Utils {
 
   def failwith[T](reason : String) : T = {
@@ -19,33 +17,6 @@ import Utils._
 sealed case class IndexedName(val name : String, val index : Option[Integer]) {
   override def toString : String = {
     if (index.isDefined) name + "_" + index.get else name
-  }
-}
-sealed class Namespace(private val namespace : String) {
-  override def toString : String = namespace
-  override def hashCode : Int = namespace.toLowerCase.hashCode
-  override def equals(other : Any): Boolean = {
-    other match {
-      case that: Namespace => namespace.toLowerCase == that.toString.toLowerCase
-      case _ => false
-    }
-  }
-  def isAbsolute : Boolean = startsWith(namespace, "\\")
-  def absolute : Namespace = if (isAbsolute) this else new Namespace("\\" + namespace)
-  def absolute(parent : Namespace) : Namespace = {
-    if (isAbsolute) 
-      this
-    else {
-      (new Namespace(parent.namespace + "\\" + namespace)).absolute
-    }
-  }
-  def parent : Namespace = {
-    val i = namespace.lastIndexOf("\\")
-    if (i < 0) {
-      new Namespace("")
-    } else {
-      new Namespace(namespace.substring(0, i))
-    }
   }
 }
 sealed case class Name(val namespace : Option[Namespace], val name : IndexedName)
