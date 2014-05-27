@@ -36,17 +36,22 @@ case class IntValue(value : BigInt) extends StateValue
 case class FunctionValue(value : StateValue => StateValue) extends StateValue
 case class TupleValue(value : Vector[StateValue]) extends StateValue
 
+object State {
+	def fromValue(value : StateValue) : State = 
+		new State(null, null, null, Collect.One(Some(value)), false)
+}
+
 class State(val context : Context, val values : Map[String, StateValue], 
-	val assignables : Set[String], val collect : Collect) {
+	val assignables : Set[String], val collect : Collect, val canReturn : Boolean) {
 
 	def lookup(id : String) : Option[StateValue] = values.get(id)
 
 	def put(id : String, v : StateValue) : State = {
-		new State(context, values + (id -> v), assignables + id, collect)
+		new State(context, values + (id -> v), assignables + id, collect, canReturn)
 	}
 
 	def add(vs : Map[String, StateValue]) : State = {
-		new State(context, values ++ vs, assignables ++ vs.keySet, collect)
+		new State(context, values ++ vs, assignables ++ vs.keySet, collect, canReturn)
 	}
 
 	def subsume(state : State, intros : Set[String], c : Collect) : State = {
@@ -54,27 +59,31 @@ class State(val context : Context, val values : Map[String, StateValue],
 		for (name <- assignables -- intros) {
 			vs = vs + (name -> state.values(name))
 		}
-		new State(state.context, vs, assignables, c)
+		new State(state.context, vs, assignables, c, canReturn)
+	}
+
+	def setCanReturn(cR : Boolean) : State = {
+		new State(context, values, assignables, collect, cR)
 	}
 
 	def freeze : State = {
-		new State(context, values, Set(), collect)
+		new State(context, values, Set(), collect, false)
 	}
 
 	def put(ctx : Context) : State = {
-		new State(ctx, values, assignables, collect)
+		new State(ctx, values, assignables, collect, canReturn)
 	}
 
 	def setCollect(c : Collect) : State = {
-		new State(context, values, assignables, c)
+		new State(context, values, assignables, c, canReturn)
 	}
 
 	def addToCollect(value : StateValue) : State = {
 		collect match {
 			case Collect.One(None) =>
-				new State(context, values, assignables, Collect.One(Some(value)))
+				new State(context, values, assignables, Collect.One(Some(value)), canReturn)
 			case Collect.Multiple(collector) =>
-				new State(context, values, assignables, Collect.Multiple(collector.add(value)))
+				new State(context, values, assignables, Collect.Multiple(collector.add(value)), canReturn)
 			case _ => 
 				throw new RuntimeException("internal error: wrong collector multiplicty")
 

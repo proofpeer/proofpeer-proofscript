@@ -228,6 +228,10 @@ object ParseTree {
   case class STShow(expr : Expr) extends Statement {
     protected def calcVars = (expr.freeVars, Set())
   }
+
+  case class STFail(expr : Option[Expr]) extends Statement {
+    protected def calcVars = (if (expr.isDefined) expr.get.freeVars else Set(), Set())
+  }
   
   case class STVal(pat : Pattern, body : Block) extends Statement {
     protected def calcVars = (pat.freeVars ++ body.freeVars, pat.introVars)

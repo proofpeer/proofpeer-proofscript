@@ -94,7 +94,8 @@ val g_literals =
   litrule("Theory", "theory") ++
   litrule("Extends", "extends") ++
   litrule("Context", "context") ++
-  litrule("Show", "show")
+  litrule("Show", "show") ++
+  litrule("Fail", "fail")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -342,6 +343,13 @@ val g_show =
     CS.Indent("Show", "PExpr"),
     c => STShow(c.PExpr.resultAs[Expr]))
 
+val g_fail =
+  arule("ST", "Fail",
+    c => STFail(None)) ++
+  arule("ST", "Fail PExpr",
+    CS.Indent("Fail", "PExpr"),
+    c => STFail(Some(c.PExpr.resultAs[Expr])))
+
 val g_val = 
   arule("ST", "Val Pattern AssignEq Block",
     CS.and(
@@ -409,7 +417,7 @@ val g_logic_statements =
   g_assume ++ g_let ++ g_choose
 
 val g_statement = 
-  g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++
+  g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++ g_fail ++
   g_logic_statements ++
   arule("Statement", "Expr", 
     CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
