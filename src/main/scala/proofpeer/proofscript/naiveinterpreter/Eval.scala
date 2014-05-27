@@ -9,7 +9,8 @@ case class Success[T](result : T) extends Result[T]
 case class Failed[T](pos : SourcePosition, error : String) extends Result[T]
 
 
-class Eval(states : States, kernel : Kernel, nameresolution : NamespaceResolution[IndexedName], 
+class Eval(states : States, kernel : Kernel, 
+	scriptNameresolution : NamespaceResolution[String], logicNameresolution : NamespaceResolution[IndexedName], 
 	aliases : Aliases, namespace : Namespace) 
 {
 
@@ -71,24 +72,41 @@ class Eval(states : States, kernel : Kernel, nameresolution : NamespaceResolutio
 	}
 
 	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
+		def lookup(full : Boolean, namespace : Namespace, name : String) : Result[StateValue] = {
+			val r = 
+				if (full) 
+					scriptNameresolution.fullResolution(namespace) 
+				else 
+					scriptNameresolution.baseResolution(namespace)
+			r.get(name) match {
+				case None => fail(expr, "unknown identifier")
+				case Some(namespaces) =>
+					namespaces.size match {
+						case 0 => fail(expr, "unknown identifier")
+						case 1 => 
+							val ns = namespaces.head
+							Success(states.lookup(ns).get.lookup(name).get)
+						case n =>
+							var display = ""
+							for (ns <- namespaces) display = display + ns + " "
+							fail(expr, "ambiguous identifier " + name + ", defined in "+n+" different namespaces: "+display)
+					}
+			}
+		}
 		expr match {
 			case Bool(b) => Success(BoolValue(b))
 			case Integer(i) => Success(IntValue(i))
 			case Id(name) =>
 				state.lookup(name) match {
-					case None => fail(expr, "unknown identifier")
+					case None => lookup(false, namespace, name)
 					case Some(v) => Success(v)
 				}
 			case QualifiedId(_ns, name) =>
 				val ns = aliases.resolve(_ns)
-				states.lookup(ns) match {
-					case None => fail(expr, "no such namespace: "+ns)
-					case Some(state) =>
-						state.lookup(name) match {
-							case None => fail(expr, "identifier does not exist in namespace")
-							case Some(v) => Success(v)
-						} 
-				}
+				if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
+					lookup(true, ns, name)
+				else 
+					fail(expr, "unknown or inaccessible namespace: "+ns)
 			case UnaryOperation(op, expr) =>
 				evalExpr(state, expr) match {
 					case Success(value) =>

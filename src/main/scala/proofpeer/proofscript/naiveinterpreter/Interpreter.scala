@@ -132,8 +132,8 @@ object Interpreter {
 		Some(new State(context, Map(), Set(), Collect.Zero))
 	} 
 
-	def evalTheory(states : States, thy : Theory) {
-		val evaluator = new Eval(states, Root.kernel, Root.nr, thy.aliases, thy.namespace)
+	def evalTheory(states : States, thy : Theory, nr : NamespaceResolution[String]) {
+		val evaluator = new Eval(states, Root.kernel, nr, Root.nr, thy.aliases, thy.namespace)
 		val state : State = 
 			if (thy.namespace == Kernel.root_namespace) 
 				rootState
@@ -175,7 +175,14 @@ object Interpreter {
 		if (sorted_theories.isEmpty) return
 		Root.setupRoot
 		val states = States.empty
-		for (thy <- sorted_theories) evalTheory(states, thy)
+		def localNames(namespace : Namespace) : Set[String] = {
+			states.lookup(namespace) match {
+				case None => throw new RuntimeException("internal error: localNames of "+namespace)
+				case Some(state) => state.values.keySet
+			}
+		}
+		val nr = new NamespaceResolution[String](Root.parentsOfNamespace _, localNames _)
+		for (thy <- sorted_theories) evalTheory(states, thy, nr)
 	}
 
 }

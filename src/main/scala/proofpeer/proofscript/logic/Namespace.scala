@@ -113,7 +113,7 @@ class NamespaceResolution[N](
       case Some(ns) => ns
       case None => 
         var namespaces : Set[Namespace] = Set()
-        for (p <- parentsOf(namespace)) namespaces = namespaces ++ ancestorNamespaces(p)
+        for (p <- parentsOf(namespace)) namespaces = (namespaces + p) ++ ancestorNamespaces(p)
         ancestors = ancestors + (namespace -> namespaces)
         namespaces
     }

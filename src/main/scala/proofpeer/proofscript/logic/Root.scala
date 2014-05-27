@@ -3,7 +3,7 @@ package proofpeer.proofscript.logic
 object Root {
 	val kernel = Kernel.createDefaultKernel()
 
-	private def parentsOfNamespace(namespace : Namespace) : Set[Namespace] =
+	def parentsOfNamespace(namespace : Namespace) : Set[Namespace] =
 		kernel.parentsOfNamespace(namespace) match {
 			case None => Utils.failwith("no such namespace: "+namespace)
 			case Some(namespaces) => namespaces
@@ -148,7 +148,7 @@ object Root {
 		println("th = "+checkPrinting(c, th.proposition)) 
 	}
 	
-	def main(args : Array[String]) {
+	def oldmain(args : Array[String]) {
 		setupRoot()
 		test("root\\forall")
 		test("root\\forall : ((_ → ℙ) → ℙ) → ℙ")

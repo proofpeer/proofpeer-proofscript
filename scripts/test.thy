@@ -5,4 +5,6 @@ extends
   \root 
 
 val x ≔ 5 + \root\x 
-val y ≔ 27 + x - \root\x + \root\y
+show y
+val y ≔ 27 + x - \root\x + y
+show y
