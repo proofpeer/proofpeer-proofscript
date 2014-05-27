@@ -74,7 +74,7 @@ def parseFromSource(source : Source, prog : String) : ParseResult = {
   }
 }
 
-def oldmain(args : Array[String]) {
+def main(args : Array[String]) {
   parse("x - y")
 
   parse("x - y = 10 < y ≤ z - 4")

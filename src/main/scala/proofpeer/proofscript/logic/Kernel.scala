@@ -135,17 +135,25 @@ trait Kernel {
   def completedNamespaces : Set[Namespace]
   
   def contextOfNamespace(namespace : Namespace) : Option[Context]
+
+  def parentsOfNamespace(namespace : Namespace) : Option[Set[Namespace]]
+
+  def aliasesOfNamespace(namespace : Namespace) : Option[Aliases]
   
-  def createNewNamespace(namespace : Namespace, parents : Set[Namespace]) : Context
+  def createNewNamespace(namespace : Namespace, parents : Set[Namespace], aliases : Aliases) : Context
   
   def completeNamespace(context : Context) : Context
   
 }
 
 object Kernel {
-  val root_namespace = new Namespace("\\root")
+  val root_namespace = Namespace("\\root")
   def rootname(name : String) = Name(Some(root_namespace), IndexedName(name, None))
   
+  def isPolymorphicName(name : Name) = {
+    name == equals || name == forall || name == exists
+  }
+
   // names which are essential to the kernel
   val equals = rootname("equals")  
   val forall = rootname("forall")

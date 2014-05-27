@@ -330,12 +330,21 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
 
   }
+
+  private case class NamespaceInfo(parents : Set[Namespace], aliases : Aliases)
   
   private var namespaces : Map[Namespace, Context] = Map()
+  private var namespaceInfo : Map[Namespace, NamespaceInfo] = Map()
   
   def completedNamespaces = namespaces.keySet
   
   def contextOfNamespace(namespace : Namespace) : Option[Context] = namespaces.get(namespace)
+
+  def parentsOfNamespace(namespace : Namespace) : Option[Set[Namespace]] = 
+    namespaceInfo.get(namespace).map(_.parents)
+
+  def aliasesOfNamespace(namespace : Namespace) : Option[Aliases] =
+    namespaceInfo.get(namespace).map(_.aliases) 
   
   private def completedContext(namespace : Namespace) : ContextImpl = {
     contextOfNamespace(namespace) match {
@@ -363,9 +372,9 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     completedContext
   }
   
-  def createNewNamespace(namespace : Namespace, parents : Set[Namespace]) : Context = {
+  def createNewNamespace(namespace : Namespace, parents : Set[Namespace], aliases : Aliases) : Context = {
     var ancestors : Set[Namespace] = Set()
-    if (contextOfNamespace(namespace).isDefined)
+    if (parentsOfNamespace(namespace).isDefined)
       failwith("namespace already exists: "+namespace)
     for (parent <- parents) {
       contextOfNamespace(parent) match {
@@ -382,6 +391,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         Map(Kernel.implies -> Type.Fun(Type.Prop, Type.Fun(Type.Prop, Type.Prop)))
       else 
         Map()
+    namespaceInfo = namespaceInfo + (namespace -> new NamespaceInfo(parents, aliases))
     new ContextImpl(
       created,
       0,

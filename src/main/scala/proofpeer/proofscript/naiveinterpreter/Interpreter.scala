@@ -43,8 +43,7 @@ object Interpreter {
 		}
 	}
 
-	case class Theory(source : Source, namespace : Namespace, parents : Set[Namespace], statements : Vector[ParseTree.Statement],
-										resolve : Namespace => Namespace)
+	case class Theory(source : Source, namespace : Namespace, parents : Set[Namespace], aliases : Aliases, statements : Vector[ParseTree.Statement])
 
 	var theories : Map[Namespace, Theory] = Map()
 
@@ -53,13 +52,11 @@ object Interpreter {
 			println("  theory is empty and will be ignored")
 		} else {
 			thy.statements.head match {
-				case ParseTree.STTheory(namespace, aliases, parents) =>
-					println("aliases: "+aliases)
+				case ParseTree.STTheory(namespace, _aliases, parents) =>
 					val ns = namespace.absolute
-					val master_ns = ns.parent
-					def resolve_ns(m : Namespace) = m.absolute(master_ns)
-					val ps = parents.map (resolve_ns _)
-					val theory = Theory(new FileSource(f), ns, ps.toSet, thy.statements.tail, resolve_ns _)
+					val aliases = new Aliases(ns.parent.get, _aliases.map(a => Alias(a._1.name, a._2)))
+					val ps = parents.map (aliases.resolve(_))
+					val theory = Theory(new FileSource(f), ns, ps.toSet, aliases, thy.statements.tail)
 					theories.get(ns) match {
 						case None =>
 							theories = theories + (ns -> theory)
@@ -127,21 +124,21 @@ object Interpreter {
 		new State(Root.context, values, Set(), Collect.Zero)
 	}
 
-	def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace]) : Option[State] = {
+	def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : Option[State] = {
 		for (p <- parentNamespaces) {
 			if (!states.lookup(p).isDefined) return None
 		}
-		val context = Root.kernel.createNewNamespace(namespace, parentNamespaces)
+		val context = Root.kernel.createNewNamespace(namespace, parentNamespaces, aliases)
 		Some(new State(context, Map(), Set(), Collect.Zero))
 	} 
 
 	def evalTheory(states : States, thy : Theory) {
-		val evaluator = new Eval(states, Root.kernel, Root.nr, thy.resolve, thy.namespace)
+		val evaluator = new Eval(states, Root.kernel, Root.nr, thy.aliases, thy.namespace)
 		val state : State = 
 			if (thy.namespace == Kernel.root_namespace) 
 				rootState
 			else {
-				makeState(states, thy.namespace, thy.parents) match {
+				makeState(states, thy.namespace, thy.parents, thy.aliases) match {
 					case None =>
 						println("skipping theory "+thy.namespace)
 						return

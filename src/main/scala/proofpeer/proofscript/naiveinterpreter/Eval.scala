@@ -9,8 +9,8 @@ case class Success[T](result : T) extends Result[T]
 case class Failed[T](pos : SourcePosition, error : String) extends Result[T]
 
 
-class Eval(states : States, kernel : Kernel, nameresolution : NameResolution, 
-	resolveNamespace : Namespace => Namespace, namespace : Namespace) 
+class Eval(states : States, kernel : Kernel, nameresolution : NamespaceResolution[IndexedName], 
+	aliases : Aliases, namespace : Namespace) 
 {
 
 	def fail[T](p : TracksSourcePosition, error : String) : Failed[T] = Failed(p.sourcePosition, error)
@@ -80,7 +80,7 @@ class Eval(states : States, kernel : Kernel, nameresolution : NameResolution,
 					case Some(v) => Success(v)
 				}
 			case QualifiedId(_ns, name) =>
-				val ns = resolveNamespace(_ns)
+				val ns = aliases.resolve(_ns)
 				states.lookup(ns) match {
 					case None => fail(expr, "no such namespace: "+ns)
 					case Some(state) =>

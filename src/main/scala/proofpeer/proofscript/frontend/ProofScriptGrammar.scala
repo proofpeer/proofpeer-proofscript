@@ -428,16 +428,16 @@ val g_header =
       CS.ifThenElse(CS.Line("Theory", "Extends"),
         CS.Indent("Theory", "NamespaceList"),
         CS.and(CS.Align("Theory", "Extends"), CS.Indent("Extends", "NamespaceList")))),
-    c => STTheory(new Namespace(c.Namespace.text), c.AliasList.resultAs[List[(Id, Namespace)]].reverse, c.NamespaceList.resultAs[List[Namespace]].reverse)) ++
+    c => STTheory(Namespace(c.Namespace.text), c.AliasList.resultAs[List[(Id, Namespace)]].reverse, c.NamespaceList.resultAs[List[Namespace]].reverse)) ++
   arule("NamespaceList", "", c => List[Namespace]()) ++
   arule("NamespaceList", "NamespaceList Namespace",
-    c => (new Namespace(c.Namespace.text)) :: c.NamespaceList.resultAs[List[Namespace]]) ++
+    c => (Namespace(c.Namespace.text)) :: c.NamespaceList.resultAs[List[Namespace]]) ++
   arule("AliasList", "", c => List[(Id, Namespace)]()) ++
   arule("AliasList", "AliasList Alias", 
     CS.Align("AliasList", "Alias"),
     c => c.Alias.resultAs[(Id, Namespace)] :: c.AliasList.resultAs[List[(Id, Namespace)]]) ++
   arule("Alias", "Id AssignEq Namespace", 
-    c => (Id(c.Id.text), new Namespace(c.Namespace.text)))
+    c => (Id(c.Id.text), Namespace(c.Namespace.text)))
 
 val g_prog = 
   Syntax.grammar ++

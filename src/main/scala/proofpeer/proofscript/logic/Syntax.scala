@@ -169,7 +169,7 @@ object Syntax {
     } else {
       val namespace = if (index == 0) "\\" else s.substring(0, index)
       val indexedname = parseIndexedName(s.substring(index + 1))
-      Name(Some(new Namespace(namespace)), indexedname)
+      Name(Some(Namespace(namespace)), indexedname)
     }
   }
 
@@ -596,11 +596,13 @@ val g_Pattern_term =
       printName(name.name)
   }
 
-  def printBinary(nameRes : NameResolution.Resolution, vars : Set[IndexedName], op : String, left : Term, right : Term) : String = {
+  type Resolution = Preterm.NameResolution
+
+  def printBinary(nameRes : Resolution, vars : Set[IndexedName], op : String, left : Term, right : Term) : String = {
     protect(printTerm(nameRes, vars, left)) + " " + op + " " + protect(printTerm(nameRes, vars, right))
   }
 
-  def printUnary(nameRes : NameResolution.Resolution, vars : Set[IndexedName], op : String, tm : Term) : String = {
+  def printUnary(nameRes : Resolution, vars : Set[IndexedName], op : String, tm : Term) : String = {
     op + " " + protect(printTerm(nameRes, vars, tm))
   }
 
@@ -631,7 +633,7 @@ val g_Pattern_term =
       Kernel.logical_false -> "⊥"
     )
 
-  def printTerm(nameRes : NameResolution.Resolution, tm : Term) : String = {
+  def printTerm(nameRes : Resolution, tm : Term) : String = {
     val (t, _) = preparePrinting(tm)
     printTerm(nameRes, Set(), t)
   }
@@ -672,16 +674,16 @@ val g_Pattern_term =
     }
   }
 
-  private def printNameInContext(nameRes : NameResolution.Resolution, vars : Set[IndexedName], name : Name) : String = {
+  private def printNameInContext(nameRes : Resolution, vars : Set[IndexedName], name : Name) : String = {
     if (name.namespace.isDefined && !vars.contains(name.name)) {
-      nameRes.get(name.name) match {
-        case Some(n) if n == name => printName(name.name)
+      nameRes(Name(None, name.name)) match {
+        case Left(n) if n == name => printName(name.name)
         case _ => printName(name)
       }
     } else printName(name)
   }
 
-  private def printTerm(nameRes : NameResolution.Resolution, vars : Set[IndexedName], tm : Term) : String = {
+  private def printTerm(nameRes : Resolution, vars : Set[IndexedName], tm : Term) : String = {
     tm match {
       case Term.Comb(Term.PolyConst(Kernel.forall, _), Term.Abs(name, ty, body)) =>
         "∀ " + printName(name) + printTypeAnnotation(ty) + ". " + printTerm(nameRes, vars + name, body)

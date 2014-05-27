@@ -2,31 +2,52 @@ package proofpeer.proofscript.logic
 
 import proofpeer.scala.lang._
 
-sealed class Namespace(private val namespace : String) {
+object Namespace {
+  def apply(namespace : String) : Namespace = {
+    val isAbsolute = startsWith(namespace, "\\")
+    val components = split_nonempty(namespace, "\\").toVector
+    new Namespace(isAbsolute, components)
+  }
+  def apply(isAbsolute : Boolean, components : Vector[String]) : Namespace = {
+    new Namespace(isAbsolute, components)
+  }
+}
+
+sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String]) {
+  private val namespace = computeString 
+  private def computeString : String = {
+    var ns = if (isAbsolute) "\\" else ""
+    var count = components.size
+    for (c <- components) {
+      ns = ns + c
+      count = count - 1
+      if (count > 0) ns = ns + "\\"
+    }
+    ns
+  }
   override def toString : String = namespace
-  override def hashCode : Int = namespace.toLowerCase.hashCode
+  override def hashCode : Int = toString.toLowerCase.hashCode
   override def equals(other : Any): Boolean = {
     other match {
-      case that: Namespace => namespace.toLowerCase == that.toString.toLowerCase
+      case that: Namespace => toString.toLowerCase == that.toString.toLowerCase
       case _ => false
     }
   }
-  def isAbsolute : Boolean = startsWith(namespace, "\\")
-  def absolute : Namespace = if (isAbsolute) this else new Namespace("\\" + namespace)
-  def absolute(parent : Namespace) : Namespace = {
+  def absolute : Namespace = if (isAbsolute) this else Namespace(true, components)
+  def relativeTo(parent : Namespace) : Namespace = {
     if (isAbsolute) 
       this
-    else {
-      (new Namespace(parent.namespace + "\\" + namespace)).absolute
-    }
+    else 
+      Namespace(parent.isAbsolute, parent.components ++ components)
   }
-  def parent : Namespace = {
-    val i = namespace.lastIndexOf("\\")
-    if (i < 0) {
-      new Namespace("")
-    } else {
-      new Namespace(namespace.substring(0, i))
-    }
+  def parent : Option[Namespace] = {
+    if (components.size == 0) return None
+    val parent_components = components.toList.reverse.tail.reverse.toVector
+    Some(Namespace(isAbsolute, parent_components))
+  }
+  def tail : Option[Namespace] = {
+    if (components.size == 0) return None
+    Some(Namespace(isAbsolute, components.toList.tail.toVector))
   }
 }
 
