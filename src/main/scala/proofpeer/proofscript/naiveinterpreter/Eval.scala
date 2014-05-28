@@ -28,8 +28,8 @@ class Eval(states : States, kernel : Kernel,
 				case STVal(pat, body) => 
 					evalBlock(state.setCollect(Collect.emptyOne), body) match {
 						case f : Failed[_] => return fail(f)
-						case Success(s, isReturnValue) => 
-							if (isReturnValue) return Success(s, isReturnValue)
+						case su @ Success(s, isReturnValue) => 
+							if (isReturnValue) return su
 							val value = s.reapCollect
 							state = state.subsume(s, body.introVars, state.collect)
 							matchPattern(state.freeze, pat, value) match {
@@ -38,6 +38,25 @@ class Eval(states : States, kernel : Kernel,
 								case Success(Some(matchings), _) => state = state.add(matchings)
 							}
 					}
+				case STAssign(pat, body) =>
+					if (!(pat.introVars subsetOf state.assignables)) {
+						val unassignables = pat.introVars -- state.assignables
+						var error = "pattern assigns to variables not in linear scope:"
+						for (v <- unassignables) error = error + " " + v
+						return fail(pat, error)
+					}
+					evalBlock(state.setCollect(Collect.emptyOne), body) match {
+						case f : Failed[_] => return fail(f)
+						case su @ Success(s, isReturnValue) => 
+							if (isReturnValue) return su
+							val value = s.reapCollect
+							state = state.subsume(s, body.introVars, state.collect)
+							matchPattern(state.freeze, pat, value) match {
+								case Failed(pos, error) => return Failed(pos, error)
+								case Success(None, _) => return fail(pat, "value " + value + " does not match pattern")
+								case Success(Some(matchings), _) => state = state.add(matchings)
+							}
+					}					
 				case STExpr(expr) =>
 					val ok =
 						state.collect match {
