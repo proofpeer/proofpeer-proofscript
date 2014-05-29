@@ -121,7 +121,7 @@ object Interpreter {
 		for ((n, th) <- Root.axioms) {
 			values = values + (n -> TheoremValue(th))
 		}
-		new State(Root.context, values, Set(), Collect.Zero, false)
+		new State(Root.context, State.Env(values, Map()), Collect.Zero, false)
 	}
 
 	def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : Option[State] = {
@@ -129,7 +129,7 @@ object Interpreter {
 			if (!states.lookup(p).isDefined) return None
 		}
 		val context = Root.kernel.createNewNamespace(namespace, parentNamespaces, aliases)
-		Some(new State(context, Map(), Set(), Collect.Zero, false))
+		Some(new State(context, State.Env(Map(), Map()), Collect.Zero, false))
 	} 
 
 	def evalTheory(states : States, thy : Theory, nr : NamespaceResolution[String]) {
@@ -147,7 +147,7 @@ object Interpreter {
 				}
 			}
 		println("executing theory "+thy.namespace+" ...")
-		evaluator.evalStatements(state, thy.statements) match {
+		evaluator.evalBlock(state, ParseTree.Block(thy.statements)) match {
 			case Failed(pos, error) =>
 				val w = 
 					if (pos != null) {
@@ -160,7 +160,7 @@ object Interpreter {
 				println("failed executing theory "+thy.namespace+w+":\n  "+error)
 			case Success(state, _) => {
 				val completed = Root.kernel.completeNamespace(state.context)
-				states.register(thy.namespace, new State(completed, state.values, Set(), Collect.Zero, false))
+				states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
 				println("successfully executed theory "+thy.namespace)
 			}
 		}
@@ -179,7 +179,7 @@ object Interpreter {
 		def localNames(namespace : Namespace) : Set[String] = {
 			states.lookup(namespace) match {
 				case None => throw new RuntimeException("internal error: localNames of "+namespace)
-				case Some(state) => state.values.keySet
+				case Some(state) => state.env.freeze.nonlinear.keySet
 			}
 		}
 		val nr = new NamespaceResolution[String](Root.parentsOfNamespace _, localNames _)

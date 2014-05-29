@@ -19,7 +19,8 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
-	def evalStatements(_state : State, statements : Vector[Statement]) : Result[State] = {
+	def evalBlock(_state : State, block : Block) : Result[State] = {
+		val statements = block.statements
 		var state = _state
 		val num = statements.size
 		var i = 0
@@ -31,11 +32,11 @@ class Eval(states : States, kernel : Kernel,
 						case su @ Success(s, isReturnValue) => 
 							if (isReturnValue) return su
 							val value = s.reapCollect
-							state = state.subsume(s, body.introVars, state.collect)
+							state = state.setContext(s.context)
 							matchPattern(state.freeze, pat, value) match {
 								case Failed(pos, error) => return Failed(pos, error)
 								case Success(None, _) => return fail(pat, "value " + value + " does not match pattern")
-								case Success(Some(matchings), _) => state = state.add(matchings)
+								case Success(Some(matchings), _) => state = state.bind(matchings)
 							}
 					}
 				case STAssign(pat, body) =>
@@ -50,19 +51,19 @@ class Eval(states : States, kernel : Kernel,
 						case su @ Success(s, isReturnValue) => 
 							if (isReturnValue) return su
 							val value = s.reapCollect
-							state = state.subsume(s, body.introVars, state.collect)
+							state = state.setContext(s.context)
 							matchPattern(state.freeze, pat, value) match {
 								case Failed(pos, error) => return Failed(pos, error)
 								case Success(None, _) => return fail(pat, "value " + value + " does not match pattern")
-								case Success(Some(matchings), _) => state = state.add(matchings)
+								case Success(Some(matchings), _) => state = state.rebind(matchings)
 							}
 					}					
 				case STExpr(expr) =>
 					val ok =
 						state.collect match {
 							case Collect.Zero => false
-							case c : Collect.One => i == num - 1
-							case c : Collect.Multiple => true
+							case _ : Collect.One => i == num - 1
+							case _ : Collect.Multiple => true
 						}
 					if (!ok) return fail(st, "cannot yield here")
 					evalExpr(state.freeze, expr) match {
@@ -92,15 +93,35 @@ class Eval(states : States, kernel : Kernel,
 						case f : Failed[_] => return fail(f)
 						case Success(value, _) => return fail(st, "fail: "+value)
 					}				
+				case STControlFlow(controlflow) =>
+					val (changedCollect, collect) = 
+						state.collect match {
+							case _ : Collect.One if i != num - 1 => (true, Collect.Zero)
+							case c => (false, c)
+						}
+					evalControlFlow(state.setCollect(collect), controlflow) match {
+						case f : Failed[_] => return fail(f)
+						case su @ Success(value, isReturnValue) =>
+							if (isReturnValue) return su
+							state = if (changedCollect) value.setCollect(state.collect) else value
+					}
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1
 		}
-		success(state)
+		state.collect match {
+			case Collect.One(None) => fail(block, "block does not yield a value") 
+			case _ => success(state)
+		}
 	}
 
-	def evalBlock(state : State, block : Block) : Result[State] = {
-		evalStatements(state, block.statements)
+	def evalSubBlock(state : State, block : Block) : Result[State] = {
+		evalBlock(state, block) match {
+			case f : Failed[_] => f
+			case su @ Success(updatedState, isReturnValue) =>
+				if (isReturnValue) su
+				else success(state.subsume(updatedState))
+		}
 	}
 
 	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
@@ -163,8 +184,51 @@ class Eval(states : States, kernel : Kernel,
 						}
 					case f => f
 				}
+			case ControlFlowExpr(controlflow) =>
+				val cstate = state.setCollect(Collect.emptyOne)
+				evalControlFlow(cstate, controlflow) match {
+					case f : Failed[_] => return fail(f)
+					case Success(state, _) => success(state.reapCollect)
+				} 
 			case _ => fail(expr, "don't know how to evaluate this expression")
 		}	
+	}
+
+	def producesMultiple(controlflow : ControlFlow) : Boolean = {
+		controlflow match {
+			case Do(_, true) => true
+			case _ : While => true
+			case _ : For => true
+			case _ => false
+		}
+	}
+
+	def evalControlFlow(state : State, controlflow : ControlFlow) : Result[State] = {
+		val wrapMultiple =
+			state.collect match {
+				case _ : Collect.One => producesMultiple(controlflow)
+				case _ => false
+			}	
+		if (wrapMultiple) {
+			evalControlFlowSwitch(state.setCollect(Collect.emptyMultiple), controlflow) match {
+				case f : Failed[_] => f
+				case su @ Success(state, isReturnValue) =>
+					if (isReturnValue) su
+					else success(state.setCollect(Collect.One(Some(state.reapCollect))))
+			}
+		} else 
+			evalControlFlowSwitch(state, controlflow)
+	}
+
+	def evalDo(state : State, control : Do) : Result[State] = {
+		evalSubBlock(state, control.block)
+	}
+
+	def evalControlFlowSwitch(state : State, controlflow : ControlFlow) : Result[State] = {
+		controlflow match {
+			case c : Do => evalDo(state, c)
+			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
+		}
 	}
 
 	type Matchings = Map[String, StateValue]

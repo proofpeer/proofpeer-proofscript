@@ -38,52 +38,79 @@ case class TupleValue(value : Vector[StateValue]) extends StateValue
 
 object State {
 	def fromValue(value : StateValue) : State = 
-		new State(null, null, null, Collect.One(Some(value)), false)
+		new State(null, null, Collect.One(Some(value)), false)
+
+	case class StateValueRef(var value : StateValue)
+
+	case class Env(nonlinear : Map[String, StateValue], linear : Map[String, StateValueRef]) {
+		def lookup(id : String) : Option[StateValue] = {
+			nonlinear.get(id) match {
+				case None => 
+					linear.get(id) match {
+						case Some(r) => Some(r.value)
+						case None => None
+					}
+				case some => some
+			}
+		}
+		def freeze : Env = 
+			Env(nonlinear ++ (linear.mapValues(_.value)), Map())
+		def bind(id : String, value : StateValue) : Env = 
+			Env(nonlinear - id, linear + (id -> StateValueRef(value)))
+		def bind(m : Map[String, StateValue]) : Env = 
+			Env(nonlinear -- m.keySet, linear ++ m.mapValues(StateValueRef(_)))
+		def rebind(id : String, value : StateValue) : Env = {
+			linear(id).value = value
+			this
+		}
+		def rebind(m : Map[String, StateValue]) : Env = {
+			for ((id, value) <- m) linear(id).value = value
+			this
+		}
+		def linearIds : Set[String] = linear.keySet
+	}
 }
 
-class State(val context : Context, val values : Map[String, StateValue], 
-	val assignables : Set[String], val collect : Collect, val canReturn : Boolean) {
+class State(val context : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) {
 
-	def lookup(id : String) : Option[StateValue] = values.get(id)
+	def lookup(id : String) : Option[StateValue] = env.lookup(id)
 
-	def put(id : String, v : StateValue) : State = {
-		new State(context, values + (id -> v), assignables + id, collect, canReturn)
+	def assignables : Set[String] = env.linearIds
+
+	def bind(vs : Map[String, StateValue]) : State = {
+		new State(context, env.bind(vs), collect, canReturn)
 	}
 
-	def add(vs : Map[String, StateValue]) : State = {
-		new State(context, values ++ vs, assignables ++ vs.keySet, collect, canReturn)
-	}
-
-	def subsume(state : State, intros : Set[String], c : Collect) : State = {
-		var vs : Map[String, StateValue] = values
-		for (name <- assignables -- intros) {
-			vs = vs + (name -> state.values(name))
-		}
-		new State(state.context, vs, assignables, c, canReturn)
+	def rebind(vs : Map[String, StateValue]) : State = {
+		new State(context, env.rebind(vs), collect, canReturn)
 	}
 
 	def setCanReturn(cR : Boolean) : State = {
-		new State(context, values, assignables, collect, cR)
+		new State(context, env, collect, cR)
 	}
 
 	def freeze : State = {
-		new State(context, values, Set(), collect, false)
+		new State(context, env.freeze, collect, false)
 	}
 
-	def put(ctx : Context) : State = {
-		new State(ctx, values, assignables, collect, canReturn)
+	def setContext(ctx : Context) : State = {
+		new State(ctx, env, collect, canReturn)
 	}
 
 	def setCollect(c : Collect) : State = {
-		new State(context, values, assignables, c, canReturn)
+		new State(context, env, c, canReturn)
 	}
+
+	def subsume(state : State) : State = {
+		new State(state.context, env, state.collect, canReturn)
+	} 
 
 	def addToCollect(value : StateValue) : State = {
 		collect match {
 			case Collect.One(None) =>
-				new State(context, values, assignables, Collect.One(Some(value)), canReturn)
+				new State(context, env, Collect.One(Some(value)), canReturn)
 			case Collect.Multiple(collector) =>
-				new State(context, values, assignables, Collect.Multiple(collector.add(value)), canReturn)
+				new State(context, env, Collect.Multiple(collector.add(value)), canReturn)
 			case _ => 
 				throw new RuntimeException("internal error: wrong collector multiplicty")
 

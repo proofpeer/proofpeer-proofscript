@@ -4,4 +4,12 @@ val z ≔ 99
 
 z ≔ 3
 
-u ≔ 5
+val u ≔
+  do 
+    z ≔ 4
+    show z
+    val z ≔ 5
+    show z
+
+show z
+show u
