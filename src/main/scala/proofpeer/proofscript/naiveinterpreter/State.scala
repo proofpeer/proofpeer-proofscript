@@ -34,7 +34,11 @@ case class TermValue(value : Term) extends StateValue
 case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
 case class FunctionValue(value : StateValue => StateValue) extends StateValue
-case class TupleValue(value : Vector[StateValue]) extends StateValue
+case class TupleValue(value : Vector[StateValue]) extends StateValue {
+	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value)
+	def append(x : StateValue) : TupleValue = TupleValue(value :+ x)
+	def concat(tuple : TupleValue) : TupleValue = TupleValue(value ++ tuple.value)
+}
 
 object State {
 	def fromValue(value : StateValue) : State = 

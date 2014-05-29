@@ -124,6 +124,81 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
+	sealed trait CmpResult
+	case object IsLess extends CmpResult
+	case object IsLessOrEqual extends CmpResult
+	case object IsEq extends CmpResult
+	case object IsGreater extends CmpResult
+	case object IsGreaterOrEqual extends CmpResult
+	case object IsNEq extends CmpResult
+
+	def cmp(x : StateValue, y : StateValue) : Option[CmpResult] = {
+		(x, y) match {
+			case (IntValue(x), IntValue(y)) => 
+				if (x < y) Some(IsLess) 
+				else if (x > y) Some(IsGreater)
+				else Some(IsEq)
+			case (BoolValue(x), BoolValue(y)) =>
+				if (x == y) Some(IsEq) else Some(IsNEq)
+			case (TupleValue(xs), TupleValue(ys)) =>
+				val len = xs.size
+				if (len == ys.size) {
+					if (len == 0) 
+						Some(IsEq)
+					else {
+						var has_less = false
+						var has_eq = false
+						var has_greater = false
+						var has_neq = false
+						for (i <- 0 until len)
+							cmp(xs(i), ys(i)) match {
+								case None => return None
+								case Some(c) =>
+									c match {
+										case IsLess => has_less = true
+										case IsLessOrEqual =>
+											has_less = true
+											has_eq = true 
+										case IsEq => has_eq = true
+										case IsGreater => has_greater = true
+										case IsGreaterOrEqual => 
+											has_greater = true
+											has_eq = true
+										case IsNEq => has_neq = true
+									}
+							}
+						if (has_neq) Some(IsNEq)
+						else
+							(has_less, has_eq, has_greater) match {
+								case (true, false, false) => Some(IsLess)
+								case (true, true, false) => Some(IsLessOrEqual)
+								case (false, _, false) => Some(IsEq)
+								case (false, false, true) => Some(IsGreater)
+								case (false, true, true) => Some(IsGreaterOrEqual)
+								case (true, _, true) => Some(IsNEq)
+							}
+					}
+				} else None
+			case _ => None
+		}
+	}
+
+	def cmp(op : CmpOperator, x : StateValue, y : StateValue) : Result[Boolean] = {
+		cmp (x, y) match {
+			case None => fail(op, "values cannot be compared: " + x + ", " + y)
+			case Some(c) =>
+				success(
+					op match {
+						case Eq => c == IsEq
+						case NEq => c != IsEq 
+						case Le => c == IsLess
+						case Leq => c == IsLess || c == IsEq || c == IsLessOrEqual
+						case Gr => c == IsGreater
+						case Geq => c == IsGreater || c == IsEq || c == IsGreaterOrEqual
+					})
+		}
+	}
+
 	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
 		def lookup(full : Boolean, namespace : Namespace, name : String) : Result[StateValue] = {
 			val r = 
@@ -170,7 +245,7 @@ class Eval(states : States, kernel : Kernel,
 						}
 					case f => f
 				}
-			case BinaryOperation(op, left, right) =>
+			case BinaryOperation(op, left, right) if op != And && op != Or =>
 				evalExpr(state, left) match {
 					case Success(left, _) =>
 						evalExpr(state, right) match {
@@ -178,12 +253,74 @@ class Eval(states : States, kernel : Kernel,
 								(op, left, right) match {
 									case (Add, IntValue(x), IntValue(y)) => success(IntValue(x + y))
 									case (Sub, IntValue(x), IntValue(y)) => success(IntValue(x - y))
+									case (Mul, IntValue(x), IntValue(y)) => success(IntValue(x * y))
+									case (Div, IntValue(x), IntValue(y)) => 
+										if (y == 0)
+											fail(op, "division by zero")
+										else
+											success(IntValue(x / y)) 
+									case (Mod, IntValue(x), IntValue(y)) =>
+										if (y == 0)
+											fail(op, "modulo zero")
+										else
+											success(IntValue(x % y))
+									case (And, BoolValue(x), BoolValue(y)) => success(BoolValue(x && y))
+									case (Or, BoolValue(x), BoolValue(y)) => success(BoolValue(x || y))
+									case (Prepend, x, xs : TupleValue) => success(xs.prepend(x))
+									case (Append, xs : TupleValue, x) => success(xs.append(x))
+									case (Concat, xs : TupleValue, ys : TupleValue) => success(xs.concat(ys))
 									case _ => fail(op, "binary operator "+op+" cannot be applied to values: "+left+", "+right)
 								}
 							case f => f
 						}
 					case f => f
 				}
+			case BinaryOperation(And, left, right) =>
+				evalExpr(state, left) match {
+					case Success(v @ BoolValue(false), _) => success(v)
+					case Success(BoolValue(true), _) => 
+						evalExpr(state, right) match {
+							case su @ Success(_ : BoolValue, _) => su
+							case Success(v, _) => fail(right, "Boolean expected, found: " + v)
+							case f => f
+						}
+					case Success(v, _) => fail(left, "Boolean expected, found: " + v)
+					case f => f
+				}
+			case BinaryOperation(Or, left, right) =>
+				evalExpr(state, right) match {
+					case Success(v @ BoolValue(true), _) => success(v)
+					case Success(BoolValue(false), _) => 
+						evalExpr(state, right) match {
+							case su @ Success(_ : BoolValue, _) => su
+							case Success(v, _) => fail(right, "Boolean expected, found: " + v)
+							case f => f
+						}					
+					case Success(v, _) => fail(left, "Boolean expected, found: " + v)
+					case f => f
+				}
+			case CmpOperation(_operators, _operands) => 
+				evalExpr(state, _operands.head) match {
+					case f : Failed[_] => f
+					case Success(v, _) =>
+						var value = v
+						var operators = _operators
+						var operands = _operands.tail
+						while (!operators.isEmpty) {
+							evalExpr(state, operands.head) match {
+								case f : Failed[_] => return f
+								case Success(v, _) =>
+									cmp(operators.head, value, v) match {
+										case f : Failed[_] => return Failed(f.pos, f.error)
+										case Success(false, _) => return success(BoolValue(false))
+										case Success(true, _) => value = v
+									}
+							} 
+							operands = operands.tail
+							operators = operators.tail
+						}
+						success(BoolValue(true))
+				} 
 			case ControlFlowExpr(controlflow) =>
 				val cstate = state.setCollect(Collect.emptyOne)
 				evalControlFlow(cstate, controlflow) match {

@@ -6,7 +6,7 @@ val z ≔ 99
 z ≔ 3
 
 val u ≔
-  do 
+  do *
     z ≔ 4
     show z
     val z ≔ 5
@@ -14,3 +14,5 @@ val u ≔
 
 show z
 show u
+if z > 3 then show z else show -z
+if z ≤ 3 then show z else show -z
