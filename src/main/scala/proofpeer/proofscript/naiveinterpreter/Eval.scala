@@ -224,9 +224,22 @@ class Eval(states : States, kernel : Kernel,
 		evalSubBlock(state, control.block)
 	}
 
+	def evalIf(state : State, control : If) : Result[State] = {
+		evalExpr(state.freeze, control.cond) match {
+			case f : Failed[_] => fail(f)
+			case Success(BoolValue(test), _) =>
+				if (test) 
+					evalSubBlock(state, control.thenCase) 
+				else 
+					evalSubBlock(state, control.elseCase)
+			case Success(value, _) => fail(control.cond, "Boolean expected, found: " + value)
+		}	
+	}
+
 	def evalControlFlowSwitch(state : State, controlflow : ControlFlow) : Result[State] = {
 		controlflow match {
 			case c : Do => evalDo(state, c)
+			case c : If => evalIf(state, c)
 			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
 		}
 	}
