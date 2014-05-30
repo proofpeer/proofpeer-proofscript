@@ -41,3 +41,14 @@ match 4
   case 3 ⇒ show 3
   case _ ⇒ show 0
 
+val (a, b) ≔ [17, 42]
+show a
+show b
+
+val a <+ b ≔ [17, 42]
+show a
+show b
+
+val a +> b ≔ [17, 42]
+show a
+show b

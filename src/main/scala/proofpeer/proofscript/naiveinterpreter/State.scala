@@ -27,7 +27,6 @@ object Collect {
 	def emptyOne : One = One(None)
 }
 
-
 case class ContextValue(value : Context) extends StateValue
 case class TheoremValue(value : Theorem) extends StateValue
 case class TermValue(value : Term) extends StateValue

@@ -478,6 +478,39 @@ class Eval(states : States, kernel : Kernel,
 					case BoolValue(y) if x == y => success(Some(matchings))
 					case _ => success(None)
 				}
+			case PTuple(ps) =>
+				value match {
+					case TupleValue(xs) if xs.size == ps.size =>
+						var m = matchings
+						for (i <- 0 until xs.size) {
+							matchPattern(state, ps(i), xs(i), m) match {
+								case Success(Some(matchings_i), _) => m = matchings_i
+								case r => return r
+							}
+						}
+						success(Some(m)) 
+					case _ => success(None)
+				}
+			case PPrepend(p, ps) =>
+				value match {
+					case TupleValue(xs) if !xs.isEmpty =>
+						matchPattern(state, p, xs.head, matchings) match {
+							case Success(Some(matchings), _) => 
+								matchPattern(state, ps, TupleValue(xs.tail), matchings) 
+							case r => r
+						}
+					case _ => success(None)
+				}
+			case PAppend(ps, p) =>
+				value match {
+					case TupleValue(xs) if !xs.isEmpty =>
+						matchPattern(state, p, xs.last, matchings) match {
+							case Success(Some(matchings), _) => 
+								matchPattern(state, ps, TupleValue(xs.take(xs.size - 1)), matchings) 
+							case r => r
+						}
+					case _ => success(None)
+				}				
 			case _ => return fail(pat, "pattern has not been implemented yet")
 		}		
 	}
