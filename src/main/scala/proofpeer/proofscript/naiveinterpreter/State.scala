@@ -1,6 +1,7 @@
 package proofpeer.proofscript.naiveinterpreter
 
 import proofpeer.proofscript.logic._
+import proofpeer.proofscript.frontend.ParseTree
 
 trait StateValue {}
 
@@ -32,7 +33,7 @@ case class TheoremValue(value : Theorem) extends StateValue
 case class TermValue(value : Term) extends StateValue
 case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
-case class FunctionValue(value : StateValue => StateValue) extends StateValue
+case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
 case class TupleValue(value : Vector[StateValue]) extends StateValue {
 	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value)
 	def append(x : StateValue) : TupleValue = TupleValue(value :+ x)
@@ -56,8 +57,20 @@ object State {
 				case some => some
 			}
 		}
+		def lookup(ids : Set[String]) : Either[Map[String, StateValue], Set[String]] = {
+			var m : Map[String, StateValue] = Map()
+			var not_found : Set[String] = Set()
+			for (id <- ids) {
+				lookup(id) match {
+					case None => not_found = not_found + id
+					case Some(v) => m = m + (id -> v)
+				}
+			}
+			if (not_found.isEmpty) Left(m) else Right(not_found)
+		}
 		def freeze : Env = 
-			Env(nonlinear ++ (linear.mapValues(_.value)), Map())
+			if (linear.isEmpty) this 
+			else Env(nonlinear ++ (linear.mapValues(_.value)), Map())
 		def bind(id : String, value : StateValue) : Env = 
 			Env(nonlinear - id, linear + (id -> StateValueRef(value)))
 		def bind(m : Map[String, StateValue]) : Env = 

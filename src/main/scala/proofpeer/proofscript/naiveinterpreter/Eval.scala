@@ -332,8 +332,42 @@ class Eval(states : States, kernel : Kernel,
 					case f : Failed[_] => return fail(f)
 					case Success(state, _) => success(state.reapCollect)
 				} 
+			case f @ Fun(param, body) => 
+				val freeVars = f.freeVars
+				state.env.lookup(freeVars) match {
+					case Right(notFound) =>
+						var error = "function has unknown free variables:"
+						for (x <- notFound) error = error + " " + x
+						fail(f, error)
+					case Left(nonlinear) =>
+						val funstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+						success(SimpleFunctionValue(funstate, f))
+				}
+			case App(u, v) =>
+				evalExpr(state, u) match {
+					case failed : Failed[_] => failed
+					case Success(f : SimpleFunctionValue, _) =>
+						evalExpr(state, v) match {
+							case failed : Failed[_] => failed
+							case Success(x, _) => evalApply(f.state, f.f.param, f.f.body, x)
+						}
+					case Success(v, _) => fail(u, "function value expected, found: " + v)
+				}
+			case Lazy(_) => fail(expr, "lazy evaluation is not available (yet)")
 			case _ => fail(expr, "don't know how to evaluate this expression")
 		}	
+	}
+
+	def evalApply(state : State, pat : Pattern, body : Block, argument : StateValue) : Result[StateValue] = {
+		matchPattern(state.freeze, pat, argument) match {
+			case failed : Failed[_] => fail(failed)
+			case Success(None, _) => fail(pat, "pattern does not match function argument: " + argument)
+			case Success(Some(matchings), _) =>
+				evalBlock(state.bind(matchings), body) match {
+					case failed : Failed[_] => fail(failed)
+					case Success(state, _) => success(state.reapCollect)
+				}
+		}
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {

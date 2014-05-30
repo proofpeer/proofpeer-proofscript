@@ -70,7 +70,7 @@ object ParseTree {
   }
   
   case class Fun(param : Pattern, body : Block) extends Expr {
-    protected def calcFreeVars = body.freeVars -- param.freeVars
+    protected def calcFreeVars = body.freeVars -- param.introVars ++ param.freeVars
   }
   
   case class Lazy(expr : Expr) extends Expr {
