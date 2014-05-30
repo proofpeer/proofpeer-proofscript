@@ -29,3 +29,15 @@ val q ≔
     (i, i * i, m)
 
 show q
+
+match 1
+case 2 ⇒ show 2
+case 1 ⇒ show 1
+case 3 ⇒ show 3
+
+match 4
+  case 2 ⇒ show 2
+  case 1 ⇒ show 1
+  case 3 ⇒ show 3
+  case _ ⇒ show 0
+

@@ -368,6 +368,7 @@ class Eval(states : States, kernel : Kernel,
 			case c : If => evalIf(state, c)
 			case c : While => evalWhile(state, c)
 			case c : For => evalFor(state, c)
+			case c : Match => evalMatch(state, c)
 			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
 		}
 	}
@@ -431,6 +432,28 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
+	def evalMatch(state : State, control : Match) : Result[State] = {
+		val frozenState = state.freeze
+		evalExpr(frozenState, control.expr) match {
+			case f : Failed[_] => fail(f)
+			case Success(value, _) =>
+				for (matchCase <- control.cases) {
+					matchPattern(frozenState, matchCase.pat, value) match {
+						case f : Failed[_] => return fail(f)
+						case Success(None, _) => 
+						case Success(Some(matchings), _) =>
+							evalSubBlock(state.bind(matchings), matchCase.body) match {
+								case f : Failed[_] => return fail(f)
+								case su @ Success(s, isReturnValue) =>
+									if (isReturnValue) return su
+									else return success(state.subsume(s))
+							}
+					}	
+				}
+				fail(control, "no match for value: " + value)
+		}	
+	}
+
 	type Matchings = Map[String, StateValue]
 
 	def matchPattern(state : State, pat : Pattern, value : StateValue) : Result[Option[Matchings]] = {
@@ -444,6 +467,16 @@ class Eval(states : States, kernel : Kernel,
 				matchings.get(name) match {
 					case None => success(Some(matchings + (name -> value)))
 					case Some(v) => fail(pat, "pattern is not linear")
+				}
+			case PInt(x) =>
+				value match {
+					case IntValue(y) if x == y => success(Some(matchings))
+					case _ => success(None)
+				}
+			case PBool(x) =>
+				value match {
+					case BoolValue(y) if x == y => success(Some(matchings))
+					case _ => success(None)
 				}
 			case _ => return fail(pat, "pattern has not been implemented yet")
 		}		

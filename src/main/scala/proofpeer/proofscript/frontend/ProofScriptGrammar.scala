@@ -129,6 +129,8 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
     PTuple(elements)
 }
 
+def Subalign(a : String, b : String) = CS.or(CS.Indent(a, b), CS.Align(a, b))
+
 val g_expr =
   arule("PrimitiveExpr", "Name", c => mkId(Syntax.parseName(c.Name.text))) ++
   arule("Int", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
@@ -221,14 +223,16 @@ val g_if =
           CS.ifThenElse(CS.Line("If", "Then"), 
               CS.and(
                   CS.Indent("If", "Block_1"),
-                  CS.or(CS.Line("Then", "Else"), CS.Align("If", "Else"))),
+                  Subalign("If", "Else")),
               CS.and(
-                  CS.Align("If", "Then"),
+                  Subalign("If", "Then"),
                   CS.Indent("Then", "Block_1"),
-                  CS.Align("Then", "Else"))), 
+                  CS.or(CS.Line("Then", "Else"), CS.Align("Then", "Else")))), 
           CS.ifThenElse(CS.Line("If", "Else"), 
-              CS.Indent("If", "Block_2"), 
-              CS.Indent("Else", "Block_2"))),
+              CS.Indent("If", "Block_2"),
+              CS.ifThenElse(CS.Line("Then", "Else"), 
+                CS.Indent("Then", "Block_2"),
+                CS.Indent("Else", "Block_2")))),
       c => If(c.PExpr.resultAs[Expr], c.Block_1.resultAs[Block], c.Block_2.resultAs[Block])) ++
   arule("STIf", "If PExpr Then Block",
       CS.and(
@@ -236,7 +240,7 @@ val g_if =
           CS.ifThenElse(CS.Line("If", "Then"), 
               CS.Indent("If", "Block"), 
               CS.and(
-                  CS.Align("If", "Then"),
+                  Subalign("If", "Then"),
                   CS.Indent("Then", "Block")))),
       c => If(c.PExpr.resultAs[Expr], c.Block.resultAs[Block], Block(Vector()))) ++
   arule("IfExpr", "If PExpr Then Block_1 Else Block_2", 
@@ -250,7 +254,7 @@ val g_while =
         CS.Indent("While", "PExpr"),
         CS.ifThenElse(CS.Line("While", "Do"),
             CS.Indent("While", "Block"),
-            CS.and(CS.Align("While", "Do"), CS.Indent("Do", "Block")))),
+            CS.and(Subalign("While", "Do"), CS.Indent("Do", "Block")))),
       c => While(c.PExpr.resultAs[Expr], c.Block.resultAs[Block])) ++
   arule("WhileExpr", "While PExpr Do Block",
       c => While(c.PExpr.resultAs[Expr], c.Block.resultAs[Block]))
@@ -263,7 +267,7 @@ val g_for =
           CS.Indent("For", "PExpr"),
           CS.ifThenElse(CS.Line("For", "Do"),
               CS.Indent("For", "Block"),
-              CS.and(CS.Align("For", "Do"), CS.Indent("Do", "Block")))),              
+              CS.and(Subalign("For", "Do"), CS.Indent("Do", "Block")))),              
       c => For(c.Pattern.resultAs[Pattern], c.PExpr.resultAs[Expr], c.Block.resultAs[Block])) ++
   arule("ForExpr", "For Pattern In PExpr Do Block",
       c => For(c.Pattern.resultAs[Pattern], c.PExpr.resultAs[Expr], c.Block.resultAs[Block]))
@@ -272,7 +276,7 @@ val g_match =
   arule("STMatch", "Match PExpr STMatchCases",
       CS.and(
           CS.Indent("Match", "PExpr"),
-          CS.or(CS.Line("Match", "STMatchCases"), CS.Align("Match", "STMatchCases"))),
+          Subalign("Match", "STMatchCases")),
       c => Match(c.PExpr.resultAs[Expr], c.STMatchCases.resultAs[Vector[MatchCase]])) ++
   arule("STMatchCases", "STMatchCases STMatchCase", 
       CS.or(CS.Align("STMatchCases", "STMatchCase"), CS.Line("STMatchCases", "STMatchCase")),
