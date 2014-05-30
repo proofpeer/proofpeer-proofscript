@@ -7,3 +7,5 @@ if true then
   z ≔ 20
 
 show z
+
+show (3, 1, 7)

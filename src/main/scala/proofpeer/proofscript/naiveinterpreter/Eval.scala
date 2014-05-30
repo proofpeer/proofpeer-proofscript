@@ -143,41 +143,37 @@ class Eval(states : States, kernel : Kernel,
 			case (TupleValue(xs), TupleValue(ys)) =>
 				val len = xs.size
 				if (len == ys.size) {
-					if (len == 0) 
-						Some(IsEq)
-					else {
-						var has_less = false
-						var has_eq = false
-						var has_greater = false
-						var has_neq = false
-						for (i <- 0 until len)
-							cmp(xs(i), ys(i)) match {
-								case None => return None
-								case Some(c) =>
-									c match {
-										case IsLess => has_less = true
-										case IsLessOrEqual =>
-											has_less = true
-											has_eq = true 
-										case IsEq => has_eq = true
-										case IsGreater => has_greater = true
-										case IsGreaterOrEqual => 
-											has_greater = true
-											has_eq = true
-										case IsNEq => has_neq = true
-									}
-							}
-						if (has_neq) Some(IsNEq)
-						else
-							(has_less, has_eq, has_greater) match {
-								case (true, false, false) => Some(IsLess)
-								case (true, true, false) => Some(IsLessOrEqual)
-								case (false, _, false) => Some(IsEq)
-								case (false, false, true) => Some(IsGreater)
-								case (false, true, true) => Some(IsGreaterOrEqual)
-								case (true, _, true) => Some(IsNEq)
-							}
-					}
+					var has_less = false
+					var has_eq = false
+					var has_greater = false
+					var has_neq = false
+					for (i <- 0 until len)
+						cmp(xs(i), ys(i)) match {
+							case None => return None
+							case Some(c) =>
+								c match {
+									case IsLess => has_less = true
+									case IsLessOrEqual =>
+										has_less = true
+										has_eq = true 
+									case IsEq => has_eq = true
+									case IsGreater => has_greater = true
+									case IsGreaterOrEqual => 
+										has_greater = true
+										has_eq = true
+									case IsNEq => has_neq = true
+								}
+						}
+					if (has_neq) Some(IsNEq)
+					else
+						(has_less, has_eq, has_greater) match {
+							case (true, false, false) => Some(IsLess)
+							case (true, true, false) => Some(IsLessOrEqual)
+							case (false, _, false) => Some(IsEq)
+							case (false, false, true) => Some(IsGreater)
+							case (false, true, true) => Some(IsGreaterOrEqual)
+							case (true, _, true) => Some(IsNEq)
+						}
 				} else None
 			case _ => None
 		}
@@ -321,6 +317,15 @@ class Eval(states : States, kernel : Kernel,
 						}
 						success(BoolValue(true))
 				} 
+			case Tuple(xs) =>
+				var values : List[StateValue] = List()
+				for (x <- xs) {
+					evalExpr(state, x) match {
+						case f : Failed[_] => return f
+						case Success(value, _) => values = value :: values
+					}
+				}
+				success(TupleValue(values.reverse.toVector))
 			case ControlFlowExpr(controlflow) =>
 				val cstate = state.setCollect(Collect.emptyOne)
 				evalControlFlow(cstate, controlflow) match {
