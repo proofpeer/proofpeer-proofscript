@@ -378,10 +378,31 @@ class Eval(states : States, kernel : Kernel,
 		}	
 	}
 
+	def evalWhile(_state : State, control : While) : Result[State] = {
+		var repeat : Boolean = true
+		var state = _state
+		while (repeat) {
+			evalExpr(state.freeze, control.cond) match {
+				case f : Failed[_] => return fail(f)
+				case Success(BoolValue(false), _) => repeat = false
+				case Success(BoolValue(true), _) => 
+					evalSubBlock(state, control.body) match {
+						case f : Failed[_] => return f
+						case su @ Success(s, isReturnValue) =>
+							if (isReturnValue) return su
+							state = state.subsume(s)
+					}
+
+			}
+		}
+		success(state)
+	}
+
 	def evalControlFlowSwitch(state : State, controlflow : ControlFlow) : Result[State] = {
 		controlflow match {
 			case c : Do => evalDo(state, c)
 			case c : If => evalIf(state, c)
+			case c : While => evalWhile(state, c)
 			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
 		}
 	}
