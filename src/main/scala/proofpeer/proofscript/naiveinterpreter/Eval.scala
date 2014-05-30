@@ -362,6 +362,16 @@ class Eval(states : States, kernel : Kernel,
 			evalControlFlowSwitch(state, controlflow)
 	}
 
+	def evalControlFlowSwitch(state : State, controlflow : ControlFlow) : Result[State] = {
+		controlflow match {
+			case c : Do => evalDo(state, c)
+			case c : If => evalIf(state, c)
+			case c : While => evalWhile(state, c)
+			case c : For => evalFor(state, c)
+			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
+		}
+	}
+
 	def evalDo(state : State, control : Do) : Result[State] = {
 		evalSubBlock(state, control.block)
 	}
@@ -398,12 +408,26 @@ class Eval(states : States, kernel : Kernel,
 		success(state)
 	}
 
-	def evalControlFlowSwitch(state : State, controlflow : ControlFlow) : Result[State] = {
-		controlflow match {
-			case c : Do => evalDo(state, c)
-			case c : If => evalIf(state, c)
-			case c : While => evalWhile(state, c)
-			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
+	def evalFor(_state : State, control : For) : Result[State] = {
+		evalExpr(_state.freeze, control.coll) match {
+			case f : Failed[_] => fail(f)
+			case Success(TupleValue(values), _) =>
+				var state = _state
+				for (value <- values) {
+					matchPattern(state.freeze, control.pat, value) match {
+						case f : Failed[_] => return fail(f)
+						case Success(None, _) => 
+						case Success(Some(matchings), _) =>
+							evalSubBlock(state.bind(matchings), control.body) match {
+								case f : Failed[_] => return f
+								case su @ Success(s, isReturnValue) =>
+									if (isReturnValue) return su
+									state = state.subsume(s)
+							}
+					}
+				}
+				success(state)
+			case Success(v, _) => fail(control.coll, "tuple expected, found: " + v)
 		}
 	}
 

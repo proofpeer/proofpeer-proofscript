@@ -15,5 +15,17 @@ val m ≔ 1
 while n > 1 do
   m ≔ m * n
   n ≔ n - 1
-  
+
 show m
+
+m ≔ 1
+
+val q ≔
+  for i in (1, 2, 3, 4, 5, 6, 7, 8) do
+    i
+    i * i
+    m ≔ m * i
+    m
+    (i, i * i, m)
+
+show q
