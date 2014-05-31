@@ -443,6 +443,7 @@ class Eval(states : States, kernel : Kernel,
 			case c : While => evalWhile(state, c)
 			case c : For => evalFor(state, c)
 			case c : Match => evalMatch(state, c)
+			case c : ContextControl => evalContextControl(state, c)
 			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
 		}
 	}
@@ -527,6 +528,29 @@ class Eval(states : States, kernel : Kernel,
 				fail(control, "no match for value: " + value)
 		}	
 	}
+
+	def evalContextControl(state : State, control : ContextControl) : Result[State] = {
+		val context =
+			control.ctx match {
+				case None => state.context
+				case Some(expr) =>
+					evalExpr(state.freeze, expr) match {
+						case failed : Failed[_] => return fail(failed)
+						case Success(ContextValue(context), _) => context
+						case Success(v, _) => return fail(expr, "context expected, found: " + v)
+					}
+			}
+		evalBlock(state.setContext(context).setCollect(Collect.Zero), control.body) match {
+			case failed : Failed[_] => failed
+			case su @ Success(updatedState, isReturnValue) =>
+				if (isReturnValue) return su 	
+				if (state.collect != Collect.Zero) 
+					success(state.addToCollect(ContextValue(updatedState.context)))
+				else
+					success(state)
+		}
+	}
+
 
 	type Matchings = Map[String, StateValue]
 

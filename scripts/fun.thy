@@ -15,8 +15,8 @@ show fac 10
 def
   even 0 = true
   odd 0 = false
-  even n = odd (n-1)
-  odd n = even (n-1)
+  even n = odd(n-1)
+  odd n = even(n-1)
 
 def
   first (x, y) = x
@@ -24,6 +24,8 @@ def
 
 show even 11
 show odd 11
+
+show context<context>
 
 val u = (93, 47)
 show first u
