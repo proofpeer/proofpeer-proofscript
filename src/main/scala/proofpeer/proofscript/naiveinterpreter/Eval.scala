@@ -105,6 +105,24 @@ class Eval(states : States, kernel : Kernel,
 							if (isReturnValue) return su
 							state = if (changedCollect) value.setCollect(state.collect) else value
 					}
+				case stdef : STDef =>
+					state.env.lookup(stdef.freeVars) match {
+						case Right(xs) =>
+							var error = "definition depends on unknown free variables:"
+							for (x <- xs) error = error + " " + x
+							return fail(stdef, error)
+						case Left(bindings) =>
+							var functions : Map[String, RecursiveFunctionValue] = Map()
+							var nonlinear = bindings
+							for ((name, cs) <- stdef.cases) {
+								val f = RecursiveFunctionValue(null, cs)
+								nonlinear = nonlinear + (name -> f)
+								functions = functions + (name -> f)
+							}
+							var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+							for ((_, f) <- functions) f.state = defstate
+							state = state.bind(functions)
+					}
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1
@@ -351,6 +369,11 @@ class Eval(states : States, kernel : Kernel,
 							case failed : Failed[_] => failed
 							case Success(x, _) => evalApply(f.state, f.f.param, f.f.body, x)
 						}
+					case Success(f : RecursiveFunctionValue, _) =>
+						evalExpr(state, v) match {
+							case failed : Failed[_] => failed
+							case Success(x, _) => evalApply(f.state, f.cases, x)
+						}
 					case Success(v, _) => fail(u, "function value expected, found: " + v)
 				}
 			case Lazy(_) => fail(expr, "lazy evaluation is not available (yet)")
@@ -368,6 +391,23 @@ class Eval(states : States, kernel : Kernel,
 					case Success(state, _) => success(state.reapCollect)
 				}
 		}
+	}
+
+	def evalApply(state : State, cases : Vector[DefCase], argument : StateValue) : Result[StateValue] = {
+		val matchState = state.freeze
+		for (c <- cases) {
+			matchPattern(matchState, c.param, argument) match {
+				case failed : Failed[_] => return fail(failed)
+				case Success(None, _) =>
+				case Success(Some(matchings), _) =>
+					evalBlock(state.bind(matchings), c.body) match {
+						case failed : Failed[_] => return fail(failed)
+						case Success(state, _) => return success(state.reapCollect)
+					}
+			}
+		}
+		val c = cases.head
+		fail(c.param, "function " + c.name + " cannot be applied to: " + argument)
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {

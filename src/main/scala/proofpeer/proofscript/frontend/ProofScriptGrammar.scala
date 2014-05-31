@@ -375,20 +375,31 @@ val g_assign =
           CS.or(CS.Line("Eq", "Block"), CS.Indent("Pattern", "Block"))),
       c => STAssign(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
   
+def mkSTDef(cases : Vector[DefCase]) : STDef = {
+  var result : Map[String, Vector[DefCase]] = Map()
+  for (c <- cases) {
+    result.get(c.name) match {
+      case None => result = result + (c.name -> Vector(c))
+      case Some(cs) => result = result + (c.name -> (cs :+ c))
+    }
+  }
+  STDef(result)
+}
+
 val g_def =
   arule("ST", "Def DefCases",
       CS.Indent("Def", "DefCases"),
-      c => STDef(c.DefCases.resultAs[Vector[DefCase]])) ++
+      c => mkSTDef(c.DefCases.resultAs[Vector[DefCase]])) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
       c => c.DefCases.resultAs[Vector[DefCase]] :+ c.DefCase.resultAs[DefCase]) ++
-  arule("DefCase", "Id OptPattern Eq Block",
+  arule("DefCase", "Id Pattern Eq Block",
       CS.and(
-          CS.Indent("Id", "OptPattern"),
-          CS.or(CS.SameLine("OptPattern", "Eq"), CS.SameLine("Id", "Eq")),
+          CS.Indent("Id", "Pattern"),
+          CS.or(CS.SameLine("Pattern", "Eq"), CS.SameLine("Id", "Eq")),
           CS.Indent("Id", "Block")),
-      c => DefCase(c.Id.text, c.OptPattern.resultAs[Option[Pattern]], c.Block.resultAs[Block]))
+      c => DefCase(c.Id.text, c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
       
 val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), c => STReturn(c.PExpr.resultAs[Expr]))

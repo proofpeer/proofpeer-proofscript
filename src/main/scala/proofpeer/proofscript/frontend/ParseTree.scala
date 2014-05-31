@@ -241,25 +241,20 @@ object ParseTree {
     protected def calcVars = (pat.freeVars ++ body.freeVars, Set())
   }
   
-  case class STDef(cases : Vector[DefCase]) extends Statement {
+  case class STDef(cases : Map[String, Vector[DefCase]]) extends Statement {
     protected def calcVars = {
       var names = Set[String]()
       var frees = Set[String]()
-      for (c <- cases) {
-        names = names + c.name
-        frees = frees ++ c.freeVars
+      for ((name, cs) <- cases) {
+        names = names + name
+        for (c <- cs) frees = frees ++ c.freeVars
       }
-      (frees -- names, Set())
+      (frees -- names, names)
     }
   }
     
-  case class DefCase(name : String, param : Option[Pattern], body : Block) extends ParseTree {
-    protected def calcVars = {
-      param match {
-        case None => (body.freeVars, Set())
-        case Some(param) => (param.freeVars ++ (body.freeVars -- param.introVars), Set())
-      }
-    }
+  case class DefCase(name : String, param : Pattern, body : Block) extends ParseTree {
+    protected def calcVars = (param.freeVars ++ (body.freeVars -- param.introVars), Set(name))
   }
   
   case class STReturn(expr : Expr) extends Statement {
