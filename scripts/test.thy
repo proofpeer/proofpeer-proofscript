@@ -4,7 +4,7 @@ theory peers\obua\test
 extends 
   \root 
 
-val x ≔ 5 + \root\x 
+val x = 5 + \root\x 
 show y
-val y ≔ 27 + x - \root\x + y
+val y = 27 + x - \root\x + y
 show y

@@ -1,15 +1,15 @@
 theory left 
 extends root
 
-val z ≔ 99
+val z = 99
 
-z ≔ 3
+z = 3
 
-val u ≔
+val u =
   do *
-    z ≔ 4
+    z = 4
     show z
-    val z ≔ 5
+    val z = 5
     show z
 
 show z

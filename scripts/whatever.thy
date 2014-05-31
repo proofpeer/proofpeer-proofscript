@@ -1,5 +1,5 @@
 theory \peers\obua\whatever
-  l ≔ \left
+  l = \left
 extends \left \right
 
 show l\z

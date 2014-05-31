@@ -59,11 +59,16 @@ val g_literals =
   ltokenrule("Le", '<') ++
   ltokenrule("Gr", '>') ++
   ltokenrule("Leq", 0x2264) ++
+  lexrule("Leq", literal("<=")) ++
   ltokenrule("Geq", 0x2265) ++
+  lexrule("Geq", literal(">=")) ++
   ltokenrule("SquareBracketOpen", '[') ++
   ltokenrule("SquareBracketClose", ']') ++
   ltokenrule("DoubleArrow", 0x21D2) ++
-  ltokenrule("AssignEq", 0x2254) ++
+  lexrule("DoubleArrow", literal("=>")) ++
+  lexrule("ScriptEq", literal("==")) ++
+  lexrule("ScriptNotEq", literal("<>")) ++ 
+  ltokenrule("ScriptNotEq", 0x2260) ++
   ltokenrule("Apostrophe", 0x27) ++
   lexrule("Prepend", literal("<+")) ++
   lexrule("Append", literal("+>")) ++
@@ -165,8 +170,8 @@ val g_expr =
   arule("CmpOp", "Gr", c => Gr) ++
   arule("CmpOp", "Leq", c => Leq) ++
   arule("CmpOp", "Geq", c => Geq) ++
-  arule("CmpOp", "Eq", c => Eq) ++
-  arule("CmpOp", "NotEq", c => NEq) ++
+  arule("CmpOp", "ScriptEq", c => Eq) ++
+  arule("CmpOp", "ScriptNotEq", c => NEq) ++
   arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr.result) ++
   arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr.result) ++
   arule("ConcatExpr", "ConcatExpr Append ArithExpr", c => BinaryOperation(annotateBinop(Append, c.Append.span), c.ConcatExpr.resultAs[Expr], c.ArithExpr.resultAs[Expr])) ++
@@ -355,19 +360,19 @@ val g_fail =
     c => STFail(Some(c.PExpr.resultAs[Expr])))
 
 val g_val = 
-  arule("ST", "Val Pattern AssignEq Block",
+  arule("ST", "Val Pattern Eq Block",
     CS.and(
       CS.Indent("Val", "Pattern"),
-      CS.SameLine("Pattern", "AssignEq"),
-      CS.or(CS.Line("AssignEq", "Block"), CS.Indent("Val", "Block"))),
+      CS.SameLine("Pattern", "Eq"),
+      CS.or(CS.Line("Eq", "Block"), CS.Indent("Val", "Block"))),
     c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
 
 val g_assign = 
-  arule("ST", "Pattern AssignEq Block",
+  arule("ST", "Pattern Eq Block",
       CS.and(
-          CS.SameLine("Pattern", "AssignEq"),
+          CS.SameLine("Pattern", "Eq"),
           CS.Protrude("Pattern"),
-          CS.or(CS.Line("AssignEq", "Block"), CS.Indent("Pattern", "Block"))),
+          CS.or(CS.Line("Eq", "Block"), CS.Indent("Pattern", "Block"))),
       c => STAssign(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
   
 val g_def =
@@ -378,10 +383,10 @@ val g_def =
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
       c => c.DefCases.resultAs[Vector[DefCase]] :+ c.DefCase.resultAs[DefCase]) ++
-  arule("DefCase", "Id OptPattern AssignEq Block",
+  arule("DefCase", "Id OptPattern Eq Block",
       CS.and(
           CS.Indent("Id", "OptPattern"),
-          CS.or(CS.SameLine("OptPattern", "AssignEq"), CS.SameLine("Id", "AssignEq")),
+          CS.or(CS.SameLine("OptPattern", "Eq"), CS.SameLine("Id", "Eq")),
           CS.Indent("Id", "Block")),
       c => DefCase(c.Id.text, c.OptPattern.resultAs[Option[Pattern]], c.Block.resultAs[Block]))
       
@@ -416,7 +421,7 @@ val g_choose =
 
 val g_logic_statements = 
   arule("OptAssign", "", c => None) ++
-  arule("OptAssign", "Id AssignEq", c => Some(c.Id.text)) ++
+  arule("OptAssign", "Id Eq", c => Some(c.Id.text)) ++
   arule("LogicTerm", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
   g_assume ++ g_let ++ g_choose
 
@@ -448,7 +453,7 @@ val g_header =
   arule("AliasList", "AliasList Alias", 
     CS.Align("AliasList", "Alias"),
     c => c.Alias.resultAs[(Id, Namespace)] :: c.AliasList.resultAs[List[(Id, Namespace)]]) ++
-  arule("Alias", "Id AssignEq Namespace", 
+  arule("Alias", "Id Eq Namespace", 
     c => (Id(c.Id.text), Namespace(c.Namespace.text)))
 
 val g_prog = 
