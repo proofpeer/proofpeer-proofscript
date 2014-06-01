@@ -475,7 +475,7 @@ val g_prog =
   g_statement ++
   g_controlflow ++
   g_header ++
-  arule("ValueQuotedTerm", "Block", _.Block.result) ++
+  arule("ValueQuotedTerm", "PExpr", _.PExpr.result) ++
   arule("PatternQuotedTerm", "Pattern", _.Pattern.result) ++
   arule("Prog", "Block", _.Block.result)
 

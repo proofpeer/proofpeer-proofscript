@@ -19,6 +19,28 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
+	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
+		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
+			tm.quoted match {
+				case expr : Expr =>
+					evalExpr(state, expr) match {
+						case failed : Failed[_] => Right(failed)
+						case Success(TermValue(t), _) => Left(Preterm.translate(t))
+						case Success(v, _) => Right(fail(expr, "term value expected, found: " + v))
+					}    	
+			}
+		}
+		Preterm.instQuotes(inst, tm.tm) match {
+		  case Right(f) => fail(f)
+			case Left(preterm) => 
+				val typingContext = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
+				Preterm.inferTerm(typingContext, preterm) match {
+					case Left(tm) => success(tm)
+					case Right(errors) => fail(tm, "term is not valid in current context, preterm is: "+preterm)
+				}
+		}
+	} 
+
 	def evalBlock(_state : State, block : Block) : Result[State] = {
 		val statements = block.statements
 		var state = _state
@@ -123,6 +145,8 @@ class Eval(states : States, kernel : Kernel,
 							for ((_, f) <- functions) f.state = defstate
 							state = state.bind(functions)
 					}
+				//case STAssume(thm_name, tm) =>
+				//	val 
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1
@@ -375,6 +399,11 @@ class Eval(states : States, kernel : Kernel,
 							case Success(x, _) => evalApply(f.state, f.cases, x)
 						}
 					case Success(v, _) => fail(u, "function value expected, found: " + v)
+				}
+			case tm : LogicTerm =>
+				evalLogicTerm(state, tm) match {
+					case f : Failed[_] => fail(f)
+					case Success(tm, _) => success(TermValue(tm))
 				}
 			case Lazy(_) => fail(expr, "lazy evaluation is not available (yet)")
 			case _ => fail(expr, "don't know how to evaluate this expression")

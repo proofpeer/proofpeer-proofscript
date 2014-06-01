@@ -17,15 +17,18 @@ object KernelUtils {
       case Var(name) => true
     }
   }
+
+  def typeOfPolyConst(c : PolyConst) : Option[Type] = {
+    c.name match {
+      case Kernel.equals => Some(Fun(c.alpha, Fun(c.alpha, Prop)))
+      case Kernel.forall | Kernel.exists => Some(Fun(Fun(c.alpha, Prop), Prop))
+      case _ => None      
+    }    
+  }
   
   def typeOfTerm(c : Context, vars : Map[IndexedName, Type], term : Term) : Option[Type] = {
     term match {
-      case PolyConst(name, alpha) =>
-        name match {
-          case Kernel.equals => Some(Fun(alpha, Fun(alpha, Prop)))
-          case Kernel.forall | Kernel.exists => Some(Fun(Fun(alpha, Prop), Prop))
-          case _ => None
-        }
+      case pc : PolyConst => typeOfPolyConst(pc)
       case Const(name) => c.typeOfConst(name)
       case Var(name) => vars.get(name)
       case Comb(f, x) => 
@@ -381,5 +384,44 @@ object KernelUtils {
     }
     prop
   }
+
+  // We check whether there are unqualified constants in this term which clash with variables. 
+  // If yes, we rename the variables that cause the clash. 
+  def avoidVarConstClashes(tm : Term) : Term = {
+    preparePrinting(tm)._1
+  }
+
+  private def preparePrinting(tm : Term) : (Term, Set[IndexedName]) = {
+    tm match {
+      case Const(name) =>
+        if (name.namespace.isDefined) 
+          (tm, Set())
+        else 
+          (tm, Set(name.name))
+      case Comb(f, g) =>
+        val (u, fconsts) = preparePrinting(f)
+        val (v, gconsts) = preparePrinting(g)
+        (Comb(u, v), fconsts ++ gconsts)
+      case Abs(name, ty, body) =>
+        val (u, consts) = preparePrinting(body)
+        if (consts.contains(name)) {
+          var i : Integer = 
+            KernelUtils.findHighestVarIndex(body) match {
+              case Some(Some(i)) => i
+              case _ => 1
+            }
+          var n : IndexedName = null
+          do {
+            n = IndexedName(name.name, Some(i))
+            i = i + 1
+          } while (consts.contains(n))
+          (Abs(n, ty, KernelUtils.substVar(u, name, Var(n))), consts)
+        } else {
+          (Abs(name, ty, u), consts)
+        }
+      case _ => 
+        (tm, Set()) 
+    }
+  }  
    
 }

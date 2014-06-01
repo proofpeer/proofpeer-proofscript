@@ -134,6 +134,30 @@ object Preterm {
 
   def pTmQuote(quoted : Any) : Preterm = PTmQuote(quoted, Pretype.PTyAny)
 
+  def instQuotes[F](inst : PTmQuote => Either[Preterm, F], tm : Preterm) : Either[Preterm, F] = {
+    tm match {
+      case PTmTyping(tm, ty) => 
+        instQuotes(inst, tm) match {
+          case Left(tm) => Left(PTmTyping(tm, ty))
+          case f => f
+        }
+      case PTmAbs(x, ty, body, body_ty) =>
+        instQuotes(inst, body) match {
+          case Left(body) => Left(PTmAbs(x, ty, body, body_ty))
+          case f => f
+        }
+      case PTmComb(f, g, higherorder, typeof) =>
+        (instQuotes(inst, f), instQuotes(inst, g)) match {
+          case (Left(f), Left(g)) => Left(PTmComb(f, g, higherorder, typeof))
+          case (f @ Right(_), _) => f
+          case (_, g @ Right(_)) => g
+        }
+      case q : PTmQuote => inst(q)
+      case name : PTmName => Left(name)
+      case error : PTmError => Left(error)
+    }
+  }
+
   def computeFresh(tm : Preterm, min : Integer) : Integer = {
   	tm match {
   		case PTmTyping(tm, ty) => 
@@ -269,6 +293,20 @@ object Preterm {
       case _ => Utils.failwith("internal error: subst")
   	}
   } 
+
+  def translate(tm : Term) : Preterm = {
+    translateTerm(KernelUtils.avoidVarConstClashes(tm))
+  }
+
+  private def translateTerm(tm : Term) : Preterm = {
+    tm match {
+      case c : Term.PolyConst => PTmName(c.name, Pretype.translate(KernelUtils.typeOfPolyConst(c).get))
+      case Term.Const(name) => PTmName(name, Pretype.PTyAny) 
+      case Term.Var(name) => PTmName(Name(None, name), Pretype.PTyAny) 
+      case Term.Comb(f, g) => PTmComb(translateTerm(f), translateTerm(g), Some(true), Pretype.PTyAny)
+      case Term.Abs(name, ty, body) => PTmAbs(name, Pretype.translate(ty), translateTerm(body), Pretype.PTyAny)
+    }
+  }
 
   def translate(context : TypingContext, tm : Preterm) : Term = {
   	tm match {

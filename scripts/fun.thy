@@ -1,7 +1,7 @@
 theory fun
 extends root
 
-val f = x ⇒ x * x
+val f = x => x * x
 
 show f
 show f 12
@@ -21,6 +21,8 @@ def
 def
   first (x, y) = x
   second (x, y) = y
+
+(even, odd) = (odd, even)
 
 show even 11
 show odd 11
