@@ -145,8 +145,19 @@ class Eval(states : States, kernel : Kernel,
 							for ((_, f) <- functions) f.state = defstate
 							state = state.bind(functions)
 					}
-				//case STAssume(thm_name, tm) =>
-				//	val 
+				case STAssume(thm_name, tm) =>
+					evalLogicTerm(state.freeze, tm) match {
+						case failed : Failed[_] => return fail(failed)
+						case Success(tm, _) =>
+							try {
+								val thm = state.context.assume(tm)
+								state = state.setContext(thm.context)
+								if (thm_name.isDefined) state = state.bind(Map(thm_name.get -> new TheoremValue(thm)))
+							} catch {
+								case ex : Utils.KernelException =>
+									return fail(st, "assume: "+ex.reason)
+							}
+					}
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1

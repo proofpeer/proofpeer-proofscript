@@ -98,7 +98,7 @@ object Root {
 		intro(Kernel.existsin, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0)))
 
-		axiom("trueDef", "((p : ℙ ↦ p) = (p : ℙ ↦ p))")
+		/*axiom("trueDef", "((p : ℙ ↦ p) = (p : ℙ ↦ p))")
 		axiom("falseDef", "⊥ = (∀ p. p)")
 		axiom("notDef", "∀ p. (¬ p) = (p → ⊥)")
 		axiom("andDef", "∀ x, y. (x ∧ y) = ((f ↦ f x y) = (f ↦ f ⊤ ⊤))")
@@ -122,7 +122,7 @@ object Root {
 		axiom("existsin", "∀ X, P. existsin X P = (∃ x. x ∈ X ∧ P x)")
 		axiom("pair", "∀ x, y. (x, y) = {{x}, {x, y}}")
 		axiom("fun", "∀ X, f. fun X f = {(x, f x)| x ∈ X}")
-		axiom("apply", "∀ X, f, x ∈ X. fun X f x = f x")
+		axiom("apply", "∀ X, f, x ∈ X. fun X f x = f x")*/
 	}
 
 	def checkPrinting(context : Context, tm : Term) : String = {

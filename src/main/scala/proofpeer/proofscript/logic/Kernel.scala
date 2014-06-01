@@ -2,8 +2,10 @@ package proofpeer.proofscript.logic
 
 object Utils {
 
+  class KernelException(val reason : String) extends RuntimeException(reason) 
+
   def failwith[T](reason : String) : T = {
-    throw new RuntimeException("Failure: " + reason)
+    throw new KernelException("Failure: " + reason)
   }
   
   type Integer = BigInt
@@ -80,8 +82,7 @@ trait Context {
   // The name must either have no namespace, or must be equal to the current namespace.
   def introduce(const_name : Name, ty : Type) : Context
 
-  // Introduces an assumption with a given name. 
-  // The name must either have no namespace, or must be equal to the current namespace.
+  // Introduces an assumption. 
   // The new context can be obtained from the theorem.
   def assume(assumption : Term) : Theorem
   
