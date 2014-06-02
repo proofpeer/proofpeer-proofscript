@@ -68,7 +68,7 @@ object Root {
 			context = th.context
 			axioms = axioms + (name -> th)
 		}
-		intro(Kernel.logical_and, ty_log2)
+		/*intro(Kernel.logical_and, ty_log2)
 		intro(Kernel.logical_or, ty_log2)
 		intro(Kernel.logical_not, ty_log1)
 		intro(Kernel.logical_true, ty_log0)
@@ -96,7 +96,7 @@ object Root {
 		intro(Kernel.forallin, 
 			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0)))
 		intro(Kernel.existsin, 
-			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0)))
+			Type.Fun(ty_set0, Type.Fun(Type.Fun(ty_set0, ty_log0), ty_log0))) */
 
 		/*axiom("trueDef", "((p : ℙ ↦ p) = (p : ℙ ↦ p))")
 		axiom("falseDef", "⊥ = (∀ p. p)")

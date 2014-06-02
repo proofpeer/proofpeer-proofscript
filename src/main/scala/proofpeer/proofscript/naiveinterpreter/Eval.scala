@@ -19,7 +19,7 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
-	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
+	def evalLogicPreterm(state : State, tm : LogicTerm) : Result[Preterm] = {
 		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
 			tm.quoted match {
 				case expr : Expr =>
@@ -32,11 +32,21 @@ class Eval(states : States, kernel : Kernel,
 		}
 		Preterm.instQuotes(inst, tm.tm) match {
 		  case Right(f) => fail(f)
-			case Left(preterm) => 
+			case Left(preterm) => success(preterm)
+		}
+	}
+
+	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
+		evalLogicPreterm(state, tm) match {
+			case failed : Failed[_] => fail(failed)
+			case Success(preterm, _) =>
 				val typingContext = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
 				Preterm.inferTerm(typingContext, preterm) match {
 					case Left(tm) => success(tm)
-					case Right(errors) => fail(tm, "term is not valid in current context, preterm is: "+preterm)
+					case Right(errors) => 
+						var error = "term is not valid in current context:"
+						for (e <- errors) error = error + "\n  " + e.reason
+						fail(tm, error)
 				}
 		}
 	} 
@@ -162,6 +172,19 @@ class Eval(states : States, kernel : Kernel,
 									return fail(st, "assume: "+ex.reason)
 							}
 					}
+				case st @ STLet(thm_name, tm) =>
+					evalLogicPreterm(state.freeze, tm) match {
+						case failed : Failed[_] => return fail(failed)
+						case Success(ptm, _) =>
+							letIsIntro(ptm) match {
+								case None => return fail(st, "let can only handle introductions right now")
+								case Some((n, tys)) =>
+									evalIntro(state, st, n, tys) match {
+										case failed : Failed[_] => return fail(st, failed.error)
+										case Success(updatedState, _) => state = updatedState
+									}
+							}
+					}
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1
@@ -169,6 +192,39 @@ class Eval(states : States, kernel : Kernel,
 		state.collect match {
 			case Collect.One(None) => fail(block, "block does not yield a value") 
 			case _ => success(state)
+		}
+	}
+
+	def evalIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : Result[State] = {
+		if (st.thm_name.isDefined) return fail(st, "constant introduction produces no theorem")
+		val name = 
+			_name.namespace match {
+				case Some(ns) => 
+					if (ns == state.context.namespace) _name
+					else return fail(st, "cannot define constant with namespace "+ns+" here")
+				case None => Name(Some(state.context.namespace), _name.name)
+			}
+		Pretype.solve(tys) match {
+			case None => fail(st, "inconsistent type constraints")
+			case Some(ty) =>
+				try {
+					success(state.setContext(state.context.introduce(name, ty)))
+				} catch {
+					case ex: Utils.KernelException =>
+						return fail(st, "let intro: " + ex.reason)
+				}
+		}
+	}
+
+	def letIsIntro(ptm : Preterm) : Option[(Name, List[Pretype])] = {
+		ptm match {
+			case Preterm.PTmName(n, ty) => Some((n, List(ty)))
+			case Preterm.PTmTyping(tm, ty) => 
+				letIsIntro(tm) match {
+					case Some((n, tys)) => Some((n, ty :: tys))
+					case None => None
+				}
+			case _ => None
 		}
 	}
 

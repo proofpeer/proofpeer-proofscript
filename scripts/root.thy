@@ -1,6 +1,30 @@
 theory root 
 extends
 
+let 'and : ℙ → ℙ → ℙ'
+let 'or : ℙ → ℙ → ℙ'
+let 'not : ℙ → ℙ'
+let 'true : ℙ'
+let 'false : ℙ'
+
+let 'empty'
+let 'difference : 𝒰 → 𝒰 → 𝒰'
+let 'union : 𝒰 → 𝒰 → 𝒰'
+let 'Union : 𝒰 → 𝒰'
+let 'intersection : 𝒰 → 𝒰 → 𝒰'
+let 'Intersection : 𝒰 → 𝒰'
+let 'power : 𝒰 → 𝒰'
+let 'singleton : 𝒰 → 𝒰'
+let 'sep : 𝒰 → (𝒰 → ℙ) → 𝒰'
+let 'repl : 𝒰 → (𝒰 → 𝒰) → 𝒰'
+let 'elementof : 𝒰 → 𝒰 → ℙ'
+let 'subsetof : 𝒰 → 𝒰 → ℙ'
+let 'pair : 𝒰 → 𝒰 → 𝒰'
+let 'fun : 𝒰 → (𝒰 → 𝒰) → 𝒰'
+let 'apply : 𝒰 → 𝒰 → 𝒰'
+let 'forallin : 𝒰 → (𝒰 → ℙ) → ℙ'
+let 'existsin : 𝒰 → (𝒰 → ℙ) → ℙ'
+
 assume trueDef = '((p : ℙ ↦ p) = (p : ℙ ↦ p))'
 assume falseDef = '⊥ = (∀ p. p)'
 assume notDef = '∀ p. (¬ p) = (p → ⊥)'

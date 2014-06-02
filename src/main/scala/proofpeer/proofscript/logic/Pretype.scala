@@ -80,6 +80,29 @@ object Pretype {
   	subst(m => if (n == m) Some(s) else None, ty)
   }
 
+  // Computes the solution for the equation tys(0) == tys(1) == tys(2) == ...
+  def solve(_tys : List[Pretype]) : Option[Type] = {
+    var tys : List[Pretype] = List()
+    var fresh : Integer = 0
+    for (ty <- _tys) {
+      val (rty, f) = removeAny(ty, fresh)
+      tys = rty :: tys
+      fresh = f
+    }
+    if (tys.isEmpty) return None
+    var ty = tys.head
+    var eqs : Set[(Pretype, Pretype)] = Set()
+    for (tyNext <- tys.tail) {
+      eqs = eqs + (ty -> tyNext)
+      ty = tyNext
+    }
+    val m = solve(eqs)
+    if (m == null) return None
+    return Some(translate(subst(
+      i => m.get(i) match { case None => Some(Pretype.PTyUniverse) case ty => ty},
+      ty)))
+  }
+
   private def substEqs(n : Integer, t : Pretype, _eqs: Set[(Pretype, Pretype)]) : Set[(Pretype, Pretype)] = {
   	var eqs : Set[(Pretype, Pretype)] = Set()
   	for ((left, right) <- _eqs) {

@@ -21,7 +21,12 @@ sealed case class IndexedName(val name : String, val index : Option[Integer]) {
     if (index.isDefined) name + "_" + index.get else name
   }
 }
-sealed case class Name(val namespace : Option[Namespace], val name : IndexedName)
+sealed case class Name(val namespace : Option[Namespace], val name : IndexedName) {
+  override def toString : String = {
+    if (namespace.isDefined) namespace.get + "\\" + name
+    else name.toString
+  }
+}
 
 sealed abstract class Type
 object Type {
