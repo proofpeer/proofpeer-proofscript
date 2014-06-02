@@ -26,7 +26,7 @@ class Eval(states : States, kernel : Kernel,
 					evalExpr(state, expr) match {
 						case failed : Failed[_] => Right(failed)
 						case Success(TermValue(t), _) => Left(Preterm.translate(t))
-						case Success(v, _) => Right(fail(expr, "term value expected, found: " + v))
+						case Success(v, _) => Right(fail(expr, "term value expected, found: " + display(state, v)))
 					}    	
 			}
 		}
@@ -40,6 +40,10 @@ class Eval(states : States, kernel : Kernel,
 				}
 		}
 	} 
+
+	def display(state : State, value : StateValue) : String = {
+		StateValue.display(aliases, logicNameresolution, state.context, value)	
+	}
 
 	def evalBlock(_state : State, block : Block) : Result[State] = {
 		val statements = block.statements
@@ -57,7 +61,7 @@ class Eval(states : States, kernel : Kernel,
 							state = state.setContext(s.context)
 							matchPattern(state.freeze, pat, value) match {
 								case Failed(pos, error) => return Failed(pos, error)
-								case Success(None, _) => return fail(pat, "value " + value + " does not match pattern")
+								case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
 								case Success(Some(matchings), _) => state = state.bind(matchings)
 							}
 					}
@@ -76,7 +80,7 @@ class Eval(states : States, kernel : Kernel,
 							state = state.setContext(s.context)
 							matchPattern(state.freeze, pat, value) match {
 								case Failed(pos, error) => return Failed(pos, error)
-								case Success(None, _) => return fail(pat, "value " + value + " does not match pattern")
+								case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
 								case Success(Some(matchings), _) => state = state.rebind(matchings)
 							}
 					}					
@@ -107,8 +111,7 @@ class Eval(states : States, kernel : Kernel,
 									case None => ""
 									case Some(span) => ":" + (span.firstRow + 1)
 								}
-							val display = StateValue.display(aliases, logicNameresolution, state.context, value)
-							println("** show ("+namespace+location+"): "+display)
+							println("** show ("+namespace+location+"): "+display(state, value))
 					}
 				case STFail(None) => return fail(st, "fail")
 				case STFail(Some(expr)) =>
@@ -291,7 +294,7 @@ class Eval(states : States, kernel : Kernel,
 						(op, value) match {
 							case (Not, BoolValue(b)) => success(BoolValue(!b)) 
 							case (Neg, IntValue(i)) => success(IntValue(-i))
-							case _ => fail(op, "unary operator "+op+" cannot be applied to: "+value)
+							case _ => fail(op, "unary operator "+op+" cannot be applied to: "+display(state, value))
 						}
 					case f => f
 				}
@@ -319,7 +322,8 @@ class Eval(states : States, kernel : Kernel,
 									case (Prepend, x, xs : TupleValue) => success(xs.prepend(x))
 									case (Append, xs : TupleValue, x) => success(xs.append(x))
 									case (Concat, xs : TupleValue, ys : TupleValue) => success(xs.concat(ys))
-									case _ => fail(op, "binary operator "+op+" cannot be applied to values: "+left+", "+right)
+									case _ => fail(op, "binary operator "+op+" cannot be applied to values: "+
+										display(state,left)+", "+display(state,right))
 								}
 							case f => f
 						}
@@ -331,10 +335,10 @@ class Eval(states : States, kernel : Kernel,
 					case Success(BoolValue(true), _) => 
 						evalExpr(state, right) match {
 							case su @ Success(_ : BoolValue, _) => su
-							case Success(v, _) => fail(right, "Boolean expected, found: " + v)
+							case Success(v, _) => fail(right, "Boolean expected, found: " + display(state, v))
 							case f => f
 						}
-					case Success(v, _) => fail(left, "Boolean expected, found: " + v)
+					case Success(v, _) => fail(left, "Boolean expected, found: " + display(state, v))
 					case f => f
 				}
 			case BinaryOperation(Or, left, right) =>
@@ -343,10 +347,10 @@ class Eval(states : States, kernel : Kernel,
 					case Success(BoolValue(false), _) => 
 						evalExpr(state, right) match {
 							case su @ Success(_ : BoolValue, _) => su
-							case Success(v, _) => fail(right, "Boolean expected, found: " + v)
+							case Success(v, _) => fail(right, "Boolean expected, found: " + display(state, v))
 							case f => f
 						}					
-					case Success(v, _) => fail(left, "Boolean expected, found: " + v)
+					case Success(v, _) => fail(left, "Boolean expected, found: " + display(state, v))
 					case f => f
 				}
 			case CmpOperation(_operators, _operands) => 
@@ -410,7 +414,7 @@ class Eval(states : States, kernel : Kernel,
 							case failed : Failed[_] => failed
 							case Success(x, _) => evalApply(f.state, f.cases, x)
 						}
-					case Success(v, _) => fail(u, "function value expected, found: " + v)
+					case Success(v, _) => fail(u, "function value expected, found: " + display(state, v))
 				}
 			case tm : LogicTerm =>
 				evalLogicTerm(state, tm) match {
@@ -425,7 +429,7 @@ class Eval(states : States, kernel : Kernel,
 	def evalApply(state : State, pat : Pattern, body : Block, argument : StateValue) : Result[StateValue] = {
 		matchPattern(state.freeze, pat, argument) match {
 			case failed : Failed[_] => fail(failed)
-			case Success(None, _) => fail(pat, "pattern does not match function argument: " + argument)
+			case Success(None, _) => fail(pat, "pattern does not match function argument: " + display(state, argument))
 			case Success(Some(matchings), _) =>
 				evalBlock(state.bind(matchings), body) match {
 					case failed : Failed[_] => fail(failed)
@@ -448,7 +452,7 @@ class Eval(states : States, kernel : Kernel,
 			}
 		}
 		val c = cases.head
-		fail(c.param, "function " + c.name + " cannot be applied to: " + argument)
+		fail(c.param, "function " + c.name + " cannot be applied to: " + display(state, argument))
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {
@@ -501,7 +505,7 @@ class Eval(states : States, kernel : Kernel,
 					evalSubBlock(state, control.thenCase) 
 				else 
 					evalSubBlock(state, control.elseCase)
-			case Success(value, _) => fail(control.cond, "Boolean expected, found: " + value)
+			case Success(value, _) => fail(control.cond, "Boolean expected, found: " + display(state, value))
 		}	
 	}
 
@@ -566,7 +570,7 @@ class Eval(states : States, kernel : Kernel,
 							}
 					}	
 				}
-				fail(control, "no match for value: " + value)
+				fail(control, "no match for value: " + display(state, value))
 		}	
 	}
 
@@ -578,7 +582,7 @@ class Eval(states : States, kernel : Kernel,
 					evalExpr(state.freeze, expr) match {
 						case failed : Failed[_] => return fail(failed)
 						case Success(ContextValue(context), _) => context
-						case Success(v, _) => return fail(expr, "context expected, found: " + v)
+						case Success(v, _) => return fail(expr, "context expected, found: " + display(state, v))
 					}
 			}
 		evalBlock(state.setContext(context).setCollect(Collect.Zero), control.body) match {
