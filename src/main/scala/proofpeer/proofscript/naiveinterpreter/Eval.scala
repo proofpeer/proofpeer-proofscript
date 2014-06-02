@@ -19,7 +19,7 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
-	def evalLogicPreterm(state : State, tm : Expr) : Result[Preterm] = {
+	def evalLogicPreterm(state : State, tm : LogicTerm) : Result[Preterm] = {
 		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
 			tm.quoted match {
 				case expr : Expr =>
@@ -47,7 +47,7 @@ class Eval(states : States, kernel : Kernel,
 		}		
 	}
 
-	def evalLogicTerm(state : State, tm : Expr) : Result[Term] = {
+	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
 		evalLogicPreterm(state, tm) match {
 			case failed : Failed[_] => fail(failed)
 			case Success(preterm, _) => resolvePreterm(state.context, preterm)
