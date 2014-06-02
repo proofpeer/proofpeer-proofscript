@@ -81,9 +81,9 @@ object Pretype {
   }
 
   // Computes the solution for the equation tys(0) == tys(1) == tys(2) == ...
-  def solve(_tys : List[Pretype]) : Option[Type] = {
+  def solve(_tys : List[Pretype], _fresh : Integer) : Option[(Pretype, Integer)] = {
     var tys : List[Pretype] = List()
-    var fresh : Integer = 0
+    var fresh = _fresh
     for (ty <- _tys) {
       val (rty, f) = removeAny(ty, fresh)
       tys = rty :: tys
@@ -98,9 +98,14 @@ object Pretype {
     }
     val m = solve(eqs)
     if (m == null) return None
-    return Some(translate(subst(
-      i => m.get(i) match { case None => Some(Pretype.PTyUniverse) case ty => ty},
-      ty)))
+    return Some((subst(m.get(_), ty), fresh))
+  }
+
+  def solve(tys : List[Pretype]) : Option[Type] = {
+    solve(tys, 0) match {
+      case None => None
+      case Some((pty, _)) => Some(translate(subst(_ => Some(Pretype.PTyUniverse), pty)))
+    }
   }
 
   private def substEqs(n : Integer, t : Pretype, _eqs: Set[(Pretype, Pretype)]) : Set[(Pretype, Pretype)] = {

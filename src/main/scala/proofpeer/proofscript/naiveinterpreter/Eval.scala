@@ -36,18 +36,21 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
+	def resolvePreterm(context : Context, preterm : Preterm) : Result[Term] = {
+		val typingContext = Preterm.obtainTypingContext(aliases, logicNameresolution, context)
+		Preterm.inferTerm(typingContext, preterm) match {
+			case Left(tm) => success(tm)
+			case Right(errors) => 
+				var error = "term is not valid in current context:"
+				for (e <- errors) error = error + "\n  " + e.reason
+				Failed(null, error)
+		}		
+	}
+
 	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
 		evalLogicPreterm(state, tm) match {
 			case failed : Failed[_] => fail(failed)
-			case Success(preterm, _) =>
-				val typingContext = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
-				Preterm.inferTerm(typingContext, preterm) match {
-					case Left(tm) => success(tm)
-					case Right(errors) => 
-						var error = "term is not valid in current context:"
-						for (e <- errors) error = error + "\n  " + e.reason
-						fail(tm, error)
-				}
+			case Success(preterm, _) => resolvePreterm(state.context, preterm)
 		}
 	} 
 
@@ -177,10 +180,19 @@ class Eval(states : States, kernel : Kernel,
 						case failed : Failed[_] => return fail(failed)
 						case Success(ptm, _) =>
 							letIsIntro(ptm) match {
-								case None => return fail(st, "let can only handle introductions right now")
+								case None => 
+									letIsDef(ptm) match {
+										case None =>
+											return fail(st, "let can only handle introductions or simple definitions")
+										case Some((n, tys, right)) =>
+											evalLetDef(state, st, ptm, n, tys, right) match {
+												case failed : Failed[_] => return failed
+												case Success(updatedState, _) => state = updatedState
+											}		
+									}
 								case Some((n, tys)) =>
-									evalIntro(state, st, n, tys) match {
-										case failed : Failed[_] => return fail(st, failed.error)
+									evalLetIntro(state, st, n, tys) match {
+										case failed : Failed[_] => return failed
 										case Success(updatedState, _) => state = updatedState
 									}
 							}
@@ -195,27 +207,6 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
-	def evalIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : Result[State] = {
-		if (st.thm_name.isDefined) return fail(st, "constant introduction produces no theorem")
-		val name = 
-			_name.namespace match {
-				case Some(ns) => 
-					if (ns == state.context.namespace) _name
-					else return fail(st, "cannot define constant with namespace "+ns+" here")
-				case None => Name(Some(state.context.namespace), _name.name)
-			}
-		Pretype.solve(tys) match {
-			case None => fail(st, "inconsistent type constraints")
-			case Some(ty) =>
-				try {
-					success(state.setContext(state.context.introduce(name, ty)))
-				} catch {
-					case ex: Utils.KernelException =>
-						return fail(st, "let intro: " + ex.reason)
-				}
-		}
-	}
-
 	def letIsIntro(ptm : Preterm) : Option[(Name, List[Pretype])] = {
 		ptm match {
 			case Preterm.PTmName(n, ty) => Some((n, List(ty)))
@@ -227,6 +218,64 @@ class Eval(states : States, kernel : Kernel,
 			case _ => None
 		}
 	}
+
+	def evalLetIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : Result[State] = {
+		if (st.thm_name.isDefined) return fail(st, "constant introduction produces no theorem")
+		val name = 
+			_name.namespace match {
+				case Some(ns) => return fail(st, "let intro: constant must not have explicit namespace")
+				case None => Name(Some(state.context.namespace), _name.name)
+			}
+		Pretype.solve(tys) match {
+			case None => fail(st, "let intro: inconsistent type constraints")
+			case Some(ty) =>
+				try {
+					success(state.setContext(state.context.introduce(name, ty)))
+				} catch {
+					case ex: Utils.KernelException =>
+						return fail(st, "let intro: " + ex.reason)
+				}
+		}
+	}
+
+	def letIsDef(ptm : Preterm) : Option[(Name, List[Pretype], Preterm)] = {
+		import Preterm._
+		ptm match {
+			case PTmComb(PTmComb(PTmName(Kernel.equals, _), left, Some(true), _), right, Some(true), _) =>
+				letIsIntro(left) match {
+					case None => None
+					case Some((n, tys)) => Some((n, tys, right))
+				}	
+			case _ => None		
+
+		}
+	}
+
+	def evalLetDef(state : State, st : STLet, ptm : Preterm, _name : Name, 
+		tys : List[Pretype], _rightHandSide : Preterm) : Result[State] = 
+	{
+		val name = 
+			_name.namespace match {
+				case Some(ns) => return fail(st, "let def: constant must not have explicit namespace")
+				case None => Name(Some(state.context.namespace), _name.name)
+			}
+		var rightHandSide = _rightHandSide
+		for (ty <- tys) rightHandSide = Preterm.PTmTyping(rightHandSide, ty)
+		resolvePreterm(state.context, rightHandSide) match {
+			case failed : Failed[_] => fail(st, "let def: ")
+			case Success(tm, _) =>	
+				try {
+					val thm = state.context.define(name, tm)
+					var updatedState = state.setContext(thm.context)
+					if (st.thm_name.isDefined) 
+						updatedState = updatedState.bind(Map(st.thm_name.get -> TheoremValue(thm)))
+					success(updatedState)
+				} catch {
+					case ex: Utils.KernelException =>
+						return fail(st, "let def: " + ex.reason)
+				}
+		}
+	}	
 
 	def evalSubBlock(state : State, block : Block) : Result[State] = {
 		evalBlock(state, block) match {
