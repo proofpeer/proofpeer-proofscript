@@ -405,35 +405,34 @@ val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), c => STReturn(c.PExpr.resultAs[Expr]))
     
 val g_assume =
-  arule("ST", "Assume OptAssign LogicTerm", 
+  arule("ST", "Assume OptAssign PExpr", 
     CS.and(
       CS.Indent("Assume", "OptAssign"),
-      CS.Indent("Assume", "LogicTerm")),
-    c => STAssume(c.OptAssign.resultAs[Option[String]], c.LogicTerm.resultAs[LogicTerm]))
+      CS.Indent("Assume", "PExpr")),
+    c => STAssume(c.OptAssign.resultAs[Option[String]], c.PExpr.resultAs[Expr]))
 
 val g_let = 
-  arule("ST", "Let OptAssign LogicTerm",
+  arule("ST", "Let OptAssign PExpr",
     CS.and(
       CS.Indent("Let", "OptAssign"),
-      CS.Indent("Let", "LogicTerm")),
-    c => STLet(c.OptAssign.resultAs[Option[String]], c.LogicTerm.resultAs[LogicTerm]))
+      CS.Indent("Let", "PExpr")),
+    c => STLet(c.OptAssign.resultAs[Option[String]], c.PExpr.resultAs[Expr]))
 
 val g_choose = 
-  arule("ST", "Choose OptAssign LogicTerm From PExpr",
+  arule("ST", "Choose OptAssign PExpr_1 From PExpr_2",
     CS.and(
       CS.Indent("Choose", "OptAssign"),
-      CS.Indent("Choose", "LogicTerm"),
+      CS.Indent("Choose", "PExpr_1"),
       CS.ifThenElse(CS.Line("Choose", "From"),
-        CS.Indent("Choose", "PExpr"),
-        CS.and(CS.Align("Choose", "From"), CS.Indent("From", "PExpr")))),
+        CS.Indent("Choose", "PExpr_2"),
+        CS.and(Subalign("Choose", "From"), CS.Indent("From", "PExpr_2")))),
     c => STChoose(c.OptAssign.resultAs[Option[String]], 
-                  c.LogicTerm.resultAs[LogicTerm],
-                  c.PExpr.resultAs[Expr])) 
+                  c.PExpr_1.resultAs[Expr],
+                  c.PExpr_2.resultAs[Expr])) 
 
 val g_logic_statements = 
   arule("OptAssign", "", c => None) ++
   arule("OptAssign", "Id Eq", c => Some(c.Id.text)) ++
-  arule("LogicTerm", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
   g_assume ++ g_let ++ g_choose
 
 val g_statement = 
