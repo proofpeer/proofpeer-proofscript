@@ -107,7 +107,8 @@ class Eval(states : States, kernel : Kernel,
 									case None => ""
 									case Some(span) => ":" + (span.firstRow + 1)
 								}
-							println("** show ("+namespace+location+"): "+value)
+							val display = StateValue.display(aliases, logicNameresolution, state.context, value)
+							println("** show ("+namespace+location+"): "+display)
 					}
 				case STFail(None) => return fail(st, "fail")
 				case STFail(Some(expr)) =>

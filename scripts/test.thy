@@ -1,6 +1,6 @@
 theory peers\obua\test
-  wow ≔ nice
-  here ≔ \root
+  wow  = nice
+  here = \root
 extends 
   \root 
 

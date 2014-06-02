@@ -694,5 +694,32 @@ val g_Pattern_term =
         printName(name)
     }
   }
-      
+
+  def checkprintTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
+    context : Context, tm : Term) : String = 
+  {
+    val res = Preterm.obtainNameResolution(aliases, nameresolution, context)
+    val u = printTerm(res, tm)
+    val tm2 = parseTerm(aliases, nameresolution, context, u)
+    if (!KernelUtils.alpha_equivalent(tm, tm2))
+      Utils.failwith("term '"+u+"' is not a correct representation of: '"+tm+"'")
+    else
+      u
+  }
+
+  def parseTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
+    context : Context, s : String) : Term =
+  {
+    parsePreterm(s) match {
+      case None => Utils.failwith("cannot parse as preterm: '"+s+"'")
+      case Some(ptm) => 
+        val typingContext = Preterm.obtainTypingContext(aliases, nameresolution, context)
+        Preterm.inferTerm(typingContext, ptm) match {
+          case Left(tm) => tm
+          case Right(errors) =>
+            Utils.failwith("cannot convert preterm to term: "+ptm)
+        }
+    }    
+  }
+     
 }

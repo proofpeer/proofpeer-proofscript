@@ -28,7 +28,7 @@ object Collect {
 	def emptyOne : One = One(None)
 }
 
-case class ContextValue(value : Context) extends StateValue
+case class ContextValue(value : Context) extends StateValue 
 case class TheoremValue(value : Theorem) extends StateValue
 case class TermValue(value : Term) extends StateValue
 case class BoolValue(value : Boolean) extends StateValue
@@ -39,6 +39,67 @@ case class TupleValue(value : Vector[StateValue]) extends StateValue {
 	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value)
 	def append(x : StateValue) : TupleValue = TupleValue(value :+ x)
 	def concat(tuple : TupleValue) : TupleValue = TupleValue(value ++ tuple.value)
+}
+
+object StateValue {
+
+	def display(context : Context) : String = {
+		context.kind match {
+			case ContextKind.Complete => context.namespace.toString
+			case _ =>
+				var i = 0
+				var ctx = context.parentContext
+				while (ctx.isDefined) {
+					i = i + 1
+					ctx = ctx.get.parentContext
+				}
+				context.namespace.toString + "+" + i
+		}
+	}
+
+	def display(aliases : Aliases,
+							nameresolution : NamespaceResolution[IndexedName], 
+							context : Context, 
+							tm : Term) : String = 
+	{
+		try {
+			"'" + Syntax.checkprintTerm(aliases, nameresolution, context, tm) + "'"
+		} catch {
+			case _ : Utils.KernelException => "{error printing} : Theorem"
+		}
+	}
+
+	def display(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName], 
+		context : Context, value : StateValue) : String = 
+	{
+		value match {
+			case BoolValue(value) => if (value) "true" else "false"
+			case IntValue(value) => "" + value
+			case f : SimpleFunctionValue => "? : Function"
+			case f : RecursiveFunctionValue => "? : Function"
+			case TupleValue(value) =>
+				var error = "["
+				var first = true
+				for (v <- value) {
+					if (first) first = false else error = error + ", "
+					error = error + display(aliases, nameresolution, context, v)
+				} 
+				error + "]"
+			case ContextValue(context) => display(context) + " : Context"
+			case TheoremValue(th) =>
+				try {
+					val liftedTh = context.lift(th, false)
+					display(aliases, nameresolution, liftedTh.context, liftedTh.proposition) + " : Theorem"
+				} catch {
+					case _ : Utils.KernelException => 
+						"{context = " + display(th.context) + ", theorem = " + 
+						display(aliases, nameresolution, th.context, th.proposition) + "} : Theorem"
+				}
+			case TermValue(tm) => display(aliases, nameresolution, context, tm)
+			case _ => "?@" + value.hashCode
+		}
+	}
+	
 }
 
 object State {

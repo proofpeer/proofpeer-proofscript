@@ -34,3 +34,4 @@ val y = 20
 
 show x
 show regularity
+show context
