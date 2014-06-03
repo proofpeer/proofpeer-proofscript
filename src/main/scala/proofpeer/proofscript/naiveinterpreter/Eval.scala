@@ -19,7 +19,7 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
-	def evalLogicPreterm(state : State, tm : Expr) : Result[Preterm] = {
+	def evalLogicPreterm(state : State, tm : LogicTerm) : Result[Preterm] = {
 		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
 			tm.quoted match {
 				case expr : Expr =>
@@ -47,12 +47,32 @@ class Eval(states : States, kernel : Kernel,
 		}		
 	}
 
-	def evalLogicTerm(state : State, tm : Expr) : Result[Term] = {
+	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
 		evalLogicPreterm(state, tm) match {
 			case failed : Failed[_] => fail(failed)
 			case Success(preterm, _) => resolvePreterm(state.context, preterm)
 		}
 	} 
+
+	def evalTermExpr(state : State, expr : Expr) : Result[Term] = {
+		evalExpr(state, expr) match {
+			case failed : Failed[_] => fail(failed)
+			case Success(TermValue(tm),_) => success(tm)
+			case Success(v, _) => fail(expr, "Term expected, found: "+display(state, v))
+		}
+	}
+
+	def evalPretermExpr(state : State, expr : Expr) : Result[Preterm] = {
+		expr match {
+			case tm : LogicTerm => evalLogicPreterm(state, tm)
+			case _ => 
+				evalExpr(state, expr) match {
+					case failed : Failed[_] => fail(failed)
+					case Success(TermValue(tm),_) => success(Preterm.translate(tm))
+					case Success(v, _) => fail(expr, "Preterm expected, found: "+display(state, v))
+				}
+		}
+	}
 
 	def display(state : State, value : StateValue) : String = {
 		StateValue.display(aliases, logicNameresolution, state.context, value)	
@@ -163,7 +183,7 @@ class Eval(states : States, kernel : Kernel,
 							state = state.bind(functions)
 					}
 				case STAssume(thm_name, tm) =>
-					evalLogicTerm(state.freeze, tm) match {
+					evalTermExpr(state.freeze, tm) match {
 						case failed : Failed[_] => return fail(failed)
 						case Success(tm, _) =>
 							try {
@@ -176,7 +196,7 @@ class Eval(states : States, kernel : Kernel,
 							}
 					}
 				case st @ STLet(thm_name, tm) =>
-					evalLogicPreterm(state.freeze, tm) match {
+					evalPretermExpr(state.freeze, tm) match {
 						case failed : Failed[_] => return fail(failed)
 						case Success(ptm, _) =>
 							letIsIntro(ptm) match {
