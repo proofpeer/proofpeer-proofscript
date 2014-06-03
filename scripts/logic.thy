@@ -10,5 +10,8 @@ let 'x : 𝒰 → _ : _ → ℙ'
 show '∀ q. q = x'
 let zDef = 'z = x'
 show ('z', zDef)
-let 'x = y'
+show infinity
+choose infinity = 'inf' from infinity
+show infinity
+show \root\infinity
 

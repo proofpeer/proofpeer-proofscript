@@ -199,7 +199,7 @@ class Eval(states : States, kernel : Kernel,
 					evalPretermExpr(state.freeze, tm) match {
 						case failed : Failed[_] => return fail(failed)
 						case Success(ptm, _) =>
-							letIsIntro(ptm) match {
+							checkTypedName(ptm) match {
 								case None => 
 									letIsDef(ptm) match {
 										case None =>
@@ -217,6 +217,36 @@ class Eval(states : States, kernel : Kernel,
 									}
 							}
 					}
+				case STChoose(thm_name, tm, thm) =>
+					val fstate = state.freeze
+					evalPretermExpr(fstate, tm) match {
+						case failed : Failed[_] => return fail(failed)
+						case Success(ptm, _) =>
+							checkTypedName(ptm) match {
+								case None => return fail(tm, "name expected")
+								case Some((n, tys)) =>
+									if (n.namespace.isDefined) return fail(tm, "choose: constant must not have explicit namespace")
+									val name = Name(Some(state.context.namespace), n.name)
+									evalExpr(fstate, thm) match {
+										case failed : Failed[_] => return fail(failed)
+										case Success(TheoremValue(thm), _) =>
+											try {
+												val liftedThm = state.context.lift(thm, false)
+												val chosenThm = state.context.choose(name, liftedThm)
+												val ty = chosenThm.context.typeOfConst(name).get
+												if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
+													return fail(st, "declared type of constant does not match computed type")
+												state = state.setContext(chosenThm.context)
+												if (thm_name.isDefined) state = state.bind(Map(thm_name.get -> TheoremValue(chosenThm)))
+											}	catch {
+												case ex : Utils.KernelException =>
+													return fail(st, "choose: " + ex.reason)
+											}	
+										case Success(v, _) => return fail(thm, "Theorem expected, found: " + display(state, v))
+									} 
+							}
+					}
+
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1
@@ -227,11 +257,11 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
-	def letIsIntro(ptm : Preterm) : Option[(Name, List[Pretype])] = {
+	def checkTypedName(ptm : Preterm) : Option[(Name, List[Pretype])] = {
 		ptm match {
 			case Preterm.PTmName(n, ty) => Some((n, List(ty)))
 			case Preterm.PTmTyping(tm, ty) => 
-				letIsIntro(tm) match {
+				checkTypedName(tm) match {
 					case Some((n, tys)) => Some((n, ty :: tys))
 					case None => None
 				}
@@ -262,7 +292,7 @@ class Eval(states : States, kernel : Kernel,
 		import Preterm._
 		ptm match {
 			case PTmComb(PTmComb(PTmName(Kernel.equals, _), left, Some(true), _), right, Some(true), _) =>
-				letIsIntro(left) match {
+				checkTypedName(left) match {
 					case None => None
 					case Some((n, tys)) => Some((n, tys, right))
 				}	
