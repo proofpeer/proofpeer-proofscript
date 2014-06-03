@@ -40,6 +40,10 @@ object ParseTree {
   case class Integer(value : BigInt) extends Expr {
     protected def calcFreeVars = Set()
   }
+
+  case class StringLiteral(value : Vector[Int]) extends Expr {
+    protected def calcFreeVars = Set()
+  }
   
   case class QualifiedId(namespace : Namespace, name : String) extends Expr {
     protected def calcFreeVars = Set()
@@ -173,6 +177,10 @@ object ParseTree {
   
   case class PBool(value : Boolean) extends Pattern {
     protected def calcVars = (Set(), Set())      
+  }
+
+  case class PString(value : Vector[Int]) extends Pattern {
+    protected def calcVars = (Set(), Set())
   }
 
   case class PLogic(tm : Preterm) extends Pattern {

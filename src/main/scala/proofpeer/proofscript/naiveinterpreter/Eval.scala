@@ -26,6 +26,11 @@ class Eval(states : States, kernel : Kernel,
 					evalExpr(state, expr) match {
 						case failed : Failed[_] => Right(failed)
 						case Success(TermValue(t), _) => Left(Preterm.translate(t))
+						case Success(s : StringValue, _) =>
+							Syntax.parsePreterm(s.toString) match {
+								case None => Right(fail(expr, "parse error"))
+								case Some(preterm) => Left(preterm)
+							}
 						case Success(v, _) => Right(fail(expr, "term value expected, found: " + display(state, v)))
 					}    	
 			}
@@ -58,6 +63,13 @@ class Eval(states : States, kernel : Kernel,
 		evalExpr(state, expr) match {
 			case failed : Failed[_] => fail(failed)
 			case Success(TermValue(tm),_) => success(tm)
+			case Success(s : StringValue, _) =>
+				try {
+					success(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)) 
+				} catch {
+					case ex : Utils.KernelException =>
+						fail(expr, "parse error: " + ex.reason)	
+				}
 			case Success(v, _) => fail(expr, "Term expected, found: "+display(state, v))
 		}
 	}
@@ -69,6 +81,11 @@ class Eval(states : States, kernel : Kernel,
 				evalExpr(state, expr) match {
 					case failed : Failed[_] => fail(failed)
 					case Success(TermValue(tm),_) => success(Preterm.translate(tm))
+					case Success(s : StringValue, _) =>
+						Syntax.parsePreterm(s.toString) match {
+							case None => fail(expr, "parse error")
+							case Some(preterm) => success(preterm)
+						}
 					case Success(v, _) => fail(expr, "Preterm expected, found: "+display(state, v))
 				}
 		}
@@ -352,6 +369,12 @@ class Eval(states : States, kernel : Kernel,
 				else Some(IsEq)
 			case (BoolValue(x), BoolValue(y)) =>
 				if (x == y) Some(IsEq) else Some(IsNEq)
+			case (x : StringValue, y : StringValue) =>
+				val a = x.toString
+				val b = y.toString
+				if (a < b) Some(IsLess)
+				else if (a > b) Some(IsGreater)
+				else Some(IsEq)
 			case (TupleValue(xs), TupleValue(ys)) =>
 				val len = xs.size
 				if (len == ys.size) {
@@ -432,6 +455,7 @@ class Eval(states : States, kernel : Kernel,
 		expr match {
 			case Bool(b) => success(BoolValue(b))
 			case Integer(i) => success(IntValue(i))
+			case StringLiteral(s) => success(StringValue(s))
 			case Id(name) =>
 				state.lookup(name) match {
 					case None => lookup(false, namespace, name)
@@ -774,6 +798,11 @@ class Eval(states : States, kernel : Kernel,
 			case PBool(x) =>
 				value match {
 					case BoolValue(y) if x == y => success(Some(matchings))
+					case _ => success(None)
+				}
+			case PString(xs) =>
+				value match {
+					case StringValue(ys) if xs == ys => success(Some(matchings))
 					case _ => success(None)
 				}
 			case PTuple(ps) =>

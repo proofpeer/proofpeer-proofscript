@@ -19,6 +19,10 @@ def ltokenrule(nonterminal : String, c : Char) : Grammar =
 def ltokenrule(nonterminal : String, i : Int) : Grammar = 
   tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(0, None))
 
+def ltokenrule(nonterminal : String, r : Range) : Grammar = 
+  tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(0, None))
+
+
 def lexrule(n : Nonterminal, rhs : String) : Grammar = {
   API.lexrule(n, rhs, LexicalPriority(0, None))
 }
@@ -51,7 +55,29 @@ Unicode: U+0027, UTF-8: 27
 
 */ 
 
+val g_string_literals = 
+  ltokenrule("HexDigit", 'a', 'f') ++
+  ltokenrule("HexDigit", 'A', 'F') ++
+  ltokenrule("HexDigit", '0', '9') ++
+  ltokenrule("QuotationMark", '"') ++
+  ltokenrule("LowerU", 'u') ++
+  ltokenrule("UpperU", 'U') ++
+  ltokenrule("StringCharacter", 
+    Range.add(
+      Range.singleton(0x21), 
+      Range.interval(0x23, 0x5B),
+      Range.interval(0x5D, 0x7E),
+      Range.interval(0xA0, Int.MaxValue))) ++
+  lexrule("StringCharacter", literal("\\n")) ++
+  lexrule("StringCharacter", literal("\\\\")) ++ 
+  lexrule("StringCharacter", literal("\\\"")) ++ 
+  lexrule("StringCharacter", "Backslash LowerU HexDigit_1 HexDigit_2 HexDigit_3 HexDigit_4") ++
+  lexrule("StringCharacter", "Backslash UpperU HexDigit_1 HexDigit_2 HexDigit_3 HexDigit_4 HexDigit_5 HexDigit_6 HexDigit_7 HexDigit_8") ++
+  lexrule("StringLiteral", "") ++
+  rule("StringLiteral", "StringLiteral StringCharacter") 
+
 val g_literals =
+  g_string_literals ++
   ltokenrule("Plus", '+') ++  
   ltokenrule("Minus", '-') ++
   ltokenrule("Times", '*') ++
@@ -134,6 +160,47 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
     PTuple(elements)
 }
 
+def mkStringLiteral(escapedCodes : Vector[Int]) : StringLiteral = {
+  def readInt(i : Int, j : Int) : Int = {
+    var v = 0
+    for (k <- i until j) {
+      v = v * 16
+      val c = escapedCodes(k) 
+      if (c >= '0' && c <= '9') v = v + (c - '0')
+      else if (c >= 'a' && c <= 'z') v = v + (c - 'a' + 10)
+      else if (c >= 'A' && c <= 'Z') v = v + (c - 'A' + 10)
+      else throw new RuntimeException("hex digit expected, but found "+c)
+    }
+    v
+  }
+  var codes : Vector[Int] = Vector()
+  var i = 0
+  val len = escapedCodes.size
+  while (i < len) {
+    val c = escapedCodes(i)
+    if (c == 0x5C) {
+      val d = escapedCodes(i + 1)
+      i = i + 2
+      d match {
+        case 'n' => codes = codes :+ 0x0A
+        case '"' => codes = codes :+ 0x22
+        case '\\' => codes = codes :+ 0x5C
+        case 'u' => 
+          codes = codes :+ readInt(i, i + 4)
+          i = i + 4
+        case 'U' =>
+          codes = codes :+ readInt(i, i + 8)
+          i = i + 8
+        case _ => throw new RuntimeException ("internal error: unexpected escape character code "+d)
+      }
+    } else {
+      codes = codes :+ c
+      i = i + 1
+    }
+  }
+  StringLiteral(codes)
+}
+
 def Subalign(a : String, b : String) = CS.or(CS.Indent(a, b), CS.Align(a, b))
 
 val g_expr =
@@ -146,6 +213,7 @@ val g_expr =
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
+  arule("PrimitiveExpr", "QuotationMark StringLiteral QuotationMark", c => mkStringLiteral(c.StringLiteral.codes)) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
   arule("OrExpr", "AndExpr", _.AndExpr.result) ++
@@ -331,6 +399,8 @@ val g_pattern =
   arule("AtomicPattern", "Underscore", c => PAny) ++
   arule("AtomicPattern", "Id", c => PId(c.Id.text)) ++
   arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
+  arule("AtomicPattern", "QuotationMark StringLiteral QuotationMark", 
+    c => PString(mkStringLiteral(c.StringLiteral.codes).value)) ++
   arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
   arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
   arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[Preterm])) ++

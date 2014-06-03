@@ -15,3 +15,11 @@ choose infinity = 'inf' from infinity
 show infinity
 show \root\infinity
 
+show "hello \"world\": \u2119 \U0001D4B0"
+
+show "ab" < "ac"
+show "ab" > "ac"
+show "ab" == "ab"
+
+show match "ab" case "ba" => 1 case "ab" => 2 
+

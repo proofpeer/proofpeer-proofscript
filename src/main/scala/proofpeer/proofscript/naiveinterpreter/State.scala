@@ -35,6 +35,11 @@ case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
 case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
 case class RecursiveFunctionValue(var state : State, val cases : Vector[ParseTree.DefCase]) extends StateValue
+case class StringValue(value : Vector[Int]) extends StateValue {
+	override def toString : String = {
+		new String(value.toArray, 0, value.size)		
+	}
+}
 case class TupleValue(value : Vector[StateValue]) extends StateValue {
 	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value)
 	def append(x : StateValue) : TupleValue = TupleValue(value :+ x)
@@ -96,6 +101,7 @@ object StateValue {
 						display(aliases, nameresolution, th.context, th.proposition) + "} : Theorem"
 				}
 			case TermValue(tm) => display(aliases, nameresolution, context, tm)
+			case s : StringValue => "\"" + s + "\""
 			case _ => "?@" + value.hashCode
 		}
 	}
