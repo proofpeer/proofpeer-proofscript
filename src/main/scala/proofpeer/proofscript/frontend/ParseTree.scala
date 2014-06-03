@@ -222,6 +222,13 @@ object ParseTree {
       (xs.freeVars ++ x.freeVars, xs.introVars ++ x.introVars)
     }
   }
+
+  case class PIf(pat : Pattern, expr : Expr) extends Pattern {
+    protected def calcVars = {
+      val patIntros = pat.introVars
+      (expr.freeVars -- patIntros, patIntros)
+    }
+  }
   
   sealed trait Statement extends ParseTree
   

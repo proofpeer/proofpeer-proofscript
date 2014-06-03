@@ -410,7 +410,9 @@ val g_pattern =
   arule("PrependPattern", "AppendPattern", _.AppendPattern.result) ++
   arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern.resultAs[Pattern], c.AtomicPattern.resultAs[Pattern])) ++
   arule("AppendPattern", "AtomicPattern", _.AtomicPattern.result) ++
-  arule("Pattern", "PrependPattern", _.PrependPattern.result) ++
+  arule("IfPattern", "PrependPattern", _.PrependPattern.result) ++
+  arule("IfPattern", "IfPattern If Expr", c => PIf(c.IfPattern.resultAs[Pattern], c.Expr.resultAs[Expr])) ++
+  arule("Pattern", "IfPattern", _.IfPattern.result) ++
   arule("OptPattern", "", c => None) ++
   arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern])) ++
   arule("PatternList", "", c => Vector[Pattern]()) ++

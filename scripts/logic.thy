@@ -23,3 +23,7 @@ show "ab" == "ab"
 
 show match "ab" case "ba" => 1 case "ab" => 2 
 
+val x if x == 2 = 2
+show x
+val y if y == 2 = 3
+show y

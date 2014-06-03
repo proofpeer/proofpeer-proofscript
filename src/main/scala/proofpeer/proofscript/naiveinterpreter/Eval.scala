@@ -788,7 +788,7 @@ class Eval(states : States, kernel : Kernel,
 			case PId(name) => 
 				matchings.get(name) match {
 					case None => success(Some(matchings + (name -> value)))
-					case Some(v) => fail(pat, "pattern is not linear")
+					case Some(v) => fail(pat, "pattern is not linear, multiple use of: "+v)
 				}
 			case PInt(x) =>
 				value match {
@@ -837,7 +837,22 @@ class Eval(states : States, kernel : Kernel,
 							case r => r
 						}
 					case _ => success(None)
-				}				
+				}	
+			case PIf(p, cond) =>
+				matchPattern(state, p, value) match {
+					case Success(Some(pMatchings), _) =>
+						for ((id,_) <- pMatchings) {
+							if (matchings.contains(id))
+								return fail(p, "pattern is not linear, multiple use of: "+id)
+						}
+						evalExpr(state.bind(pMatchings).freeze, cond) match {
+							case failed : Failed[_] => fail(failed)
+							case Success(BoolValue(false), _) => success(None)
+							case Success(BoolValue(true), _) => success(Some(matchings ++ pMatchings))
+							case Success(v, _) => fail(cond, "Boolean expected, found: "+display(state, v))
+						}
+					case r => r
+				}
 			case _ => return fail(pat, "pattern has not been implemented yet")
 		}		
 	}
