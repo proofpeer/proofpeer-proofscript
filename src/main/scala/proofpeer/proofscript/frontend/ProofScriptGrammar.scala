@@ -88,6 +88,7 @@ val g_literals =
   lexrule("Leq", literal("<=")) ++
   ltokenrule("Geq", 0x2265) ++
   lexrule("Geq", literal(">=")) ++
+  lexrule("TypeConvert", literal(":>")) ++
   ltokenrule("SquareBracketOpen", '[') ++
   ltokenrule("SquareBracketClose", ']') ++
   ltokenrule("DoubleArrow", 0x21D2) ++
@@ -126,7 +127,16 @@ val g_literals =
   litrule("Extends", "extends") ++
   litrule("Context", "context") ++
   litrule("Show", "show") ++
-  litrule("Fail", "fail")
+  litrule("Fail", "fail") ++
+  litrule("TypeString", "String") ++
+  litrule("TypeBoolean", "Boolean") ++
+  litrule("TypeInteger", "Integer") ++
+  litrule("TypeVector", "Vector") ++
+  litrule("TypeFunction", "Function") ++
+  litrule("TypeContext", "Context") ++
+  litrule("TypeTheorem", "Theorem") ++
+  litrule("TypeTerm", "Term") ++
+  litrule("TypeType", "Type")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -203,6 +213,17 @@ def mkStringLiteral(escapedCodes : Vector[Int]) : StringLiteral = {
 
 def Subalign(a : String, b : String) = CS.or(CS.Indent(a, b), CS.Align(a, b))
 
+val g_type = 
+  arule("TypeExpr", "TypeBoolean", c => TypeBoolean) ++
+  arule("TypeExpr", "TypeString", c => TypeString) ++
+  arule("TypeExpr", "TypeInteger", c => TypeInteger) ++
+  arule("TypeExpr", "TypeVector", c => TypeVector) ++
+  arule("TypeExpr", "TypeTerm", c => TypeTerm) ++
+  arule("TypeExpr", "TypeTheorem", c => TypeTheorem) ++
+  arule("TypeExpr", "TypeContext", c => TypeContext) ++
+  arule("TypeExpr", "TypeFunction", c => TypeFunction) ++
+  arule("TypeExpr", "TypeType", c => TypeType)
+
 val g_expr =
   arule("PrimitiveExpr", "Name", c => mkId(Syntax.parseName(c.Name.text))) ++
   arule("Int", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
@@ -212,6 +233,7 @@ val g_expr =
   arule("PrimitiveExpr", "SquareBracketOpen ExprList SquareBracketClose", c => mkTuple(c.ExprList.resultAs[Vector[Expr]], false)) ++
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
+  arule("PrimitiveExpr", "TypeExpr", _.TypeExpr.result) ++
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
   arule("PrimitiveExpr", "QuotationMark StringLiteral QuotationMark", c => mkStringLiteral(c.StringLiteral.codes)) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
@@ -266,7 +288,9 @@ val g_expr =
   arule("BasicExpr", "AppExpr", _.AppExpr.result) ++
   arule("AppExpr", "PrimitiveExpr", _.PrimitiveExpr.result) ++
   arule("AppExpr", "AppExpr PrimitiveExpr", c => App(c.AppExpr.resultAs[Expr], c.PrimitiveExpr.resultAs[Expr])) ++
-  arule("LazyExpr", "OrExpr", _.OrExpr.result) ++
+  arule("TypeConvertExpr", "TypeConvertExpr TypeConvert PrimitiveExpr", c => TypeConvert(c.TypeConvertExpr.resultAs[Expr], c.PrimitiveExpr.resultAs[Expr])) ++
+  arule("TypeConvertExpr", "OrExpr", _.OrExpr.result) ++
+  arule("LazyExpr", "TypeConvertExpr", _.TypeConvertExpr.result) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr.resultAs[Expr])) ++ 
   arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++
   arule("FunExpr", "LazyExpr", _.LazyExpr.result) ++
@@ -546,6 +570,7 @@ val g_prog =
   g_statement ++
   g_controlflow ++
   g_header ++
+  g_type ++
   arule("ValueQuotedTerm", "PExpr", _.PExpr.result) ++
   arule("PatternQuotedTerm", "Pattern", _.Pattern.result) ++
   arule("Prog", "Block", _.Block.result)

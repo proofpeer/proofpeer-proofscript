@@ -45,6 +45,7 @@ case class TupleValue(value : Vector[StateValue]) extends StateValue {
 	def append(x : StateValue) : TupleValue = TupleValue(value :+ x)
 	def concat(tuple : TupleValue) : TupleValue = TupleValue(value ++ tuple.value)
 }
+case class TypeValue(value : ParseTree.TypeExpr) extends StateValue
 
 object StateValue {
 

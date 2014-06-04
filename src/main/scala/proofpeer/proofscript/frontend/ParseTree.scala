@@ -44,7 +44,7 @@ object ParseTree {
   case class StringLiteral(value : Vector[Int]) extends Expr {
     protected def calcFreeVars = Set()
   }
-  
+
   case class QualifiedId(namespace : Namespace, name : String) extends Expr {
     protected def calcFreeVars = Set()
   } 
@@ -75,6 +75,10 @@ object ParseTree {
   
   case class Fun(param : Pattern, body : Block) extends Expr {
     protected def calcFreeVars = body.freeVars -- param.introVars ++ param.freeVars
+  }
+
+  case class TypeConvert(expr : Expr, ty : Expr) extends Expr {
+    protected def calcFreeVars = expr.freeVars ++ ty.freeVars
   }
   
   case class Lazy(expr : Expr) extends Expr {
@@ -160,6 +164,20 @@ object ParseTree {
   case object Leq extends CmpOperator
   case object Gr extends CmpOperator
   case object Geq extends CmpOperator  
+
+  sealed trait TypeExpr extends ParseTree {
+    protected def calcVars = (Set(), Set())
+  }
+
+  case object TypeBoolean extends TypeExpr
+  case object TypeInteger extends TypeExpr
+  case object TypeVector extends TypeExpr
+  case object TypeString extends TypeExpr
+  case object TypeFunction extends TypeExpr
+  case object TypeTerm extends TypeExpr
+  case object TypeTheorem extends TypeExpr
+  case object TypeContext extends TypeExpr
+  case object TypeType extends TypeExpr
   
   sealed trait Pattern extends ParseTree
   
@@ -227,6 +245,12 @@ object ParseTree {
     protected def calcVars = {
       val patIntros = pat.introVars
       (expr.freeVars -- patIntros, patIntros)
+    }
+  }
+
+  case class PType(pat : Pattern, ty : Expr) extends Pattern {
+    protected def calcVars = {
+      (pat.freeVars ++ ty.freeVars, pat.introVars)
     }
   }
   
