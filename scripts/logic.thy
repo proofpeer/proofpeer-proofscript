@@ -35,3 +35,4 @@ context
   q = p
 
 show q
+show reflexive 'x'

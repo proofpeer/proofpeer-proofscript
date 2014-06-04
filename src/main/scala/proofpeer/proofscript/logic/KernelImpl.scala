@@ -284,7 +284,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (ty_a == ty_c && equivalent(b1, b2))
         mk_theorem(this, mk_equals(a, c, ty_a))
       else
-        failwith("transitive: middle propositions are not alpha equivalent")
+        failwith("transitive: middle propositions are not equivalent")
     }
     
     def comb(p : Theorem, q : Theorem) : Theorem = {

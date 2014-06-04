@@ -116,12 +116,13 @@ object Interpreter {
 		sorted.reverse
 	}
 
+	object Native
+
 	def rootState : State = {
-		var values : Map[String, StateValue] = Map()
-		for ((n, th) <- Root.axioms) {
-			values = values + (n -> TheoremValue(th))
-		}
-		new State(Root.context, State.Env(values, Map()), Collect.Zero, false)
+		val environment : Map[String, StateValue] = Map(
+			"reflexive" -> NativeFunctionValue(NativeFunctions.reflexive)
+			)
+		new State(Root.context, State.Env(environment, Map()), Collect.Zero, false)
 	}
 
 	def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : Option[State] = {
@@ -174,7 +175,6 @@ object Interpreter {
 		}
 		val sorted_theories = topsort(theories)	
 		if (sorted_theories.isEmpty) return
-		Root.setupRoot
 		val states = States.empty
 		def localNames(namespace : Namespace) : Set[String] = {
 			states.lookup(namespace) match {

@@ -116,7 +116,7 @@ trait Context {
   // Produces the theorem `a = b`, where b is the beta-eta normalisation of a
   def normalize(a : Term) : Theorem
   
-  // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-equivalent
+  // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-beta-eta-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem
   
   // Produces the theorem `f a = g b` from the theorems `f = g` and `a = b`.

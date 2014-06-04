@@ -35,6 +35,7 @@ case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
 case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
 case class RecursiveFunctionValue(var state : State, val cases : Vector[ParseTree.DefCase]) extends StateValue
+case class NativeFunctionValue(nativeFunction : NativeFunctions.F) extends StateValue
 case class StringValue(value : Vector[Int]) extends StateValue {
 	override def toString : String = {
 		new String(value.toArray, 0, value.size)		

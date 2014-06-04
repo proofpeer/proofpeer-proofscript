@@ -593,6 +593,15 @@ class Eval(states : States, kernel : Kernel,
 							case failed : Failed[_] => failed
 							case Success(x, _) => evalApply(f.state, f.cases, x)
 						}
+					case Success(f : NativeFunctionValue, _) =>
+						evalExpr(state, v) match {
+							case failed : Failed[_] => failed
+							case Success(x, _) => 
+								f.nativeFunction(state, x) match {
+									case Left(value) => success(value)
+									case Right(error) => fail(expr, error)
+								}
+						}
 					case Success(v, _) => fail(u, "function value expected, found: " + display(state, v))
 				}
 			case tm : LogicTerm =>
