@@ -83,6 +83,7 @@ object StateValue {
 			case IntValue(value) => "" + value
 			case f : SimpleFunctionValue => "? : Function"
 			case f : RecursiveFunctionValue => "? : Function"
+			case f : NativeFunctionValue => "? : Function"
 			case TupleValue(value) =>
 				var error = "["
 				var first = true

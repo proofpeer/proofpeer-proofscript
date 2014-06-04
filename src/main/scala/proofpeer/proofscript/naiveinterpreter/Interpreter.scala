@@ -120,7 +120,8 @@ object Interpreter {
 
 	def rootState : State = {
 		val environment : Map[String, StateValue] = Map(
-			"reflexive" -> NativeFunctionValue(NativeFunctions.reflexive)
+			"reflexive" -> NativeFunctionValue(NativeFunctions.reflexive),
+			"transitive" -> NativeFunctionValue(NativeFunctions.transitive)
 			)
 		new State(Root.context, State.Env(environment, Map()), Collect.Zero, false)
 	}

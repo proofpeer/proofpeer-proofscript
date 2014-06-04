@@ -36,3 +36,4 @@ context
 
 show q
 show reflexive 'x'
+show transitive(zDef, reflexive 'x')
