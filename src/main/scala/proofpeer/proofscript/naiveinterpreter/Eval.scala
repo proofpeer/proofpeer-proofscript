@@ -770,7 +770,8 @@ class Eval(states : States, kernel : Kernel,
 					evalExpr(state.freeze, expr) match {
 						case failed : Failed[_] => return fail(failed)
 						case Success(ContextValue(context), _) => context
-						case Success(v, _) => return fail(expr, "context expected, found: " + display(state, v))
+						case Success(TheoremValue(thm), _) => thm.context
+						case Success(v, _) => return fail(expr, "context or theorem expected, found: " + display(state, v))
 					}
 			}
 		evalBlock(state.setContext(context).setCollect(Collect.Zero), control.body) match {
