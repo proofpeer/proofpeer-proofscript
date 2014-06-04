@@ -25,5 +25,13 @@ show match "ab" case "ba" => 1 case "ab" => 2
 
 val x if x == 2 = 2
 show x
-val y if y == 2 = 3
-show y
+
+val q = ()
+
+context
+  let 'z_2'
+  let 'z_1'
+  assume p = 'z_1 = z_2'
+  q = p
+
+show q

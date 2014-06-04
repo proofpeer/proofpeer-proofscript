@@ -242,6 +242,12 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         case Some(ty) => ty
       }
     }
+
+    private def equivalent(u : Term, v : Term) : Boolean = {
+      val f = betaEtaNormalform(u)
+      val g = betaEtaNormalform(v)
+      alpha_equivalent(f, g)
+    }
   
     def reflexive(tm : Term) : Theorem = {
       val ty = getTypeOfTerm(tm)
@@ -260,12 +266,22 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       mk_theorem(this, mk_equals(a, b, ty))
     }
 
+    def normalize(a : Term) : Theorem = {
+      val ty = getTypeOfTerm(a)
+      val b = 
+        KernelUtils.normBetaEta(a) match {
+          case None => a
+          case Some(b) => b
+        }
+      mk_theorem(this, mk_equals(a, b, ty))      
+    }
+
     def transitive(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)
       val (a, b1, ty_a) = dest_equals(p.proposition)
       val (b2, c, ty_c) = dest_equals(q.proposition)
-      if (ty_a == ty_c && alpha_equivalent(b1, b2))
+      if (ty_a == ty_c && equivalent(b1, b2))
         mk_theorem(this, mk_equals(a, c, ty_a))
       else
         failwith("transitive: middle propositions are not alpha equivalent")
@@ -287,7 +303,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def modusponens(p : Theorem, q : Theorem) : Theorem = {
       dest_binop(q.proposition) match {
         case (Kernel.equals | Kernel.implies, a, b) =>
-          if (alpha_equivalent(p.proposition, a))
+          if (equivalent(p.proposition, a))
             mk_theorem(this, b)
           else
             failwith("modusponens: antecedent and hypothesis do not match")
@@ -307,7 +323,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def equiv(p : Theorem, q : Theorem) : Theorem = {
       (dest_binop(p.proposition), dest_binop(q.proposition)) match {
         case ((Kernel.implies, a, b), (Kernel.implies, b_, a_)) =>
-          if (alpha_equivalent(a, a_) && alpha_equivalent(b, b_)) 
+          if (equivalent(a, a_) && equivalent(b, b_)) 
             mk_theorem(this, mk_equals(a, b, Prop))
           else
             failwith("equiv: conclusion and hypothesis pairs do not match up")

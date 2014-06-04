@@ -217,26 +217,7 @@ object KernelUtils {
       case _ => false
     }
   }
-  
-  def beta(term : Term) : Term = {
-    term match {
-      case Comb(Abs(x, ty, body), y) => substVar(body, x, y)
-      case _ => failwith("beta: term is not reducible")
-    }
-  }
-  
-  def eta(term : Term) : Term = {
-    term match {
-      case Abs(x, ty, Comb(f, Var(y))) if x == y =>
-        if (!isFreeIn(x, f)) 
-          f
-        else
-          failwith("eta: variable appears free in function")
-      case _ =>
-        failwith("eta: term is not reducible")
-    }
-  }
-  
+    
   def dest_equals(term : Term) : (Term, Term, Type) = {
     term match {
       case Comb(Comb(PolyConst(Kernel.equals, ty), left), right) =>
@@ -423,5 +404,61 @@ object KernelUtils {
         (tm, Set()) 
     }
   }  
-   
+
+  def beta(term : Term) : Term = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => substVar(body, x, y)
+      case _ => failwith("beta: term is not reducible")
+    }
+  }
+  
+  def eta(term : Term) : Term = {
+    term match {
+      case Abs(x, ty, Comb(f, Var(y))) if x == y =>
+        if (!isFreeIn(x, f)) 
+          f
+        else
+          failwith("eta: variable appears free in function")
+      case _ =>
+        failwith("eta: term is not reducible")
+    }
+  }
+
+  def normBetaEta(term : Term) : Option[Term] = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => 
+        val top = substVar(body, x, y)
+        normBetaEta(top) match {
+          case None => Some(top)
+          case t => t
+        }
+      case Abs(x, ty, Comb(f, Var(y))) if x == y && !isFreeIn(x, f) =>
+        val top = f
+        normBetaEta(top) match {
+          case None => Some(top)
+          case t => t
+        }
+      case Comb(f, g) =>
+        (normBetaEta(f), normBetaEta(g)) match {
+          case (Some(f), Some(g)) => Some(Comb(f, g))
+          case (Some(f), None) => Some(Comb(f, g))
+          case (None, Some(g)) => Some(Comb(f, g))
+          case (None, None) => None
+        }
+      case Abs(x, ty, body) =>
+        normBetaEta(body) match {
+          case None => None
+          case Some(body) => Some(Abs(x, ty, body))
+        }
+      case _ => None
+    }
+  }
+
+  def betaEtaNormalform(term : Term) : Term = {
+    normBetaEta(term) match {
+      case None => term
+      case Some(term) => term
+    }
+  }
+
 }
