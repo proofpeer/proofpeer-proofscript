@@ -366,7 +366,7 @@ class Eval(states : States, kernel : Kernel,
 	case object IsGreaterOrEqual extends CmpResult
 	case object IsNEq extends CmpResult
 
-	def cmp(x : StateValue, y : StateValue) : Option[CmpResult] = {
+	def cmp(state : State, x : StateValue, y : StateValue) : Option[CmpResult] = {
 		(x, y) match {
 			case (NilValue, NilValue) => Some(IsEq)
 			case (IntValue(x), IntValue(y)) => 
@@ -389,7 +389,7 @@ class Eval(states : States, kernel : Kernel,
 					var has_greater = false
 					var has_neq = false
 					for (i <- 0 until len)
-						cmp(xs(i), ys(i)) match {
+						cmp(state, xs(i), ys(i)) match {
 							case None => return None
 							case Some(c) =>
 								c match {
@@ -416,17 +416,33 @@ class Eval(states : States, kernel : Kernel,
 							case (true, _, true) => Some(IsNEq)
 						}
 				} else None
-			case (_ : TermValue, _ : TermValue) => None
-			case (_ : TheoremValue, _ : TheoremValue) => None
+			case (TermValue(u), TermValue(v)) => 
+				import KernelUtils._
+				if (alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v)))
+					Some(IsEq)
+				else
+					Some(IsNEq)
+			case (TheoremValue(p), TheoremValue(q)) => 
+				import KernelUtils._
+				try { 
+				  val u = state.context.lift(p).proposition
+				  val v = state.context.lift(q).proposition
+					if (alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v)))
+						Some(IsEq)
+					else
+						Some(IsNEq)				  
+				} catch {
+				  case e: Utils.KernelException => None
+				}
 			case (_ : ContextValue, _ : ContextValue) => None
 			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
 			case _ => Some(IsNEq)	
 		}
 	}
 
-	def cmp(op : CmpOperator, x : StateValue, y : StateValue) : Result[Boolean] = {
-		cmp (x, y) match {
-			case None => fail(op, "values cannot be compared: " + x + ", " + y)
+	def cmp(state : State, op : CmpOperator, x : StateValue, y : StateValue) : Result[Boolean] = {
+		cmp (state, x, y) match {
+			case None => fail(op, "values cannot be compared: " + display(state, x) + ", " + display(state, y))
 			case Some(c) =>
 				success(
 					op match {
@@ -554,7 +570,7 @@ class Eval(states : States, kernel : Kernel,
 							evalExpr(state, operands.head) match {
 								case f : Failed[_] => return f
 								case Success(v, _) =>
-									cmp(operators.head, value, v) match {
+									cmp(state, operators.head, value, v) match {
 										case f : Failed[_] => return Failed(f.pos, f.error)
 										case Success(false, _) => return success(BoolValue(false))
 										case Success(true, _) => value = v
