@@ -13,7 +13,10 @@ object NativeFunctions {
       "transitive" -> transitive,
       "combine" -> combine,
       "normalize" -> normalize,
-      "instantiate" -> instantiate
+      "instantiate" -> instantiate,
+      "modusponens" -> modusponens,
+      "equivalence" -> equivalence,
+      "abstract" -> abs
     )
 
   private def wrap(f : F) : F = {
@@ -115,4 +118,49 @@ object NativeFunctions {
   }
 
   val instantiate = wrap(instantiate_)
+
+  def modusponens_(state : State, theorems : StateValue) : Result = {
+    val ctx = state.context
+    theorems match {
+      case TupleValue(tuple) if tuple.size >= 1 =>
+        var thm : Theorem = null
+        for (t <- tuple) {
+          t match {
+            case TheoremValue(t) =>
+              if (thm == null) 
+                thm = ctx.lift(t)
+              else 
+                thm = ctx.modusponens(ctx.lift(t), thm)
+            case _ => 
+              Right("all arguments to modusponens must be theorems")
+          }  
+        }
+        Left(TheoremValue(thm))
+      case _ => Right("non-empty vector of theorems expected")
+    }    
+  }
+
+  val modusponens = wrap(modusponens_)
+
+  def equivalence_(state : State, theorems : StateValue) : Result = {
+    theorems match {
+      case TupleValue(Vector(TheoremValue(a), TheoremValue(b))) =>
+        val ctx = state.context
+        Left(TheoremValue(ctx.equiv(ctx.lift(a), ctx.lift(b))))
+      case _ => 
+        Right("equivalence expects two theorems as arguments")
+    }
+  }
+
+  val equivalence = wrap(equivalence_)
+
+  def abs_(state : State, thm : StateValue) : Result = {
+    thm match {
+      case TheoremValue(thm) => Left(TheoremValue(state.context.abs(state.context.lift(thm))))
+      case _ => Right("abstract expects a theorem as argument")
+    }
+  }
+
+  val abs = wrap(abs_)
+
 }
