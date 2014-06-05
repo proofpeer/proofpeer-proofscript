@@ -9,8 +9,8 @@ case class Success[T](result : T, isReturnValue : Boolean) extends Result[T]
 case class Failed[T](pos : SourcePosition, error : String) extends Result[T]
 
 class Eval(states : States, kernel : Kernel, 
-	scriptNameresolution : NamespaceResolution[String], logicNameresolution : NamespaceResolution[IndexedName], 
-	aliases : Aliases, namespace : Namespace) 
+	scriptNameresolution : NamespaceResolution[String], val logicNameresolution : NamespaceResolution[IndexedName], 
+	val aliases : Aliases, namespace : Namespace) 
 {
 
 	def success[T](result : T) : Success[T] = Success(result, false)
@@ -608,7 +608,7 @@ class Eval(states : States, kernel : Kernel,
 						evalExpr(state, v) match {
 							case failed : Failed[_] => failed
 							case Success(x, _) => 
-								f.nativeFunction(state, x) match {
+								f.nativeFunction(this, state, x) match {
 									case Left(value) => success(value)
 									case Right(error) => fail(expr, error)
 								}

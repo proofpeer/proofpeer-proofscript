@@ -44,3 +44,5 @@ show normalize '(y ↦ y) x'
 
 show [,1]
 show instantiate (empty, 'y')
+
+show size "hello"
