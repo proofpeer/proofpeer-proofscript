@@ -39,3 +39,4 @@ show reflexive 'x'
 show transitive(zDef, reflexive 'x')
 
 show transitive (reflexive '(y ↦ y) x', reflexive 'x')
+show normalize '(y ↦ y) x'

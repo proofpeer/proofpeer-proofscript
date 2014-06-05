@@ -11,7 +11,8 @@ object NativeFunctions {
     Map(
       "reflexive" -> reflexive,
       "transitive" -> transitive,
-      "combine" -> combine
+      "combine" -> combine,
+      "normalize" -> normalize
     )
 
   private def wrap(f : F) : F = {
@@ -31,9 +32,19 @@ object NativeFunctions {
         Left(TheoremValue(state.context.reflexive(tm)))
       case _ => Right("Term value expected")
     }
-  }
+  }  
 
   val reflexive = wrap(reflexive_)
+
+  private def normalize_(state : State, tm : StateValue) : Result = {
+    tm match {
+      case TermValue(tm) =>
+        Left(TheoremValue(state.context.normalize(tm)))
+      case _ => Right("Term value expected")
+    }
+  }
+
+  val normalize = wrap(normalize_)
 
   private def transitive_(state : State, tm : StateValue) : Result = {
     val ctx = state.context
@@ -80,5 +91,6 @@ object NativeFunctions {
   }
 
   val combine = wrap(combine_)
+
 
 }
