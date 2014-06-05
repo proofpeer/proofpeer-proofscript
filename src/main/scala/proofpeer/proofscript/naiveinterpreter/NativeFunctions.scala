@@ -12,7 +12,8 @@ object NativeFunctions {
       "reflexive" -> reflexive,
       "transitive" -> transitive,
       "combine" -> combine,
-      "normalize" -> normalize
+      "normalize" -> normalize,
+      "instantiate" -> instantiate
     )
 
   private def wrap(f : F) : F = {
@@ -92,5 +93,26 @@ object NativeFunctions {
 
   val combine = wrap(combine_)
 
+  def instantiate_(state : State, tm : StateValue) : Result = {
+    val ctx = state.context
+    tm match {
+      case TupleValue(values) if !values.isEmpty =>
+        values.head match {
+          case TheoremValue(thm) =>
+            var insts : List[Option[Term]] = List()
+            for (arg <- values.tail) {
+              arg match {
+                case NilValue => insts = None :: insts
+                case TermValue(tm) => insts = Some(tm) :: insts
+                case _ => return Right("invalid argument to instantiate")
+              }
+            }
+            Left(TheoremValue(ctx.instantiate(ctx.lift(thm), insts.reverse)))
+          case _ => Right("first argument is expected to be a theorem")
+        }
+      case _ => Right("non-empty argument list expected")
+    }
+  }
 
+  val instantiate = wrap(instantiate_)
 }
