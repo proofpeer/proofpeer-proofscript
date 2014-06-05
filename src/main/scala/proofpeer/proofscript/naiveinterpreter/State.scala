@@ -28,6 +28,7 @@ object Collect {
 	def emptyOne : One = One(None)
 }
 
+case object NilValue extends StateValue
 case class ContextValue(value : Context) extends StateValue 
 case class TheoremValue(value : Theorem) extends StateValue
 case class TermValue(value : Term) extends StateValue
@@ -48,6 +49,15 @@ case class TupleValue(value : Vector[StateValue]) extends StateValue {
 }
 
 object StateValue {
+
+	def isFunction(v : StateValue) : Boolean = {
+		v match {
+			case _ : SimpleFunctionValue => true
+			case _ : RecursiveFunctionValue => true
+			case _ : NativeFunctionValue => true
+			case _ => false
+		}
+	}
 
 	def display(context : Context) : String = {
 		context.kind match {
@@ -79,6 +89,7 @@ object StateValue {
 		context : Context, value : StateValue) : String = 
 	{
 		value match {
+			case NilValue => "nil"
 			case BoolValue(value) => if (value) "true" else "false"
 			case IntValue(value) => "" + value
 			case f : SimpleFunctionValue => "? : Function"

@@ -102,6 +102,11 @@ class Eval(states : States, kernel : Kernel,
 		var i = 0
 		for (st <- statements) {
 			st match {
+				case STValIntro(ids) =>
+					if (ids.toSet.size != ids.size)
+						return fail(st, "cannot introduce the same variable more than once")
+					else 
+						for (id <- ids) state = state.bind(Map(id.name -> NilValue))
 				case STVal(pat, body) => 
 					evalBlock(state.setCollect(Collect.emptyOne), body) match {
 						case f : Failed[_] => return fail(f)
@@ -363,6 +368,7 @@ class Eval(states : States, kernel : Kernel,
 
 	def cmp(x : StateValue, y : StateValue) : Option[CmpResult] = {
 		(x, y) match {
+			case (NilValue, NilValue) => Some(IsEq)
 			case (IntValue(x), IntValue(y)) => 
 				if (x < y) Some(IsLess) 
 				else if (x > y) Some(IsGreater)
@@ -410,7 +416,11 @@ class Eval(states : States, kernel : Kernel,
 							case (true, _, true) => Some(IsNEq)
 						}
 				} else None
-			case _ => None
+			case (_ : TermValue, _ : TermValue) => None
+			case (_ : TheoremValue, _ : TheoremValue) => None
+			case (_ : ContextValue, _ : ContextValue) => None
+			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
+			case _ => Some(IsNEq)	
 		}
 	}
 
@@ -453,6 +463,7 @@ class Eval(states : States, kernel : Kernel,
 			}
 		}
 		expr match {
+			case NilExpr => success(NilValue)
 			case Bool(b) => success(BoolValue(b))
 			case Integer(i) => success(IntValue(i))
 			case StringLiteral(s) => success(StringValue(s))
@@ -795,6 +806,11 @@ class Eval(states : States, kernel : Kernel,
 	def matchPattern(state : State, pat : Pattern, value : StateValue, matchings : Matchings) : Result[Option[Matchings]] = {
 		pat match {
 			case PAny => success(Some(matchings))
+			case PNil =>
+				value match {
+					case NilValue => success(Some(matchings))
+					case _ => success(None)
+				}
 			case PId(name) => 
 				matchings.get(name) match {
 					case None => success(Some(matchings + (name -> value)))

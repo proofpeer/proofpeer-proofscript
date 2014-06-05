@@ -32,6 +32,10 @@ object ParseTree {
     protected def calcFreeVars : Set[String]
     protected def calcVars = (calcFreeVars, Set())
   }
+
+  case object NilExpr extends Expr {
+    protected def calcFreeVars = Set()
+  }
   
   case class Bool(value : Boolean) extends Expr {
     protected def calcFreeVars = Set()
@@ -229,6 +233,10 @@ object ParseTree {
       (expr.freeVars -- patIntros, patIntros)
     }
   }
+
+  case object PNil extends Pattern {
+    protected def calcVars = (Set(), Set())
+  }
   
   sealed trait Statement extends ParseTree
   
@@ -251,6 +259,11 @@ object ParseTree {
   case class STVal(pat : Pattern, body : Block) extends Statement {
     protected def calcVars = (pat.freeVars ++ body.freeVars, pat.introVars)
   }
+
+  case class STValIntro(ids : List[Id]) extends Statement {
+    protected def calcVars = (Set(), ids.map(_.name).toSet)
+  }
+
 
   case class STAssign(pat : Pattern, body : Block) extends Statement {
     protected def calcVars = (pat.freeVars ++ body.freeVars, Set())

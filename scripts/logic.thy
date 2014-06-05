@@ -26,7 +26,8 @@ show match "ab" case "ba" => 1 case "ab" => 2
 val x if x == 2 = 2
 show x
 
-val q = ()
+val q 
+show q
 
 context
   let 'z_2'
@@ -40,3 +41,5 @@ show transitive(zDef, reflexive 'x')
 
 show transitive (reflexive '(y ↦ y) x', reflexive 'x')
 show normalize '(y ↦ y) x'
+
+show [,1]

@@ -126,7 +126,8 @@ val g_literals =
   litrule("Extends", "extends") ++
   litrule("Context", "context") ++
   litrule("Show", "show") ++
-  litrule("Fail", "fail")
+  litrule("Fail", "fail") ++
+  litrule("Nil", "nil")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -212,6 +213,7 @@ val g_expr =
   arule("PrimitiveExpr", "SquareBracketOpen ExprList SquareBracketClose", c => mkTuple(c.ExprList.resultAs[Vector[Expr]], false)) ++
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
+  arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
   arule("PrimitiveExpr", "QuotationMark StringLiteral QuotationMark", c => mkStringLiteral(c.StringLiteral.codes)) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
@@ -272,8 +274,12 @@ val g_expr =
   arule("FunExpr", "LazyExpr", _.LazyExpr.result) ++
   arule("Expr", "FunExpr", _.FunExpr.result) ++
   arule("ExprList", "", c => Vector[Expr]()) ++
-  arule("ExprList", "PExpr", c => Vector[Expr](c.PExpr.resultAs[Expr])) ++
-  arule("ExprList", "ExprList Comma PExpr", c => c.ExprList.resultAs[Vector[Expr]] :+ c.PExpr.resultAs[Expr]) ++
+  arule("ExprList", "ExprList1", _.ExprList1.result) ++
+  arule("ExprList1", "PExpr", c => Vector[Expr](c.PExpr.resultAs[Expr])) ++
+  arule("ExprList1", "Comma PExpr", c => Vector[Expr](NilExpr, c.PExpr.resultAs[Expr])) ++
+  arule("ExprList1", "Comma", c => Vector[Expr](NilExpr, NilExpr)) ++
+  arule("ExprList1", "ExprList1 Comma PExpr", c => c.ExprList1.resultAs[Vector[Expr]] :+ c.PExpr.resultAs[Expr]) ++
+  arule("ExprList1", "ExprList1 Comma", c => c.ExprList1.resultAs[Vector[Expr]] :+ NilExpr) ++
   arule("PExpr", "Expr", _.Expr.result) ++
   arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr.resultAs[ControlFlow]))
   
@@ -397,6 +403,7 @@ val g_controlflow =
 
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++
+  arule("AtomicPattern", "Nil", c => PNil) ++
   arule("AtomicPattern", "Id", c => PId(c.Id.text)) ++
   arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
   arule("AtomicPattern", "QuotationMark StringLiteral QuotationMark", 
@@ -416,8 +423,12 @@ val g_pattern =
   arule("OptPattern", "", c => None) ++
   arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern])) ++
   arule("PatternList", "", c => Vector[Pattern]()) ++
-  arule("PatternList", "Pattern", c => Vector[Pattern](c.Pattern.resultAs[Pattern])) ++
-  arule("PatternList", "PatternList Comma Pattern", c => c.PatternList.resultAs[Vector[Pattern]] :+ c.Pattern.resultAs[Pattern])
+  arule("PatternList", "PatternList1", _.PatternList1.result) ++
+  arule("PatternList1", "Comma Pattern", c => Vector[Pattern](PNil, c.Pattern.resultAs[Pattern])) ++
+  arule("PatternList1", "Comma", c => Vector[Pattern](PNil, PNil)) ++  
+  arule("PatternList1", "Pattern", c => Vector[Pattern](c.Pattern.resultAs[Pattern])) ++
+  arule("PatternList1", "PatternList1 Comma Pattern", c => c.PatternList1.resultAs[Vector[Pattern]] :+ c.Pattern.resultAs[Pattern]) ++
+  arule("PatternList1", "PatternList1 Comma", c => c.PatternList1.resultAs[Vector[Pattern]] :+ PNil)
 
 val g_show =
   arule("ST", "Show PExpr",
@@ -437,7 +448,13 @@ val g_val =
       CS.Indent("Val", "Pattern"),
       CS.SameLine("Pattern", "Eq"),
       CS.or(CS.Line("Eq", "Block"), CS.Indent("Val", "Block"))),
-    c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
+    c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++
+  arule("ST", "Val IdList", 
+    CS.Indent("Val", "IdList"),
+    c => STValIntro(c.IdList.resultAs[List[Id]])) ++
+  arule("IdList", "Id", c => List[Id](Id(c.Id.text))) ++
+  arule("IdList", "IdList Id", c => c.IdList.resultAs[List[Id]] :+ Id(c.Id.text))
+
 
 val g_assign = 
   arule("ST", "Pattern Eq Block",
