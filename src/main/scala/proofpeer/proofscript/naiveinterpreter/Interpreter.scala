@@ -116,13 +116,9 @@ object Interpreter {
 		sorted.reverse
 	}
 
-	object Native
-
 	def rootState : State = {
-		val environment : Map[String, StateValue] = Map(
-			"reflexive" -> NativeFunctionValue(NativeFunctions.reflexive),
-			"transitive" -> NativeFunctionValue(NativeFunctions.transitive)
-			)
+		val environment : Map[String, StateValue] =
+			NativeFunctions.environment.mapValues(v => NativeFunctionValue(v))
 		new State(Root.context, State.Env(environment, Map()), Collect.Zero, false)
 	}
 

@@ -7,6 +7,13 @@ object NativeFunctions {
   type Result = Either[StateValue, String]
   type F = (State, StateValue) => Result
 
+  val environment : Map[String, F] = 
+    Map(
+      "reflexive" -> reflexive,
+      "transitive" -> transitive,
+      "combine" -> combine
+    )
+
   private def wrap(f : F) : F = {
     def g(state : State, value : StateValue) : Result = {
       try {
@@ -31,7 +38,7 @@ object NativeFunctions {
   private def transitive_(state : State, tm : StateValue) : Result = {
     val ctx = state.context
     tm match {
-      case TupleValue(tuple) if tuple.size >= 2 =>
+      case TupleValue(tuple) if tuple.size >= 1 =>
         var thm : Theorem = null
         for (t <- tuple) {
           t match {
@@ -45,10 +52,33 @@ object NativeFunctions {
           }  
         }
         Left(TheoremValue(thm))
-      case _ => Right("at least two theorems expected")
+      case _ => Right("non-empty vector of theorems expected")
     }
   }
 
   val transitive = wrap(transitive_)
+
+  private def combine_(state : State, tm : StateValue) : Result = {
+    val ctx = state.context
+    tm match {
+      case TupleValue(tuple) if tuple.size >= 1 =>
+        var thm : Theorem = null
+        for (t <- tuple) {
+          t match {
+            case TheoremValue(t) =>
+              if (thm == null) 
+                thm = ctx.lift(t)
+              else 
+                thm = ctx.comb(thm, ctx.lift(t))
+            case _ => 
+              Right("all arguments to combine must be theorems")
+          }  
+        }
+        Left(TheoremValue(thm))
+      case _ => Right("non-empty vector of theorems expected")
+    }    
+  }
+
+  val combine = wrap(combine_)
 
 }
