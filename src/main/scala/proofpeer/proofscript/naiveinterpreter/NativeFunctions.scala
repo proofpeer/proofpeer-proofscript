@@ -7,7 +7,7 @@ object NativeFunctions {
   type Result = Either[StateValue, String]
   type F = (State, StateValue) => Result
 
-  val environment : Map[String, F] = 
+  def environment : Map[String, F] = 
     Map(
       "reflexive" -> reflexive,
       "transitive" -> transitive,

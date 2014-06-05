@@ -37,3 +37,5 @@ context
 show q
 show reflexive 'x'
 show transitive(zDef, reflexive 'x')
+
+show transitive (reflexive '(y ↦ y) x', reflexive 'x')
