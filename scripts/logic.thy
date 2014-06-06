@@ -51,3 +51,9 @@ show size "hello"
 show 2 to 7
 show 7 to 2
 show 12 downto -8
+
+show "hello" 1
+show "hello" [2, 4]
+
+show ["h", "e", "l", "l", "o"] 1
+show ["h", "e", "l", "l", "o"] [2, 4]

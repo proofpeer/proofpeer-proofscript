@@ -633,7 +633,51 @@ class Eval(states : States, kernel : Kernel,
 									case Right(error) => fail(expr, error)
 								}
 						}
-					case Success(v, _) => fail(u, "function value expected, found: " + display(state, v))
+					case Success(StringValue(s), _) =>
+						evalExpr(state, v) match {
+							case failed : Failed[_] => failed
+							case Success(IntValue(i), _) =>
+								if (i < 0 || i >= s.size) fail(v, "index " + i + " is out of bounds")
+								else success(StringValue(Vector(s(i.toInt))))
+							case Success(TupleValue(indices), _) =>
+								val len = s.size
+								var codes : List[Int] = List()
+								for (index <- indices) {
+									index match {
+										case IntValue(i) =>
+											if (i < 0 || i >= len) return fail(v, "index " + i + " is out of bounds")
+											else codes = s(i.toInt) :: codes
+										case _ =>
+											return return fail(v, "index expected, found: " + display(state, index))
+									}
+								}
+								success(StringValue(codes.reverse.toVector))
+							case Success(value, _) =>
+								fail(v, "string cannot be applied to: " + display(state, value))
+						}
+					case Success(TupleValue(s), _) =>
+						evalExpr(state, v) match {
+							case failed : Failed[_] => failed
+							case Success(IntValue(i), _) =>
+								if (i < 0 || i >= s.size) fail(v, "index " + i + " is out of bounds")
+								else success(s(i.toInt))
+							case Success(TupleValue(indices), _) =>
+								val len = s.size
+								var values : List[StateValue] = List()
+								for (index <- indices) {
+									index match {
+										case IntValue(i) =>
+											if (i < 0 || i >= len) return fail(v, "index " + i + " is out of bounds")
+											else values = s(i.toInt) :: values
+										case _ =>
+											return return fail(v, "index expected, found: " + display(state, index))
+									}
+								}
+								success(TupleValue(values.reverse.toVector))
+							case Success(value, _) =>
+								fail(v, "string cannot be applied to: " + display(state, value))
+						}					
+					case Success(v, _) => fail(u, "value cannot be applied to anything: " + display(state, v))
 				}
 			case tm : LogicTerm =>
 				evalLogicTerm(state, tm) match {
