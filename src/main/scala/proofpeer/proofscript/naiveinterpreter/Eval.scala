@@ -292,7 +292,7 @@ class Eval(states : States, kernel : Kernel,
 	}
 
 	def evalLetIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : Result[State] = {
-		if (st.thm_name.isDefined) return fail(st, "constant introduction produces no theorem")
+		//if (st.thm_name.isDefined) return fail(st, "constant introduction produces no theorem")
 		val name = 
 			_name.namespace match {
 				case Some(ns) => return fail(st, "let intro: constant must not have explicit namespace")
@@ -302,7 +302,12 @@ class Eval(states : States, kernel : Kernel,
 			case None => fail(st, "let intro: inconsistent type constraints")
 			case Some(ty) =>
 				try {
-					success(state.setContext(state.context.introduce(name, ty)))
+					var s = state.setContext(state.context.introduce(name, ty))
+					if (st.result_name.isDefined) {
+						val c = TermValue(Term.Const(name))
+						s = s.bind(Map(st.result_name.get -> c))
+					}
+					success(s)
 				} catch {
 					case ex: Utils.KernelException =>
 						return fail(st, "let intro: " + ex.reason)
@@ -339,8 +344,8 @@ class Eval(states : States, kernel : Kernel,
 				try {
 					val thm = state.context.define(name, tm)
 					var updatedState = state.setContext(thm.context)
-					if (st.thm_name.isDefined) 
-						updatedState = updatedState.bind(Map(st.thm_name.get -> TheoremValue(thm)))
+					if (st.result_name.isDefined) 
+						updatedState = updatedState.bind(Map(st.result_name.get -> TheoremValue(thm)))
 					success(updatedState)
 				} catch {
 					case ex: Utils.KernelException =>
@@ -532,6 +537,7 @@ class Eval(states : States, kernel : Kernel,
 									case (Prepend, x, xs : TupleValue) => success(xs.prepend(x))
 									case (Append, xs : TupleValue, x) => success(xs.append(x))
 									case (Concat, xs : TupleValue, ys : TupleValue) => success(xs.concat(ys))
+									case (Concat, xs : StringValue, ys : StringValue) => success(xs.concat(ys))
 									case _ => fail(op, "binary operator "+op+" cannot be applied to values: "+
 										display(state,left)+", "+display(state,right))
 								}

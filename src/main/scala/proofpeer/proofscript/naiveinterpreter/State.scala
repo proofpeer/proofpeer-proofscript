@@ -41,6 +41,7 @@ case class StringValue(value : Vector[Int]) extends StateValue {
 	override def toString : String = {
 		new String(value.toArray, 0, value.size)		
 	}
+	def concat(s : StringValue) : StringValue = StringValue(value ++ s.value)
 }
 case class TupleValue(value : Vector[StateValue]) extends StateValue {
 	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value)

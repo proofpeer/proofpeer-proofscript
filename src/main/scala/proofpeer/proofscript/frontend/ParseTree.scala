@@ -297,10 +297,10 @@ object ParseTree {
        if (thm_name.isDefined) Set(thm_name.get) else Set())
   }
   
-  case class STLet(thm_name : Option[String], tm : Expr) extends Statement {
+  case class STLet(result_name : Option[String], tm : Expr) extends Statement {
     protected def calcVars = 
       (tm.freeVars, 
-       if (thm_name.isDefined) Set(thm_name.get) else Set())
+       if (result_name.isDefined) Set(result_name.get) else Set())
   }
 
   case class STChoose(thm_name : Option[String], tm : Expr, thm : Expr) extends Statement {

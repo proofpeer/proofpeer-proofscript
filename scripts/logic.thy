@@ -57,3 +57,16 @@ show "hello" [2, 4]
 
 show ["h", "e", "l", "l", "o"] 1
 show ["h", "e", "l", "l", "o"] [2, 4]
+
+let 'x_1'
+let 'x_2'
+let 'x_3'
+let 'x_4'
+show fresh "x"
+let x = '‹fresh "x"›'
+show x
+show fresh "x"
+
+
+
+
