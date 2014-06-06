@@ -46,3 +46,8 @@ show [,1]
 show instantiate (empty, 'y')
 
 show size "hello"
+
+
+show 2 to 7
+show 7 to 2
+show 12 downto -8

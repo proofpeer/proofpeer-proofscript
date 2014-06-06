@@ -127,7 +127,9 @@ val g_literals =
   litrule("Context", "context") ++
   litrule("Show", "show") ++
   litrule("Fail", "fail") ++
-  litrule("Nil", "nil")
+  litrule("Nil", "nil") ++
+  litrule("To", "to") ++
+  litrule("Downto", "downto")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -249,7 +251,12 @@ val g_expr =
   arule("PrependConcatExpr", "PrependConcatExpr Concat ArithExpr", c => BinaryOperation(annotateBinop(Concat, c.Concat.span), c.PrependConcatExpr.resultAs[Expr], c.ArithExpr.resultAs[Expr])) ++
   arule("PrependExpr", "ArithExpr Prepend PrependExpr", c => BinaryOperation(annotateBinop(Prepend, c.Prepend.span), c.ArithExpr.resultAs[Expr], c.PrependExpr.resultAs[Expr])) ++
   arule("PrependExpr", "ArithExpr", _.ArithExpr.result) ++
-  arule("ArithExpr", "AddExpr", _.AddExpr.result) ++
+  arule("ArithExpr", "RangeExpr", _.RangeExpr.result) ++
+  arule("RangeExpr", "AddExpr", _.AddExpr.result) ++
+  arule("RangeExpr", "AddExpr_1 To AddExpr_2", 
+    c => BinaryOperation(annotateBinop(RangeTo, c.To.span), c.AddExpr_1.resultAs[Expr], c.AddExpr_2.resultAs[Expr])) ++
+  arule("RangeExpr", "AddExpr_1 Downto AddExpr_2", 
+    c => BinaryOperation(annotateBinop(RangeDownto, c.Downto.span), c.AddExpr_1.resultAs[Expr], c.AddExpr_2.resultAs[Expr])) ++
   arule("AddExpr", "AddExpr Plus NegExpr", 
       c => BinaryOperation(annotateBinop(Add, c.Plus.span), c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++
   arule("AddExpr", "AddExpr Minus NegExpr", 

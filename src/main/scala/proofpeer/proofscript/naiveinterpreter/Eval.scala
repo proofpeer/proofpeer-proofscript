@@ -510,6 +510,10 @@ class Eval(states : States, kernel : Kernel,
 						evalExpr(state, right) match {
 							case Success(right, _) =>
 								(op, left, right) match {
+									case (RangeTo, IntValue(x), IntValue(y)) => 
+										success(TupleValue((x to y).map(i => IntValue(i)).toVector))
+									case (RangeDownto, IntValue(x), IntValue(y)) => 
+										success(TupleValue((y to x).reverse.map(i => IntValue(i)).toVector))
 									case (Add, IntValue(x), IntValue(y)) => success(IntValue(x + y))
 									case (Sub, IntValue(x), IntValue(y)) => success(IntValue(x - y))
 									case (Mul, IntValue(x), IntValue(y)) => success(IntValue(x * y))

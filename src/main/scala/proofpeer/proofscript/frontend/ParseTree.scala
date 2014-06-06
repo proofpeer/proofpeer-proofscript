@@ -146,6 +146,8 @@ object ParseTree {
   case object Not extends UnaryOperator
 
   sealed trait BinaryOperator extends Operator
+  case object RangeTo extends BinaryOperator
+  case object RangeDownto extends BinaryOperator
   case object Add extends BinaryOperator
   case object Sub extends BinaryOperator
   case object Mul extends BinaryOperator
