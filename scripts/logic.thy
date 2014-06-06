@@ -67,6 +67,8 @@ let x = '‹fresh "x"›'
 show x
 show fresh "x"
 
+assume 'x = x'
+
 
 
 

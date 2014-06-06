@@ -91,6 +91,8 @@ trait Context {
   // Introduces an assumption. 
   // The new context can be obtained from the theorem.
   def assume(assumption : Term) : Theorem
+
+  def hasAssumptions : Boolean
   
   // Defines a new constant. 
   // The name must either have no namespace, or it must be equal to the current namespace.

@@ -94,6 +94,18 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
             constants)
       mk_theorem(context, assumption)
     }
+
+    def hasAssumptions : Boolean = {
+      var context : Context = this
+      do {
+        context.kind match {
+          case _ : ContextKind.Assume => return true
+          case _ =>
+        }
+        context = context.parentContext match { case Some(c) => c case None => null }
+      } while (context != null)
+      false
+    }
   
     def define(const_name : Name, tm : Term) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")

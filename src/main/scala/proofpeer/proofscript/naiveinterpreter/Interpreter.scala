@@ -157,9 +157,13 @@ object Interpreter {
 					} else ""
 				println("failed executing theory "+thy.namespace+w+":\n  "+error)
 			case Success(state, _) => {
-				val completed = Root.kernel.completeNamespace(state.context)
-				states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
-				println("successfully executed theory "+thy.namespace)
+				if (state.context.hasAssumptions && state.context.namespace != Kernel.root_namespace) {
+					println("theory "+thy.namespace+" fails because it introduces axioms")
+				} else {
+					val completed = Root.kernel.completeNamespace(state.context)
+					states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
+					println("successfully executed theory "+thy.namespace)
+				}
 			}
 		}
 	}
