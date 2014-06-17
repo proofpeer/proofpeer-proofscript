@@ -949,6 +949,36 @@ class Eval(states : States, kernel : Kernel,
 						}
 					case r => r
 				}
+			case PLogic(preterm) =>
+				val term = 
+					value match {
+						case TermValue(value) => value
+						case TheoremValue(thm) => state.context.lift(thm).proposition
+						case s : StringValue =>
+							try {
+								Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)
+							} catch {
+								case ex : Utils.KernelException =>
+									return success(None)
+							}
+						case _ => return success(None)
+					}
+				val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
+				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
+				HOPattern.patternMatch(state.context, hop, term) match {
+					case None => success(None)
+					case Some(subst) => fail(pat, "not implemented yet")
+						var m = matchings
+						for ((quoteId, term) <- subst) {
+							val value = TermValue(term)
+							val p = quotes(quoteId).quoted.asInstanceOf[Pattern]
+							matchPattern(state, p, value, m) match {
+								case Success(Some(matchings_q), _) => m = matchings_q
+								case r => return r
+							}
+						}
+						success(Some(m))
+				}
 			case _ => return fail(pat, "pattern has not been implemented yet")
 		}		
 	}

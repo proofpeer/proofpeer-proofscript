@@ -67,6 +67,14 @@ let x = '‹fresh "x"›'
 show x
 show fresh "x"
 
+def 
+  dest_conj t =
+    match t
+      case '‹p› ∧ ‹q›' => (p, q)
+      case _ => nil  
+
+show dest_conj infinity
+
 assume 'x = x'
 
 

@@ -168,6 +168,19 @@ object Kernel {
     name == equals || name == forall || name == exists
   }
 
+  def destPolymorphicType(name : Name, ty : Type) : Option[Type] = {
+    import Type._
+    (name, ty) match {
+      case (Kernel.equals, Fun(alpha, Fun(beta, Prop))) if alpha == beta =>
+        Some(alpha)
+      case (Kernel.forall, Fun(Fun(alpha, Prop), Prop)) =>
+        Some(alpha)
+      case (Kernel.exists, Fun(Fun(alpha, Prop), Prop)) =>
+        Some(alpha)
+      case _ => None
+    }
+  }
+
   // names which are essential to the kernel
   val equals = rootname("equals")  
   val forall = rootname("forall")
