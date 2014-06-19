@@ -309,6 +309,12 @@ object ParseTree {
        if (thm_name.isDefined) Set(thm_name.get) else Set())
   }
 
+  case class STTheorem(thm_name : Option[String], tm : Expr, proof : Block) extends Statement {
+    protected def calcVars = 
+      (tm.freeVars ++ proof.freeVars,
+       if (thm_name.isDefined) Set(thm_name.get) else Set())
+  }
+
   case class STTheory(namespace : Namespace, aliases : List[(Id, Namespace)], parents : List[Namespace]) extends Statement {
     protected def calcVars = (Set(), Set())
   }

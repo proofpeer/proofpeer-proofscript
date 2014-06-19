@@ -82,6 +82,12 @@ show dest oldinfinity
 show dest '∀ q. q = y'
 show dest '∀ q. q = x'
 
+theorem cool = 'x'
+  5
+  let 'nice : ℙ'
+  assume m = 'nice'
+  m
+
 assume 'x = x'
 
 
