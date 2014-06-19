@@ -966,8 +966,10 @@ class Eval(states : States, kernel : Kernel,
 				val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
 				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
 				HOPattern.patternMatch(state.context, hop, term) match {
-					case None => success(None)
-					case Some(subst) => fail(pat, "not implemented yet")
+					case Right(invalid) => 
+						if (invalid) fail(pat, "pattern is not a higher-order pattern")
+						else success(None)
+					case Left(subst) => 
 						var m = matchings
 						for ((quoteId, term) <- subst) {
 							val value = TermValue(term)

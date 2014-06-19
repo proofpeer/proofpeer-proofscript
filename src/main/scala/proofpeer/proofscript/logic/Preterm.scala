@@ -9,6 +9,8 @@ sealed trait Preterm {
 	def typeOf : Pretype
 }
 object Preterm {
+
+  import Utils.Integer
  
   case class PTmTyping(tm : Preterm, typeOf : Pretype) extends Preterm
   case class PTmName(name : Name, typeOf : Pretype) extends Preterm

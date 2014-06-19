@@ -2,6 +2,8 @@ package proofpeer.proofscript.logic
 
 sealed trait Pretype
 object Pretype {
+  import Utils.Integer 
+  
   case object PTyUniverse extends Pretype
   case object PTyProp extends Pretype
   case class PTyFun(domain : Pretype, range : Pretype) extends Pretype
