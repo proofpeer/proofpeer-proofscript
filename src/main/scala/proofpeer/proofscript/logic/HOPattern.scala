@@ -95,6 +95,7 @@ def unify(u : HOPattern, v : HOPattern) : Either[(Map[Integer, HOPattern], Map[I
   } catch {
     case alg.Fail => Right(false)
     case alg.InvalidPattern => Right(true)
+    case alg.InvalidPatternType => Utils.failwith("unify: patterns are ill-typed")
   }
 }
 
@@ -108,7 +109,7 @@ def instTypeVars(u : HOPattern, typeSubst : Integer => Option[Pretype]) : HOPatt
   }
 }
 
-class Unification {
+private class Unification {
   var highestMetaIndex : Integer = 0
   var highestVars : Map[String, Integer] = Map()
   var typeEquations : Set[(Pretype, Pretype)] = Set()
@@ -117,6 +118,7 @@ class Unification {
 
   case object Fail extends RuntimeException
   case object InvalidPattern extends RuntimeException
+  case object InvalidPatternType extends RuntimeException
 
   private def register(metaVarIndex : Integer) {
     if (highestMetaIndex < metaVarIndex)
@@ -156,6 +158,21 @@ class Unification {
     indexedName
   }
 
+  private def typeOf(u : HOPattern) : Pretype = {
+    u match {
+      case Var(_, ty) => ty
+      case Const(_, ty) => ty
+      case MetaVar(_, ty) => ty
+      case Comb(f, g) => 
+        (typeOf(f), typeOf(g)) match {
+          case (Pretype.PTyFun(a, b), c) if a == c =>
+            b
+          case _ => throw InvalidPatternType
+        }
+      case Abs(x, ty, body) => Pretype.PTyFun(ty, typeOf(body))
+    }
+  }
+
   private def addTypeEquation(u : Pretype, v : Pretype) {
     if (u != v && u != Pretype.PTyAny && v != Pretype.PTyAny) 
       typeEquations = typeEquations + (u -> v)
@@ -170,9 +187,25 @@ class Unification {
     m
   }
 
+  private def reduce(u : HOPattern, ts : List[HOPattern]) : HOPattern = {
+    (u, ts) match {
+      case (Abs(x, ty, body), t :: ts) =>
+        reduce(substVar(body, x, t), ts)
+      case (u, t :: ts) =>
+        reduce(Comb(u, t), ts)
+      case (u, List()) => u  
+    }
+  }
+
   private def devar(theta : Substitution, u : HOPattern) : HOPattern = {
-    // to be implemented
-    u
+    strip(u) match {
+      case (f : MetaVar, ts) => 
+        lookup(f.name, theta) match {
+          case None => u
+          case Some(t) => devar(theta, reduce(t, ts))
+        }
+      case _ => u
+    }
   }
 
   private def strip(u : HOPattern) : (HOPattern, List[HOPattern]) = {
@@ -195,6 +228,34 @@ class Unification {
         else Abs(v, ty, substVar(body, x, y))
       case Comb(f, g) =>
         Comb(substVar(f, x, y), substVar(g, x, y))
+      case _ => u
+    }
+  }
+
+  private def isFreeIn(x : IndexedName, u : HOPattern) : Boolean = {
+    u match {
+      case Var(v, _) => v == x
+      case Abs(v, _, body) =>
+        if (v == x) false
+        else isFreeIn(x, body)
+      case Comb(f, g) =>
+        isFreeIn(x, f) || isFreeIn(x, g)
+      case _ => false
+    }
+  }
+
+  private def substVar(u : HOPattern, x : IndexedName, y : HOPattern) : HOPattern = {
+    u match {
+      case Var(v, _) if v == x => y
+      case Abs(v, ty, body) => 
+        if (v == x) u
+        else if (!isFreeIn(v, y))
+          Abs(v, ty, substVar(body, x, y))
+        else {
+          val w = freshName(v.name)
+          Abs(w, ty, substVar(substVar(body, v, w), x, y))
+        } 
+      case Comb(f, g) => Comb(substVar(f, x, y), substVar(g, x, y))
       case _ => u
     }
   }
@@ -229,10 +290,7 @@ class Unification {
     while (!fs.isEmpty) {
       val f = fs.head
       val g = gs.head
-      if (f.name == g.name) {
-        addTypeEquation(f.ty, g.ty)
-        hs = f :: hs
-      }
+      if (f.name == g.name) hs = f :: hs
       fs = fs.tail
       gs = gs.tail
     }
@@ -241,12 +299,6 @@ class Unification {
 
   private def varsetOf(fs : List[Var]) : Set[IndexedName] = {
     fs.map(_.name).toSet
-  }
-
-  private def varmapOf(fs : List[Var]) : Map[IndexedName, Pretype] = {
-    var m : Map[IndexedName, Pretype] = Map()
-    for (f <- fs) m = m + (f.name -> f.ty)
-    m
   }
 
   private def lookupVar(f : IndexedName, xs : List[Var]) : Option[Var] = {
@@ -265,16 +317,6 @@ class Unification {
       }
     }
     ys.reverse
-  }
-
-  private def addTypeEquations(indices : Set[IndexedName], xs : List[Var], ys : List[Var]) = {
-    var us = lookupVars(indices, xs)
-    var vs = lookupVars(indices, ys)
-    while (!us.isEmpty) {
-      addTypeEquation(us.head.ty, vs.head.ty)
-      us = us.tail
-      vs = vs.tail
-    }
   }
 
   private def lambda(xs : List[Var], h : HOPattern, hs : List[Var]) : HOPattern = {
@@ -308,14 +350,11 @@ class Unification {
     val xs = varsetOf(fs)
     val ys = varsetOf(gs)
     if (xs subsetOf ys) {
-      addTypeEquations(xs, fs, gs)
       (g.name -> lambda(gs, f, fs)) :: theta
     } else if (ys subsetOf xs) {
-      addTypeEquations(ys, fs, gs)
       (f.name -> lambda(fs, g, gs)) :: theta
     } else {
       val zs = (xs intersect ys)
-      addTypeEquations(zs, fs, gs)
       val h = freshMetaVar
       val hs = lookupVars(zs, fs)
       (f.name -> lambda(fs, h, hs)) :: (g.name -> lambda(gs, h, hs)) :: theta
@@ -354,20 +393,18 @@ class Unification {
     }
   }
 
-  private def proj(varnames : Map[IndexedName, Pretype], theta : Substitution, t : HOPattern) : Substitution = {
+  private def proj(varnames : Set[IndexedName], theta : Substitution, t : HOPattern) : Substitution = {
     strip(devar(theta, t)) match {
-      case (Abs(x, ty, body), List()) => proj(varnames + (x -> ty), theta, body)
+      case (Abs(x, ty, body), List()) => proj(varnames + x, theta, body)
       case (_ : Const, ts) => proj(varnames, theta, ts)
-      case (Var(v, ty), ts) => 
-        varnames.get(v) match {
-          case None => throw Fail
-          case Some(ty2) => 
-            addTypeEquation(ty, ty2)
-            proj(varnames, theta, ts)
-        }
+      case (Var(v, _), ts) => 
+        if (varnames.contains(v)) 
+          proj(varnames, theta, ts) 
+        else
+          throw Fail
       case (f : MetaVar, ts) =>
         val xs = forceHOP(ts)
-        val zs = varsetOf(xs) intersect varnames.keySet
+        val zs = varsetOf(xs) intersect varnames
         val hs = lookupVars(zs, xs)
         val h = freshMetaVar
         (f.name -> lambda(xs, h, hs)) :: theta
@@ -375,7 +412,7 @@ class Unification {
     }
   }
 
-  private def proj(varnames : Map[IndexedName, Pretype], _theta : Substitution, ts : List[HOPattern]) : Substitution = {
+  private def proj(varnames : Set[IndexedName], _theta : Substitution, ts : List[HOPattern]) : Substitution = {
     var theta = _theta
     for (t <- ts) {
       theta = proj(varnames, theta, t)
@@ -387,15 +424,14 @@ class Unification {
     t : HOPattern) : Substitution =
   {
     if (occurs(f.name, theta, t)) throw Fail
-    proj(varmapOf(fs), (f.name -> lambda(fs, t, List()))::theta, t)
+    proj(varsetOf(fs), (f.name -> lambda(fs, t, List()))::theta, t)
   }
 
   private def rigidrigid(theta : Substitution, f : HOPattern, fs : List[HOPattern],
     g : HOPattern, gs : List[HOPattern]) : Substitution =
   {
     (f, g) match {
-      case (Var(x, x_ty), Var(y, y_ty)) if x == y =>
-        addTypeEquation(x_ty, y_ty)
+      case (Var(x, _), Var(y, _)) if x == y =>
         unify(theta, fs, gs)
       case (Const(x, x_ty), Const(y, y_ty)) if x == y =>
         addTypeEquation(x_ty, y_ty)
@@ -407,10 +443,8 @@ class Unification {
   private def unify(theta : Substitution, u : HOPattern, v : HOPattern) : Substitution = {
     (devar(theta, u), devar(theta, v)) match {
       case (Abs(x, x_ty, x_body), Abs(y, y_ty, y_body)) if x == y =>
-        addTypeEquation(x_ty, y_ty)
         unify(theta, x_body, y_body)
       case (Abs(x, x_ty, x_body), Abs(y, y_ty, y_body)) =>
-        addTypeEquation(x_ty, y_ty)
         val z = freshName(x.name)
         unify(theta, substVar(x_body, x, z), substVar(y_body, y, z))
       case (Abs(x, ty, body), t) =>
@@ -444,6 +478,7 @@ class Unification {
   def unify(u : HOPattern, v : HOPattern) : (Map[Integer, HOPattern], Map[Integer, Pretype]) = {
     register(u)
     register(v)
+    addTypeEquation(typeOf(u), typeOf(v))
     val subst = unify(List(), u, v)
     val typeSubst = Pretype.solve(typeEquations)
     if (typeSubst == null) throw Fail
