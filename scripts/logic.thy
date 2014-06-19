@@ -11,6 +11,7 @@ show '∀ q. q = x'
 let zDef = 'z = x'
 show ('z', zDef)
 show infinity
+val oldinfinity = infinity
 choose infinity = 'inf' from infinity
 show infinity
 show \root\infinity
@@ -68,12 +69,18 @@ show x
 show fresh "x"
 
 def 
-  dest_conj t =
+  dest t =
     match t
-      case '‹p› ∧ ‹q›' => (p, q)
+      case '‹p› ∧ ‹q›' => (1, p, q)
+      case '∃ X. ‹p› X ∧ ‹q› X' => (2, p, q)
+      case '‹p› = ‹q›' => (3, p, q)
+      case '∀ x. ‹p› x = ‹q› x' => (4, p, q)
       case _ => nil  
 
-show dest_conj infinity
+show dest infinity
+show dest oldinfinity
+show dest '∀ q. q = y'
+show dest '∀ q. q = x'
 
 assume 'x = x'
 

@@ -165,8 +165,7 @@ private class Unification {
       case MetaVar(_, ty) => ty
       case Comb(f, g) => 
         (typeOf(f), typeOf(g)) match {
-          case (Pretype.PTyFun(a, b), c) if a == c =>
-            b
+          case (Pretype.PTyFun(a, b), c) if a == c => b
           case _ => throw InvalidPatternType
         }
       case Abs(x, ty, body) => Pretype.PTyFun(ty, typeOf(body))
@@ -178,11 +177,25 @@ private class Unification {
       typeEquations = typeEquations + (u -> v)
   }
 
+  private def flatten(theta : Substitution, u : HOPattern) : HOPattern = {
+    u match {
+      case MetaVar(m, ty) =>
+        lookup(m, theta) match {
+          case None => u
+          case Some(u) => flatten(theta, u)
+        }
+      case Abs(x, ty, body) => Abs(x, ty, flatten(theta, body))
+      case Comb(f, g) => Comb(flatten(theta, f), flatten(theta, g))
+      case _ => u
+    }
+  }
+
   private def asMap(subst : Substitution, typeSubst : Integer => Option[Pretype]) : Map[Integer, HOPattern] = {
     // to be implemented: convert lazy substitution into strict substitution
     var m : Map[Integer, HOPattern] = Map()
     for ((i, p) <- subst) {
-      m = m + (i -> instTypeVars(p, typeSubst))
+      val q = flatten(subst, p)
+      m = m + (i -> instTypeVars(q, typeSubst))
     }
     m
   }

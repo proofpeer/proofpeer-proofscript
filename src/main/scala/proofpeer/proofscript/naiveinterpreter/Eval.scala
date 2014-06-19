@@ -949,7 +949,7 @@ class Eval(states : States, kernel : Kernel,
 						}
 					case r => r
 				}
-			case PLogic(preterm) =>
+			case PLogic(_preterm) =>
 				val term = 
 					value match {
 						case TermValue(value) => value
@@ -964,6 +964,11 @@ class Eval(states : States, kernel : Kernel,
 						case _ => return success(None)
 					}
 				val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
+				val preterm = 
+					Preterm.inferPattern(tc, _preterm) match {
+						case Left(preterm) => preterm
+						case Right(errors) => return fail(pat, "ill-typed pattern")
+					}
 				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
 				HOPattern.patternMatch(state.context, hop, term) match {
 					case Right(invalid) => 
