@@ -461,4 +461,8 @@ object KernelUtils {
     }
   }
 
+  def betaEtaEq(u : Term, v : Term) : Boolean = {
+    alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v))
+  }
+
 }

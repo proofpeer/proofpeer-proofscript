@@ -8,11 +8,12 @@ let 'y'
 show '∀ q. q = y'
 let 'x : 𝒰 → _ : _ → ℙ'
 show '∀ q. q = x'
-let zDef = 'z = x'
+let zDef: 'z = x'
 show ('z', zDef)
 show infinity
 val oldinfinity = infinity
-choose infinity = 'inf' from infinity
+choose infinity: 'inf' 
+  infinity
 show infinity
 show \root\infinity
 
@@ -33,7 +34,7 @@ show q
 context
   let 'z_2'
   let 'z_1'
-  assume p = 'z_1 = z_2'
+  assume p: 'z_1 = z_2'
   q = p
 
 show q
@@ -64,7 +65,7 @@ let 'x_2'
 let 'x_3'
 let 'x_4'
 show fresh "x"
-let x = '‹fresh "x"›'
+let x: '‹fresh "x"›'
 show x
 show fresh "x"
 
@@ -82,11 +83,16 @@ show dest oldinfinity
 show dest '∀ q. q = y'
 show dest '∀ q. q = x'
 
-theorem cool = 'x'
-  5
-  let 'nice : ℙ'
-  assume m = 'nice'
-  m
+theorem cool: 'x = x' 
+  reflexive 'x'
+
+show cool
+
+theorem nice: '∀ p. p → p' 
+  let 'p : ℙ'
+  assume 'p'
+
+show nice
 
 assume 'x = x'
 

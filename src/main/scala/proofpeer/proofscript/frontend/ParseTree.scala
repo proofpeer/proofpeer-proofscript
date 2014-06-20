@@ -303,9 +303,9 @@ object ParseTree {
        if (result_name.isDefined) Set(result_name.get) else Set())
   }
 
-  case class STChoose(thm_name : Option[String], tm : Expr, thm : Expr) extends Statement {
+  case class STChoose(thm_name : Option[String], tm : Expr, proof : Block) extends Statement {
     protected def calcVars = 
-      (tm.freeVars ++ thm.freeVars, 
+      (tm.freeVars ++ proof.freeVars, 
        if (thm_name.isDefined) Set(thm_name.get) else Set())
   }
 

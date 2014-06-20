@@ -121,7 +121,6 @@ val g_literals =
   litrule("Assume", "assume") ++
   litrule("Let", "let") ++
   litrule("Choose", "choose") ++
-  litrule("From", "from") ++
   litrule("Theory", "theory") ++
   litrule("Extends", "extends") ++
   litrule("Context", "context") ++
@@ -502,46 +501,43 @@ val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), c => STReturn(c.PExpr.resultAs[Expr]))
     
 val g_assume =
-  arule("ST", "Assume OptAssign PExpr", 
+  arule("ST", "Assume OptAssign PrimitiveExpr", 
     CS.and(
       CS.Indent("Assume", "OptAssign"),
-      CS.Indent("Assume", "PExpr")),
-    c => STAssume(c.OptAssign.resultAs[Option[String]], c.PExpr.resultAs[Expr]))
+      CS.Indent("Assume", "PrimitiveExpr")),
+    c => STAssume(c.OptAssign.resultAs[Option[String]], c.PrimitiveExpr.resultAs[Expr]))
 
 val g_let = 
-  arule("ST", "Let OptAssign PExpr",
+  arule("ST", "Let OptAssign PrimitiveExpr",
     CS.and(
       CS.Indent("Let", "OptAssign"),
-      CS.Indent("Let", "PExpr")),
-    c => STLet(c.OptAssign.resultAs[Option[String]], c.PExpr.resultAs[Expr]))
+      CS.Indent("Let", "PrimitiveExpr")),
+    c => STLet(c.OptAssign.resultAs[Option[String]], c.PrimitiveExpr.resultAs[Expr]))
 
 val g_choose = 
-  arule("ST", "Choose OptAssign PExpr_1 From PExpr_2",
+  arule("ST", "Choose OptAssign PrimitiveExpr Block",
     CS.and(
       CS.Indent("Choose", "OptAssign"),
-      CS.Indent("Choose", "PExpr_1"),
-      CS.ifThenElse(CS.Line("Choose", "From"),
-        CS.Indent("Choose", "PExpr_2"),
-        CS.and(Subalign("Choose", "From"), CS.Indent("From", "PExpr_2")))),
+      CS.Indent("Choose", "PrimitiveExpr"),
+      CS.Indent("Choose", "Block")),
     c => STChoose(c.OptAssign.resultAs[Option[String]], 
-                  c.PExpr_1.resultAs[Expr],
-                  c.PExpr_2.resultAs[Expr])) 
+                  c.PrimitiveExpr.resultAs[Expr],
+                  c.Block.resultAs[Block])) 
 
 val g_theorem = 
-  arule("ST", "Theorem OptAssign Expr Block",
+  arule("ST", "Theorem OptAssign PrimitiveExpr Block",
     CS.and(
       CS.Indent("Theorem", "OptAssign"),
-      CS.Indent("Theorem", "Expr"),
-      CS.Indent("Theorem", "Block"),
-      CS.Indent("Block", "Expr")),
+      CS.Indent("Theorem", "PrimitiveExpr"),
+      CS.Indent("Theorem", "Block")),
     c => STTheorem(c.OptAssign.resultAs[Option[String]],
-                   c.Expr.resultAs[Expr],
+                   c.PrimitiveExpr.resultAs[Expr],
                    c.Block.resultAs[Block]))
 
 
 val g_logic_statements = 
   arule("OptAssign", "", c => None) ++
-  arule("OptAssign", "Id Eq", c => Some(c.Id.text)) ++
+  arule("OptAssign", "Id Colon", c => Some(c.Id.text)) ++
   g_assume ++ g_let ++ g_choose ++ g_theorem
 
 val g_statement = 

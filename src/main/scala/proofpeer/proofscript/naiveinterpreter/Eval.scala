@@ -204,71 +204,19 @@ class Eval(states : States, kernel : Kernel,
 							for ((_, f) <- functions) f.state = defstate
 							state = state.bind(functions)
 					}
-				case STAssume(thm_name, tm) =>
-					evalTermExpr(state.freeze, tm) match {
-						case failed : Failed[_] => return fail(failed)
-						case Success(tm, _) =>
-							try {
-								val thm = state.context.assume(tm)
-								state = state.setContext(thm.context)
-								if (thm_name.isDefined) state = state.bind(Map(thm_name.get -> new TheoremValue(thm)))
-							} catch {
-								case ex : Utils.KernelException =>
-									return fail(st, "assume: "+ex.reason)
-							}
+				case st if isLogicStatement(st) => 
+					evalLogicStatement(state, st) match {
+						case f : Failed[_] => return fail(f)
+						case Success((_state, name, value), isReturnValue) =>
+							if (isReturnValue) return Success(_state, true)
+							state = _state
+							if (name.isDefined) state = state.bind(Map(name.get -> value))
+							if (i == num - 1) 
+								state.collect match {
+									case _ : Collect.One => state = state.addToCollect(value)
+									case _ => // do nothing
+								}
 					}
-				case st @ STLet(thm_name, tm) =>
-					evalPretermExpr(state.freeze, tm) match {
-						case failed : Failed[_] => return fail(failed)
-						case Success(ptm, _) =>
-							checkTypedName(ptm) match {
-								case None => 
-									letIsDef(ptm) match {
-										case None =>
-											return fail(st, "let can only handle introductions or simple definitions")
-										case Some((n, tys, right)) =>
-											evalLetDef(state, st, ptm, n, tys, right) match {
-												case failed : Failed[_] => return failed
-												case Success(updatedState, _) => state = updatedState
-											}		
-									}
-								case Some((n, tys)) =>
-									evalLetIntro(state, st, n, tys) match {
-										case failed : Failed[_] => return failed
-										case Success(updatedState, _) => state = updatedState
-									}
-							}
-					}
-				case STChoose(thm_name, tm, thm) =>
-					val fstate = state.freeze
-					evalPretermExpr(fstate, tm) match {
-						case failed : Failed[_] => return fail(failed)
-						case Success(ptm, _) =>
-							checkTypedName(ptm) match {
-								case None => return fail(tm, "name expected")
-								case Some((n, tys)) =>
-									if (n.namespace.isDefined) return fail(tm, "choose: constant must not have explicit namespace")
-									val name = Name(Some(state.context.namespace), n.name)
-									evalExpr(fstate, thm) match {
-										case failed : Failed[_] => return fail(failed)
-										case Success(TheoremValue(thm), _) =>
-											try {
-												val liftedThm = state.context.lift(thm, false)
-												val chosenThm = state.context.choose(name, liftedThm)
-												val ty = chosenThm.context.typeOfConst(name).get
-												if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
-													return fail(st, "declared type of constant does not match computed type")
-												state = state.setContext(chosenThm.context)
-												if (thm_name.isDefined) state = state.bind(Map(thm_name.get -> TheoremValue(chosenThm)))
-											}	catch {
-												case ex : Utils.KernelException =>
-													return fail(st, "choose: " + ex.reason)
-											}	
-										case Success(v, _) => return fail(thm, "Theorem expected, found: " + display(state, v))
-									} 
-							}
-					}
-
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1
@@ -276,6 +224,133 @@ class Eval(states : States, kernel : Kernel,
 		state.collect match {
 			case Collect.One(None) => fail(block, "block does not yield a value") 
 			case _ => success(state)
+		}
+	}
+
+	def isLogicStatement(st : Statement) : Boolean = {
+		st match {
+			case _ : STAssume => true
+			case _ : STLet => true
+			case _ : STChoose => true
+			case _ : STTheorem => true
+			case _ => false
+		}
+	}
+
+	def evalLogicStatement(state : State, st : Statement) : Result[(State, Option[String], StateValue)] = {
+		st match {
+			case STAssume(thm_name, tm) =>
+				evalTermExpr(state.freeze, tm) match {
+					case failed : Failed[_] => fail(failed)
+					case Success(tm, _) =>
+						try {
+							val thm = state.context.assume(tm)
+							success((state.setContext(thm.context), thm_name, new TheoremValue(thm)))
+						} catch {
+							case ex : Utils.KernelException =>
+								fail(st, "assume: "+ex.reason)
+						}
+				}
+			case st @ STLet(thm_name, tm) =>
+				evalPretermExpr(state.freeze, tm) match {
+					case failed : Failed[_] => fail(failed)
+					case Success(ptm, _) =>
+						checkTypedName(ptm) match {
+							case None => 
+								letIsDef(ptm) match {
+									case None =>
+										fail(st, "let can only handle introductions or simple definitions")
+									case Some((n, tys, right)) => evalLetDef(state, st, ptm, n, tys, right)
+								}
+							case Some((n, tys)) => evalLetIntro(state, st, n, tys) 
+						}
+				}
+			case STChoose(thm_name, tm, proof) =>
+				evalPretermExpr(state.freeze, tm) match {
+					case failed : Failed[_] => fail(failed)
+					case Success(ptm, _) =>
+						checkTypedName(ptm) match {
+							case None => fail(tm, "name expected")
+							case Some((n, tys)) =>
+								if (n.namespace.isDefined) return fail(tm, "choose: constant must not have explicit namespace")
+								val name = Name(Some(state.context.namespace), n.name)
+								evalProof(state, proof) match {
+									case failed : Failed[_] => fail(failed)
+									case Success(value, true) => 
+										Success((State.fromValue(value), thm_name, value), true)	
+									case Success(TheoremValue(thm), _) =>
+										try {
+											val liftedThm = state.context.lift(thm, false)
+											val chosenThm = state.context.choose(name, liftedThm)
+											val ty = chosenThm.context.typeOfConst(name).get
+											if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
+												return fail(st, "declared type of constant does not match computed type")
+											success((state.setContext(chosenThm.context), thm_name, TheoremValue(chosenThm)))
+										}	catch {
+											case ex : Utils.KernelException =>
+												return fail(st, "choose: " + ex.reason)
+										}	
+									case Success(v, _) => fail(proof, "Theorem expected, found: " + display(state, v))
+								} 
+						}
+				}
+			case STTheorem(thm_name, tm, proof) =>
+				evalTermExpr(state.freeze, tm) match {
+					case f : Failed[_] => fail(f)
+					case Success(prop, _) =>
+						if (state.context.typeOfTerm(prop) != Some(Type.Prop)) 
+							return fail(tm, "Proposition expected, found: " + display(state, TermValue(prop)))
+						evalProof(state, proof) match {
+							case f : Failed[_] => fail(f)
+							case Success(value, true) => 
+								Success((State.fromValue(value), thm_name, value), true)
+							case Success(TheoremValue(thm), _) =>
+								try {
+									val ctx = state.context
+									var liftedThm = ctx.lift(thm, false)
+									if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
+										val liftedThm2 = ctx.lift(thm, true)
+										if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) 
+											return fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm)))
+										liftedThm = liftedThm2
+									}
+									success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop))))
+								} catch {
+									case ex: Utils.KernelException => return fail(st, "theorem: " + ex.reason)
+								}
+							case Success(v, _) => fail(proof, "Theorem expected, found: " + display(state, v))
+						}
+				}
+			case _ =>
+				fail(st, "internal error: statement is not a logic statement")
+		}
+	}
+
+	def evalProof(state : State, proof : Block) : Result[StateValue] = {
+		evalBlock(state.setCollect(Collect.emptyOne), proof) match {
+			case f : Failed[_] => fail(f)
+			case Success(state, isReturnValue) => Success(state.reapCollect, isReturnValue)
+		}
+	}
+
+	def evalLetIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : 
+		Result[(State, Option[String], StateValue)] = 
+	{
+		val name = 
+			_name.namespace match {
+				case Some(ns) => return fail(st, "let intro: constant must not have explicit namespace")
+				case None => Name(Some(state.context.namespace), _name.name)
+			}
+		Pretype.solve(tys) match {
+			case None => fail(st, "let intro: inconsistent type constraints")
+			case Some(ty) =>
+				try {
+					var s = state.setContext(state.context.introduce(name, ty))
+					success((s, st.result_name, TermValue(Term.Const(name))))
+				} catch {
+					case ex: Utils.KernelException =>
+						return fail(st, "let intro: " + ex.reason)
+				}
 		}
 	}
 
@@ -288,30 +363,6 @@ class Eval(states : States, kernel : Kernel,
 					case None => None
 				}
 			case _ => None
-		}
-	}
-
-	def evalLetIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : Result[State] = {
-		//if (st.thm_name.isDefined) return fail(st, "constant introduction produces no theorem")
-		val name = 
-			_name.namespace match {
-				case Some(ns) => return fail(st, "let intro: constant must not have explicit namespace")
-				case None => Name(Some(state.context.namespace), _name.name)
-			}
-		Pretype.solve(tys) match {
-			case None => fail(st, "let intro: inconsistent type constraints")
-			case Some(ty) =>
-				try {
-					var s = state.setContext(state.context.introduce(name, ty))
-					if (st.result_name.isDefined) {
-						val c = TermValue(Term.Const(name))
-						s = s.bind(Map(st.result_name.get -> c))
-					}
-					success(s)
-				} catch {
-					case ex: Utils.KernelException =>
-						return fail(st, "let intro: " + ex.reason)
-				}
 		}
 	}
 
@@ -329,7 +380,7 @@ class Eval(states : States, kernel : Kernel,
 	}
 
 	def evalLetDef(state : State, st : STLet, ptm : Preterm, _name : Name, 
-		tys : List[Pretype], _rightHandSide : Preterm) : Result[State] = 
+		tys : List[Pretype], _rightHandSide : Preterm) : Result[(State, Option[String], StateValue)] = 
 	{
 		val name = 
 			_name.namespace match {
@@ -343,10 +394,7 @@ class Eval(states : States, kernel : Kernel,
 			case Success(tm, _) =>	
 				try {
 					val thm = state.context.define(name, tm)
-					var updatedState = state.setContext(thm.context)
-					if (st.result_name.isDefined) 
-						updatedState = updatedState.bind(Map(st.result_name.get -> TheoremValue(thm)))
-					success(updatedState)
+					success((state.setContext(thm.context), st.result_name, TheoremValue(thm)))
 				} catch {
 					case ex: Utils.KernelException =>
 						return fail(st, "let def: " + ex.reason)

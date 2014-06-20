@@ -288,6 +288,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       mk_theorem(this, mk_equals(a, b, ty))      
     }
 
+    def normalize(p : Theorem, q : Term) : Theorem = {
+      checkTheoremContext(p)
+      getTypeOfTerm(q)
+      if (KernelUtils.betaEtaEq(p.proposition, q))
+        mk_theorem(this, q)
+      else 
+        failwith("propositions are not alpha/beta/eta equivalent")
+    }
+
+
     def transitive(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)
