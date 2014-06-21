@@ -69,6 +69,10 @@ let x: '‹fresh "x"›'
 show x
 show fresh "x"
 
+# This is a comment.
+  Comments can span multiple lines,
+  no problem!!
+
 def 
   dest t =
     match t

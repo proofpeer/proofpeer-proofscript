@@ -217,6 +217,7 @@ class Eval(states : States, kernel : Kernel,
 									case _ => // do nothing
 								}
 					}
+				case _ : STComment => // ignore comment and do nothing
 				case _ => return fail(st, "statement has not been implemented yet: "+st)
 			}
 			i = i + 1

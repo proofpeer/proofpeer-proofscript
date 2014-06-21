@@ -78,6 +78,10 @@ val g_string_literals =
 
 val g_literals =
   g_string_literals ++
+  ltokenrule("Hash", '#') ++
+  ltokenrule("AnyChar", Range.universal) ++
+  lexrule("AnyToken", "AnyChar") ++
+  lexrule("AnyToken", "AnyToken AnyChar") ++
   ltokenrule("Plus", '+') ++  
   ltokenrule("Minus", '-') ++
   ltokenrule("Times", '*') ++
@@ -437,6 +441,12 @@ val g_pattern =
   arule("PatternList1", "PatternList1 Comma Pattern", c => c.PatternList1.resultAs[Vector[Pattern]] :+ c.Pattern.resultAs[Pattern]) ++
   arule("PatternList1", "PatternList1 Comma", c => c.PatternList1.resultAs[Vector[Pattern]] :+ PNil)
 
+val g_comment =
+  arule("Comment", "CommentText", c => Comment(c.CommentText.text)) ++
+  arule("CommentText", "Hash", c => null) ++
+  arule("CommentText", "CommentText AnyToken", CS.Indent("CommentText", "AnyToken"), c => null) ++
+  arule("ST", "Comment", c => STComment(c.Comment.resultAs[Comment]))
+
 val g_show =
   arule("ST", "Show PExpr",
     CS.Indent("Show", "PExpr"),
@@ -542,7 +552,7 @@ val g_logic_statements =
 
 val g_statement = 
   g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++ g_fail ++
-  g_logic_statements ++
+  g_logic_statements ++ g_comment ++
   arule("Statement", "Expr", 
     CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
     c => STExpr(c.Expr.resultAs[Expr])) ++

@@ -239,8 +239,16 @@ object ParseTree {
   case object PNil extends Pattern {
     protected def calcVars = (Set(), Set())
   }
+
+  case class Comment(text : String) extends ParseTree {
+    protected def calcVars = (Set(), Set())
+  }
   
   sealed trait Statement extends ParseTree
+
+  case class STComment(comment : Comment) extends Statement {
+    protected def calcVars = (comment.freeVars, Set())
+  }
   
   case class STExpr(expr : Expr) extends Statement {
     protected def calcVars = (expr.freeVars, Set())
