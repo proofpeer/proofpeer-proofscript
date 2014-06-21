@@ -95,7 +95,7 @@ def unify(u : HOPattern, v : HOPattern) : Either[(Map[Integer, HOPattern], Map[I
   } catch {
     case alg.Fail => Right(false)
     case alg.InvalidPattern => Right(true)
-    case alg.InvalidPatternType => Utils.failwith("unify: patterns are ill-typed")
+    case alg.InvalidPatternType => Right(true)
   }
 }
 
