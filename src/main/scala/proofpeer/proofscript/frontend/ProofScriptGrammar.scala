@@ -417,7 +417,7 @@ val g_controlflow =
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++
   arule("AtomicPattern", "Nil", c => PNil) ++
-  arule("AtomicPattern", "Id", c => PId(c.Id.text)) ++
+  arule("AtomicPattern", "IndexedName", c => PId(c.IndexedName.text)) ++
   arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
   arule("AtomicPattern", "QuotationMark StringLiteral QuotationMark", 
     c => PString(mkStringLiteral(c.StringLiteral.codes).value)) ++
@@ -471,8 +471,8 @@ val g_val =
   arule("ST", "Val IdList", 
     CS.Indent("Val", "IdList"),
     c => STValIntro(c.IdList.resultAs[List[Id]])) ++
-  arule("IdList", "Id", c => List[Id](Id(c.Id.text))) ++
-  arule("IdList", "IdList Id", c => c.IdList.resultAs[List[Id]] :+ Id(c.Id.text))
+  arule("IdList", "IndexedName", c => List[Id](Id(c.IndexedName.text))) ++
+  arule("IdList", "IdList IndexedName", c => c.IdList.resultAs[List[Id]] :+ Id(c.IndexedName.text))
 
 
 val g_assign = 
@@ -502,12 +502,12 @@ val g_def =
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
       c => c.DefCases.resultAs[Vector[DefCase]] :+ c.DefCase.resultAs[DefCase]) ++
-  arule("DefCase", "Id Pattern Eq Block",
+  arule("DefCase", "IndexedName Pattern Eq Block",
       CS.and(
-          CS.Indent("Id", "Pattern"),
-          CS.or(CS.SameLine("Pattern", "Eq"), CS.SameLine("Id", "Eq")),
-          CS.Indent("Id", "Block")),
-      c => DefCase(c.Id.text, c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
+          CS.Indent("IndexedName", "Pattern"),
+          CS.or(CS.SameLine("Pattern", "Eq"), CS.SameLine("IndexedName", "Eq")),
+          CS.Indent("IndexedName", "Block")),
+      c => DefCase(c.IndexedName.text, c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
       
 val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), c => STReturn(c.PExpr.resultAs[Expr]))
@@ -549,7 +549,7 @@ val g_theorem =
 
 val g_logic_statements = 
   arule("OptAssign", "", c => None) ++
-  arule("OptAssign", "Id Colon", c => Some(c.Id.text)) ++
+  arule("OptAssign", "IndexedName Colon", c => Some(c.IndexedName.text)) ++
   g_assume ++ g_let ++ g_choose ++ g_theorem
 
 val g_test = 
@@ -584,8 +584,8 @@ val g_header =
   arule("AliasList", "AliasList Alias", 
     CS.Align("AliasList", "Alias"),
     c => c.Alias.resultAs[(Id, Namespace)] :: c.AliasList.resultAs[List[(Id, Namespace)]]) ++
-  arule("Alias", "Id Eq Namespace", 
-    c => (Id(c.Id.text), Namespace(c.Namespace.text)))
+  arule("Alias", "IndexedName Eq Namespace", 
+    c => (Id(c.IndexedName.text), Namespace(c.Namespace.text)))
 
 val g_prog = 
   Syntax.grammar ++

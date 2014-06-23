@@ -203,7 +203,7 @@ object Syntax {
     lexrule("Namespace", "AbsoluteNamespace") ++
     lexrule("Namespace", "RelativeNamespace") ++
     lexrule("RelativeName", "IndexedName") ++
-    lexrule("RelativeName", "Id Backslash RelativeName") ++
+    lexrule("RelativeName", "IndexedName Backslash RelativeName") ++
     lexrule("Name", "RelativeName", 1) ++
     lexrule("Name", "Backslash RelativeName") ++
     lexrule("IndexedName", "Id", 1) ++
