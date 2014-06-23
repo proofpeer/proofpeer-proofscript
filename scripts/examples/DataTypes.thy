@@ -65,3 +65,40 @@ assert nil <> (x => x)
 # Functions cannot be compared with each other
 failure (x => x) == (x => x)
 failure (x => x) <> (x => x)
+
+# This demonstrates failure in a neat way
+failure failure 1 == 1
+
+# Both strings and vectors have a size
+assert size "hello" == size ("h", "e", "l", "l", "o") == 5
+
+# There are the usual operations on booleans
+assert not false
+assert false or true
+assert not (false and true)
+
+# And addition, multiplication, division and modulo for integers
+assert 7 + 5 == 12 and 7 * 5 == 35 and 7 / 5 == 1 and 7 mod 5 == 2
+
+# Both strings and vectors can be concatenated
+assert "hel" ++ "lo" == "hello" and ["h", "e", "l"] ++ ["l", "o"] == ["h", "e", "l", "l", "o"]
+
+# For vectors, you can prepend and append elements
+assert "h" <+ ["e", "l", "l"] +> "o" == ["h", "e", "l", "l", "o"]
+
+# You can create ranges of integers like that:
+assert 2 to 6 == [2, 3, 4, 5, 6] 
+assert 6 to 2 == []
+assert 6 downto 2 == [6, 5, 4, 3, 2]
+assert 2 downto 6 == []
+
+# Selecting individual characters from a string works like that:
+assert "hello" 0 == "h" and "hello" 1 == "e" and "hello" 2 == "l" and "hello" 4 == "o"
+failure "hello" (-1) 
+failure "hello" 5
+assert "hello" (1 to 3) == "ell"
+
+# Selecting individual elements from a vector works the same:
+assert ["h", "e", "l", "l", "o"] (1 to 3) == ["e", "l", "l"]
+assert ["h", "e", "l", "l", "o"] (0, 2, 4) == ["h", "l", "o"]
+failure ["h", "e", "l", "l", "o"] (1 to 5)
