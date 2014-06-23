@@ -482,10 +482,10 @@ class Eval(states : States, kernel : Kernel,
 							case (false, true, true) => Some(IsGreaterOrEqual)
 							case (true, _, true) => Some(IsNEq)
 						}
-				} else None
+				} else Some(IsNEq)
 			case (TermValue(u), TermValue(v)) => 
 				import KernelUtils._
-				if (alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v)))
+				if (betaEtaEq(u, v))
 					Some(IsEq)
 				else
 					Some(IsNEq)
@@ -494,7 +494,7 @@ class Eval(states : States, kernel : Kernel,
 				try { 
 				  val u = state.context.lift(p).proposition
 				  val v = state.context.lift(q).proposition
-					if (alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v)))
+					if (betaEtaEq(u, v))
 						Some(IsEq)
 					else
 						Some(IsNEq)				  
