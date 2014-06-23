@@ -172,8 +172,21 @@ class Eval(states : States, kernel : Kernel,
 				case STFail(Some(expr)) =>
 					evalExpr(state.freeze, expr) match {
 						case f : Failed[_] => return fail(f)
-						case Success(value, _) => return fail(st, "fail: "+value)
-					}				
+						case Success(value, _) => return fail(st, "fail: "+display(state, value))
+					}		
+				case STAssert(expr) =>
+					evalExpr(state.freeze, expr) match {
+						case f : Failed[_] => return fail(f)
+						case Success(BoolValue(true), _) => // do nothing
+						case Success(BoolValue(false), _) => return fail(st, "Assertion does not hold")
+						case Success(value, _) => return fail(st, "Assertion does not hold: " + display(state, value))
+					}
+				case STFailure(expr) =>
+					evalExpr(state.freeze, expr) match {
+						case f : Failed[_] => // do nothing
+						case Success(value, _) => 
+							return fail(st, "Failure expected, but evaluates successfully to: " + display(state, value))
+					}		
 				case STControlFlow(controlflow) =>
 					val (changedCollect, collect) = 
 						state.collect match {

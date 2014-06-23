@@ -133,7 +133,9 @@ val g_literals =
   litrule("Nil", "nil") ++
   litrule("To", "to") ++
   litrule("Downto", "downto") ++
-  litrule("Theorem", "theorem")
+  litrule("Theorem", "theorem") ++
+  litrule("Assert", "assert") ++
+  litrule("Failure", "failure")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -550,9 +552,13 @@ val g_logic_statements =
   arule("OptAssign", "Id Colon", c => Some(c.Id.text)) ++
   g_assume ++ g_let ++ g_choose ++ g_theorem
 
+val g_test = 
+  arule("ST", "Assert PExpr", CS.Indent("Assert", "PExpr"), c => STAssert(c.PExpr.resultAs[Expr])) ++
+  arule("ST", "Failure PExpr", CS.Indent("Failure", "PExpr"), c => STFailure(c.PExpr.resultAs[Expr]))
+
 val g_statement = 
   g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++ g_fail ++
-  g_logic_statements ++ g_comment ++
+  g_logic_statements ++ g_comment ++ g_test ++
   arule("Statement", "Expr", 
     CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
     c => STExpr(c.Expr.resultAs[Expr])) ++
