@@ -554,7 +554,7 @@ val g_logic_statements =
 
 val g_test = 
   arule("ST", "Assert PExpr", CS.Indent("Assert", "PExpr"), c => STAssert(c.PExpr.resultAs[Expr])) ++
-  arule("ST", "Failure PExpr", CS.Indent("Failure", "PExpr"), c => STFailure(c.PExpr.resultAs[Expr]))
+  arule("ST", "Failure Block", CS.Indent("Failure", "Block"), c => STFailure(c.Block.resultAs[Block]))
 
 val g_statement = 
   g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++ g_fail ++

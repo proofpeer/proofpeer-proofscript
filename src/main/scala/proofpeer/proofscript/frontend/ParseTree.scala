@@ -270,8 +270,8 @@ object ParseTree {
     protected def calcVars = (expr.freeVars, Set())
   }
 
-  case class STFailure(expr : Expr) extends Statement {
-    protected def calcVars = (expr.freeVars, Set())
+  case class STFailure(block : Block) extends Statement {
+    protected def calcVars = (block.freeVars, Set())
   }
   
   case class STVal(pat : Pattern, body : Block) extends Statement {

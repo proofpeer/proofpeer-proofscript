@@ -181,10 +181,17 @@ class Eval(states : States, kernel : Kernel,
 						case Success(BoolValue(false), _) => return fail(st, "Assertion does not hold")
 						case Success(value, _) => return fail(st, "Assertion does not hold: " + display(state, value))
 					}
-				case STFailure(expr) =>
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => // do nothing
-						case Success(value, _) => 
+				case STFailure(block) =>
+					evalBlock(state.freeze.setCollect(Collect.emptyMultiple), block) match {
+						case f : Failed[_] => 
+							val location : String = 
+								st.sourcePosition.span match {
+									case None => ""
+									case Some(span) => ":" + (span.firstRow + 1)
+								}						
+							println("** failure intercepted ("+namespace+location+"): "+f.error)
+						case Success(newState, _) =>
+							val value = newState.reapCollect 
 							return fail(st, "Failure expected, but evaluates successfully to: " + display(state, value))
 					}		
 				case STControlFlow(controlflow) =>
