@@ -498,6 +498,15 @@ val g_def =
   arule("ST", "Def DefCases",
       CS.Indent("Def", "DefCases"),
       c => mkSTDef(c.DefCases.resultAs[Vector[DefCase]])) ++
+  arule("ST", "Def IndexedName Pattern Eq Block", 
+      CS.and(
+        CS.SameLine("Def", "IndexedName"),
+        CS.Indent("Def", "Pattern"),
+        CS.Indent("Def", "Eq"),
+        CS.Indent("Def", "Block"), 
+        CS.not(CS.SameLine("Def", "Block"))),
+      c => mkSTDef(Vector(DefCase(c.IndexedName.text, c.Pattern.resultAs[Pattern], 
+        c.Block.resultAs[Block])))) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
@@ -505,7 +514,7 @@ val g_def =
   arule("DefCase", "IndexedName Pattern Eq Block",
       CS.and(
           CS.Indent("IndexedName", "Pattern"),
-          CS.or(CS.SameLine("Pattern", "Eq"), CS.SameLine("IndexedName", "Eq")),
+          //CS.or(CS.SameLine("Pattern", "Eq"), CS.SameLine("IndexedName", "Eq")),
           CS.Indent("IndexedName", "Block")),
       c => DefCase(c.IndexedName.text, c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
       

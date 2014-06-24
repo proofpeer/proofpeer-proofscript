@@ -18,8 +18,8 @@ q = 6
 val v = times_q 7
 assert 35 == u == v <> q * 7 == 42
 
-val define_later
-assert define_later == nil
+val define_later_1 define_later_2
+assert define_later_1 == define_later_2 == nil
 
 val init
 if v < 10 then
