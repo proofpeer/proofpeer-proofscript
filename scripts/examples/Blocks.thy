@@ -30,7 +30,7 @@ def pyramid n =
       i
     0
 
-assert pyramid 0 == (0,0)
+assert pyramid 0 == (0, 0)
 assert pyramid 1 == (0, 1, 0)
 assert pyramid 2 == (0, 1, 2, 1, 0)
 assert pyramid 5 == (0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0) 
