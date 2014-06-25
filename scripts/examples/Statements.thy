@@ -157,7 +157,7 @@ assert lookup ("Marilyn", proofpeers) == nil
 # fail
   -------------------------------
 
-# This function computes the integer square root of an integer and assumes that this 
+# This function computes the integer square root of an integer if it
   actually exists. Otherwise it fails.
 def sqrt x =
   if x < 0 then fail

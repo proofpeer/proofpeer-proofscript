@@ -211,7 +211,7 @@ class Eval(states : States, kernel : Kernel,
 							state = if (changedCollect) value.setCollect(state.collect) else value
 					}
 				case stdef : STDef =>
-					state.env.lookup(stdef.freeVars) match {
+					lookupVars(state, stdef.freeVars) match {
 						case Right(xs) =>
 							var error = "definition depends on unknown free variables:"
 							for (x <- xs) error = error + " " + x
@@ -534,28 +534,48 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
-	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
-		def lookup(full : Boolean, namespace : Namespace, name : String) : Result[StateValue] = {
-			val r = 
-				if (full) 
-					scriptNameresolution.fullResolution(namespace) 
-				else 
-					scriptNameresolution.baseResolution(namespace)
-			r.get(name) match {
-				case None => fail(expr, "unknown identifier")
-				case Some(namespaces) =>
-					namespaces.size match {
-						case 0 => fail(expr, "unknown identifier")
-						case 1 => 
-							val ns = namespaces.head
-							success(states.lookup(ns).get.lookup(name).get)
-						case n =>
-							var display = ""
-							for (ns <- namespaces) display = display + ns + " "
-							fail(expr, "ambiguous identifier " + name + ", defined in "+n+" different namespaces: "+display)
+	def lookupVar(p : ParseTree, state : State, full : Boolean, namespace : Namespace, name : String) : Result[StateValue] = {
+		val r = 
+			if (full) 
+				scriptNameresolution.fullResolution(namespace) 
+			else 
+				scriptNameresolution.baseResolution(namespace)
+		r.get(name) match {
+			case None => fail(p, "unknown identifier: "+name)
+			case Some(namespaces) =>
+				namespaces.size match {
+					case 0 => fail(p, "unknown identifier: "+name)
+					case 1 => 
+						val ns = namespaces.head
+						success(states.lookup(ns).get.lookup(name).get)
+					case n =>
+						var display = ""
+						for (ns <- namespaces) display = display + ns + " "
+						fail(p, "ambiguous identifier " + name + ", defined in "+n+" different namespaces: "+display)
+				}
+		}
+	}
+
+	def lookupVars(state : State, names : Set[String]) : Either[Map[String, StateValue], Set[String]] = {
+		var values : Map[String, StateValue] = Map()
+		var notfound : Set[String] = Set()
+		for (name <- names) {
+			state.lookup(name) match {
+				case Some(v) => values = values + (name -> v)
+				case None =>
+					lookupVar(null, state, false, namespace, name) match {
+						case Success(v, _) => values = values + (name -> v)
+						case _ => notfound = notfound + name
 					}
 			}
 		}
+		if (notfound.isEmpty)
+			Left(values)
+		else
+			Right(notfound)
+	}
+
+	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
 		expr match {
 			case NilExpr => success(NilValue)
 			case Bool(b) => success(BoolValue(b))
@@ -563,13 +583,13 @@ class Eval(states : States, kernel : Kernel,
 			case StringLiteral(s) => success(StringValue(s))
 			case Id(name) =>
 				state.lookup(name) match {
-					case None => lookup(false, namespace, name)
+					case None => lookupVar(expr, state, false, namespace, name)
 					case Some(v) => success(v)
 				}
 			case QualifiedId(_ns, name) =>
 				val ns = aliases.resolve(_ns)
 				if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
-					lookup(true, ns, name)
+					lookupVar(expr, state, true, ns, name)
 				else 
 					fail(expr, "unknown or inaccessible namespace: "+ns)
 			case UnaryOperation(op, expr) =>
@@ -680,8 +700,7 @@ class Eval(states : States, kernel : Kernel,
 					case Success(state, _) => success(state.reapCollect)
 				} 
 			case f @ Fun(param, body) => 
-				val freeVars = f.freeVars
-				state.env.lookup(freeVars) match {
+				lookupVars(state, f.freeVars) match {
 					case Right(notFound) =>
 						var error = "function has unknown free variables:"
 						for (x <- notFound) error = error + " " + x
