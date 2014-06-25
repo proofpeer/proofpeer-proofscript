@@ -94,8 +94,51 @@ def foldmap (f, x, v) =
 assert foldmap ((x, y) => x + y, 8, [1, 2, 3, 4, 5, 7]) == [9, 11, 14, 18, 23, 30]
 
 
+# val, def and rebinding
+  -------------------------------
 
+do
+  val x = 3
+  val y if x == 3 =
+    x + x
+  assert y == 6
 
+do
+  val x = 3
+  val y if x == 3 =
+    val x = 2
+    x + x
+  assert y == 4
+
+failure
+  val x = 3
+  val y if x == 3 =
+    x = 2
+    x + x
+
+def 
+  fac 0 = 1
+  fac 1 = 1
+  fac n = n * fac (n - 1)
+
+assert fac 10 == 3628800
+
+def 
+  even 0 = true
+  odd 0 = false
+  even n if n > 0 = odd (n - 1)
+  odd n if n > 0 = even (n - 1)
+  even n if n < 0 = odd (n + 1)
+  odd n if n < 0 = even (n + 1)
+
+assert even 24 == even (-24) == true
+assert odd 24 == odd (-24) == false
+failure even "24"
+failure odd "24"
+
+even = "even"
+
+assert even == "even" and odd 24 == false
 
 
 
