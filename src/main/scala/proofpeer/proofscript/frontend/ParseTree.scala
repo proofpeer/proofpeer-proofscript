@@ -303,8 +303,8 @@ object ParseTree {
     protected def calcVars = (param.freeVars ++ (body.freeVars -- param.introVars), Set(name))
   }
   
-  case class STReturn(expr : Expr) extends Statement {
-    protected def calcVars = (expr.freeVars, Set())
+  case class STReturn(expr : Option[Expr]) extends Statement {
+    protected def calcVars = (if (expr.isDefined) expr.get.freeVars else Set(), Set())
   }
 
   case class STAssume(thm_name : Option[String], tm : Expr) extends Statement {

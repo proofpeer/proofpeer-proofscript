@@ -519,7 +519,9 @@ val g_def =
       c => DefCase(c.IndexedName.text, c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
       
 val g_return =
-  arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), c => STReturn(c.PExpr.resultAs[Expr]))
+  arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), 
+    c => STReturn(Some(c.PExpr.resultAs[Expr]))) ++
+  arule("ST", "Return", c => STReturn(None))
     
 val g_assume =
   arule("ST", "Assume OptAssign PrimitiveExpr", 

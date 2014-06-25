@@ -46,16 +46,15 @@ failure wordOf (-1)
 # while
   -------------------------------
 
-def abs x = if x < 0 then -x else x
-
 def gcd (a, b) = 
-  a = abs a
-  b = abs b
+  if a < 0 then a = -a
+  if b < 0 then b = -b
   while b > 0 do
     (a, b) = (b, a mod b)
   a
 
 assert gcd (54, 24) == 6
+assert gcd (-54, -24) == 6
 assert gcd (54, 25) == 1
 
 
@@ -139,6 +138,22 @@ failure odd "24"
 even = "even"
 
 assert even == "even" and odd 24 == false
+
+# return
+  -------------------------------
+
+# look up element in association list
+def lookup (x, v) = 
+  for (key, value) in v do 
+    if x == key then return value
+  return
+
+val proofpeers = [("Steven", "Obua"), ("Jacques", "Fleuriot"), 
+  ("Phil", "Scott"), ("David", "Aspinall")]
+
+assert lookup ("Jacques", proofpeers) == "Fleuriot"
+assert lookup ("Marilyn", proofpeers) == nil
+
 
 
 

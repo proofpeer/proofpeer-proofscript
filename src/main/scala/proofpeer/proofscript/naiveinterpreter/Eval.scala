@@ -153,9 +153,13 @@ class Eval(states : States, kernel : Kernel,
 					}
 				case STReturn(expr) => 
 					if (!state.canReturn) return fail(st, "cannot return here")
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(s, _) => return Success(State.fromValue(s), true)
+					expr match {
+						case None => return Success(State.fromValue(NilValue), true)
+						case Some(expr) =>
+							evalExpr(state.freeze, expr) match {
+								case f : Failed[_] => return fail(f)
+								case Success(s, _) => return Success(State.fromValue(s), true)
+							}						
 					}
 				case STShow(expr) => 
 					evalExpr(state.freeze, expr) match {
