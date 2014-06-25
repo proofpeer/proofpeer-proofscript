@@ -47,4 +47,15 @@ assert g [0, 1, 2]
 assert g [0, 1, 2, 3]
 assert not g [0, 1, 2, 3, 5]
 
+def 
+  brackets [] = true
+  brackets "(" <+ s +> ")" = brackets s
+  brackets _ = false
+
+assert brackets []
+assert brackets ["(", ")"]
+assert brackets ["(","(",")",")"]
+assert brackets ["(", "(", "(", "(", ")", ")", ")", ")"]
+assert not brackets ["(", "(", ")"]
+
 
