@@ -154,7 +154,24 @@ val proofpeers = [("Steven", "Obua"), ("Jacques", "Fleuriot"),
 assert lookup ("Jacques", proofpeers) == "Fleuriot"
 assert lookup ("Marilyn", proofpeers) == nil
 
+# fail
+  -------------------------------
 
+# This function computes the integer square root of an integer and assumes that this 
+  actually exists. Otherwise it fails.
+def sqrt x =
+  if x < 0 then fail
+  for i in 0 to x do
+    if i * i == x then return i
+  fail
+
+assert sqrt 1024 == 32
+failure sqrt (-1)
+assert sqrt 9 == 3
+assert sqrt 0 == 0
+assert sqrt 1 == 1
+assert sqrt 4 == 2
+failure sqrt 10
 
 
 
