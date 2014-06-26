@@ -1,6 +1,9 @@
 theory logic
 extends root
 
+show context
+show context<context>
+
 val y = 'forall'
 show '∃ x. x = ‹y›'
 
