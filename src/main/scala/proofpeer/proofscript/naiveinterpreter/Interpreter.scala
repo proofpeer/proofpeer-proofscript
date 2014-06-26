@@ -8,9 +8,17 @@ object Interpreter {
 
 	class FileSource(val f : File) extends Source 
 
+	var numTheories = 0
+
+	var processed : Set[String] = Set()
+
 	def addTheory(f : File) {
 		if (f.exists) {
+			val fileid = f.getAbsolutePath()
+			if (processed.contains(fileid)) return
+			processed = processed + fileid
 			println("processing theory file: "+f)
+			numTheories = numTheories + 1
 			val source = scala.io.Source.fromFile(f)
 			val code = source.getLines.mkString("\n")
 			source.close()
@@ -130,6 +138,10 @@ object Interpreter {
 		Some(new State(context, State.Env(Map(), Map()), Collect.Zero, false))
 	} 
 
+	var executionSucceeded = 0
+	var executionFailed = 0
+	var executionSkipped = 0
+
 	def evalTheory(states : States, thy : Theory, nr : NamespaceResolution[String]) {
 		val evaluator = new Eval(states, Root.kernel, nr, Root.nr, thy.aliases, thy.namespace)
 		val state : State = 
@@ -139,6 +151,7 @@ object Interpreter {
 				makeState(states, thy.namespace, thy.parents, thy.aliases) match {
 					case None =>
 						println("skipping theory "+thy.namespace)
+						executionSkipped = executionSkipped + 1
 						return
 					case Some(state) =>
 						state
@@ -156,13 +169,16 @@ object Interpreter {
 						}
 					} else ""
 				println("failed executing theory "+thy.namespace+w+":\n  "+error)
+				executionFailed = executionFailed + 1
 			case Success(state, _) => {
 				if (state.context.hasAssumptions && state.context.namespace != Kernel.root_namespace) {
 					println("theory "+thy.namespace+" fails because it introduces axioms")
+					executionFailed = executionFailed + 1
 				} else {
 					val completed = Root.kernel.completeNamespace(state.context)
 					states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
 					println("successfully executed theory "+thy.namespace)
+					executionSucceeded = executionSucceeded + 1
 				}
 			}
 		}
@@ -184,7 +200,16 @@ object Interpreter {
 			}
 		}
 		val nr = new NamespaceResolution[String](Root.parentsOfNamespace _, localNames _)
+		println("\n------------------------------------------------------------\n")
 		for (thy <- sorted_theories) evalTheory(states, thy, nr)
+		println("\n------------------------------------------------------------\n")
+		println("Processed "+numTheories+" theories:")
+		val numExecution = executionSucceeded + executionFailed + executionSkipped
+		println("  "+executionSucceeded+" theories executed successfully")
+		println("  "+(numTheories - numExecution)+" theories failed during preprocessing")		
+		println("  "+executionFailed+" theories failed during execution")
+		println("  "+executionSkipped+" theories were skipped because of failed/skipped parent theories")
+		println("")
 	}
 
 }
