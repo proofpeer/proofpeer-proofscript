@@ -13,6 +13,16 @@ assert x == [1, 2, 3]
 assert (do 7) == 7
 assert (do* 7) == [7]
 
+do
+  val x = do*
+  assert x == []
+
+  val x = (do*
+    7
+    10
+    21)
+  assert x == [7, 10, 21]
+
 # let us define a map function
 def map (f, v) = 
   for x in v do 
