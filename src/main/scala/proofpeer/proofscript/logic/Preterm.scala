@@ -385,13 +385,18 @@ object Preterm {
   }
 
   def inferPolymorphicPreterm(context : TypingContext, term : Preterm) : Either[Preterm, List[PTmError]] = {
-    val (checkedTerm, checkedFresh) = checkNameTypes(context, term, computeFresh(term, 0))
-    val errors = listErrors(checkedTerm)
-    if (!errors.isEmpty) return Right(errors)
-    val (t, fresh) = removeAny(checkedTerm, checkedFresh)
-    inferTypes(context, t) match {
-      case None => Right(List(PTmError("term is ill-typed")))
-      case Some(t) => Left(t)
+    try {
+      val (checkedTerm, checkedFresh) = checkNameTypes(context, term, computeFresh(term, 0))
+      val errors = listErrors(checkedTerm)
+      if (!errors.isEmpty) return Right(errors)
+      val (t, fresh) = removeAny(checkedTerm, checkedFresh)
+      inferTypes(context, t) match {
+        case None => Right(List(PTmError("term is ill-typed")))
+        case Some(t) => Left(t)
+      }
+    } catch {
+      case e : Utils.KernelException =>
+        Right(List(PTmError(e.reason)))
     }
   }
 
