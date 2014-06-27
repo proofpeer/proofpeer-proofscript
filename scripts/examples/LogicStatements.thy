@@ -1,6 +1,8 @@
 theory \examples\LogicStatements extends \root
 
+
 # let introduction
+  ------------------------------------
 
 context
   failure 'x'
@@ -23,7 +25,9 @@ context
   assert 'x' == 'x : 𝒰'
 
 
+
 # let definition
+  ------------------------------------
 
 context
   failure 'x'
@@ -51,4 +55,21 @@ context
   failure
     let 'x : 𝒰 = true'
   let 'x : ℙ = true'
+
+
+# assume
+  ------------------------------------
+
+context
+  assume f: 'false'
+  show f
+  assert term f == 'false'
+
+context
+  val f = assume "false"
+  show f
+  assert term f == 'false'
+
+
+
 
