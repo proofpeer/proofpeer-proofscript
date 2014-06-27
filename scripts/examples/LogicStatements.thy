@@ -134,6 +134,16 @@ context
     assert 'f' == 'f : 𝒰 → ℙ'
   assert w == 2
 
+# context can be used as an expression, 
+  but the other logic statements cannot
+context
+  assume 'true'
+  failure (assume 'true')
+  context
+  failure
+    failure (context)
+
+
 
 # test *-statement behaviour 
   ------------------------------------
@@ -150,9 +160,3 @@ context
       theorem 'x = x' x
 
   assert size l == 0
-
-
-
-
-
-

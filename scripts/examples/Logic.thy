@@ -39,6 +39,38 @@ context
   failure transitive []
   failure transitive t12
 
+
 # reflexive
   ------------------------------------
+
+context
+  let 'x'
+  theorem 'x = x'
+    reflexive 'x'
+
+
+# combine
+  ------------------------------------
+
+context
+  let 't1'
+  let eq1: 's1 = t1'
+  let 't2 : _ → _'
+  let eq2: 's2 = t2' 
+  let 't3 : (_ → _) → (_ → _)'
+  let eq3: 's3 = t3'
+  
+  theorem 's1 = t1'
+    combine [eq1]
+  theorem 's2 s1 = t2 t1'
+    combine (eq2, eq1)
+  theorem 's2 (s2 s1) = t2 (t2 t1)'
+    combine (eq2, combine (eq2, eq1))
+  theorem 's3 s2 s1 = t3 t2 t1'
+    combine (eq3, eq2, eq1)
+  failure combine (eq1)
+  failure combine []
+
+
+
 
