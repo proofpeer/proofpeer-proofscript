@@ -952,10 +952,12 @@ class Eval(states : States, kernel : Kernel,
 			case failed : Failed[_] => failed
 			case su @ Success(updatedState, isReturnValue) =>
 				if (isReturnValue) return su 	
-				if (state.collect != Collect.Zero) 
-					success(state.addToCollect(ContextValue(updatedState.context)))
-				else
-					success(state)
+				state.collect match {
+					case _ : Collect.One =>
+						success(state.addToCollect(ContextValue(updatedState.context)))
+					case _ => 
+						success(state)
+				}
 		}
 	}
 

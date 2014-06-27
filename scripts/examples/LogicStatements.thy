@@ -109,14 +109,50 @@ context
       let 'x = y'
 
 context
+  val w
   theorem trivial: '∀ p. p → p' 
+    w = 2
     let 'p : ℙ'
     assume 'p'
   show trivial
   assert term trivial == '∀ p. p → p'
+  assert w == 2
 
 
 # context
   ------------------------------------
+
+context
+  val w
+  val u =
+    context
+      w = 2
+      let 'f : 𝒰 → ℙ'
+  context
+    failure 'f'
+  context<u>
+    assert 'f' == 'f : 𝒰 → ℙ'
+  assert w == 2
+
+
+# test *-statement behaviour 
+  ------------------------------------
+
+context
+  val l =
+    do*
+      context
+      context
+      let 'x'
+      let 'y = x'
+      assume x: 'x = x'
+      choose 'inf' infinity
+      theorem 'x = x' x
+
+  assert size l == 0
+
+
+
+
 
 
