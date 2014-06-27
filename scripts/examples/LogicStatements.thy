@@ -25,7 +25,6 @@ context
   assert 'x' == 'x : 𝒰'
 
 
-
 # let definition
   ------------------------------------
 
@@ -70,6 +69,34 @@ context
   show f
   assert term f == 'false'
 
+
+# choose and theorem
+  ------------------------------------
+
+context
+  choose x_def: 'x' 
+    let 'y'
+    let 'x = y'
+  show x_def
+  assert term x_def == 'y ↦ (x y) = y'
+
+# the same as above, but using an intermediate theorem
+context
+  theorem t: '∀ y ∃ x. x = y'
+    let 'y'
+    let 'x = y'    
+  choose x_def: 'x' t
+  show x_def
+  assert term x_def == 'y ↦ (x y) = y'
+
+# we can move the intermediate theorem into choose
+context
+  choose x_def: 'x'
+    theorem '∀ y ∃ x. x = y'
+      let 'y'
+      let 'x = y'
+  show x_def
+  assert term x_def == 'y ↦ (x y) = y'
 
 
 
