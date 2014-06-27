@@ -78,7 +78,7 @@ context
     let 'y'
     let 'x = y'
   show x_def
-  assert term x_def == 'y ↦ (x y) = y'
+  assert term x_def == '∀ y. x y = y'
 
 # the same as above, but using an intermediate theorem
 context
@@ -87,7 +87,7 @@ context
     let 'x = y'    
   choose x_def: 'x' t
   show x_def
-  assert term x_def == 'y ↦ (x y) = y'
+  assert term x_def == '∀ y. x y = y'
 
 # we can move the intermediate theorem into choose
 context
@@ -96,7 +96,7 @@ context
       let 'y'
       let 'x = y'
   show x_def
-  assert term x_def == 'y ↦ (x y) = y'
+  assert term x_def == '∀ y. x y = y'
 
 context
   failure

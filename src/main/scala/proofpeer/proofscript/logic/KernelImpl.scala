@@ -143,7 +143,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       var prop = substVar(p, x, c)
       for ((x, xty) <- quantifiers.reverse) {
         cty = Fun(xty, cty)
-        prop = Abs(x, xty, prop)
+        val all = PolyConst(Kernel.forall, xty)
+        prop = Comb(all, Abs(x, xty, prop))
       }
       val context = 
         new ContextImpl(
