@@ -8,7 +8,7 @@ scalaVersion := "2.10.3"
 
 scalacOptions += "-feature"
 
-libraryDependencies += "net.proofpeer" %% "proofpeer-scala" % "0.1-SNAPSHOT"
+libraryDependencies += "net.proofpeer" %% "proofpeer-scala" % "0.2-SNAPSHOT"
 
 libraryDependencies += "net.proofpeer" %% "proofpeer-indent" % "0.3-SNAPSHOT"
 
