@@ -9,7 +9,8 @@ case class Success[T](result : T, isReturnValue : Boolean) extends Result[T]
 case class Failed[T](pos : SourcePosition, error : String) extends Result[T]
 
 class Eval(states : States, kernel : Kernel, 
-	scriptNameresolution : NamespaceResolution[String], val logicNameresolution : NamespaceResolution[IndexedName], 
+	scriptNameresolution : NamespaceResolution[String], 
+	val logicNameresolution : NamespaceResolution[IndexedName], 
 	val aliases : Aliases, namespace : Namespace) 
 {
 

@@ -24,6 +24,10 @@ context
   let x
   assert 'x' == 'x : 𝒰'
 
+context
+  let 'x : 𝒰 → _ : _ → ℙ'
+  assert 'x' == 'x : 𝒰 → ℙ'
+
 
 # let definition
   ------------------------------------
@@ -103,6 +107,13 @@ context
     choose x_def: 'x : 𝒰'
       let 'y'
       let 'x = y'
+
+context
+  theorem trivial: '∀ p. p → p' 
+    let 'p : ℙ'
+    assume 'p'
+  show trivial
+  assert term trivial == '∀ p. p → p'
 
 
 # context
