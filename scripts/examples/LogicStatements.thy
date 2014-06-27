@@ -91,12 +91,16 @@ context
 
 # we can move the intermediate theorem into choose
 context
-  choose x_def: 'x'
+  choose x_def: 'x : 𝒰 → _'
     theorem '∀ y ∃ x. x = y'
       let 'y'
       let 'x = y'
   show x_def
   assert term x_def == 'y ↦ (x y) = y'
 
-
+context
+  failure
+    choose x_def: 'x : 𝒰'
+      let 'y'
+      let 'x = y'
 
