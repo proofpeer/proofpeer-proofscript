@@ -21,6 +21,23 @@ context
   assert term t == '∀ y. x = y → x = y'
 
 
+# fresh
+  ------------------------------------
+
+context
+  failure term (fresh "x")
+  theorem t: '∀ a b c p. p → p'
+    let (fresh "x")
+    let (fresh "x")
+    let (fresh "x")
+    let p: '‹fresh "p"› : ℙ'
+    assert p == 'p : ℙ'
+    assume p
+  show t
+  assert fresh "x" == fresh "x"
+  assert string (fresh "x") == fresh "x"
+
+
 # string
   ------------------------------------
 
@@ -112,6 +129,56 @@ context
     reflexive 'Q'
   assert t == normalize u
 
+
+# equivalence
+  ------------------------------------
+
+context
+  let 'p : ℙ'
+  let 'q : ℙ'
+  assume u: 'p → q'
+  assume v: 'q → p'
+  theorem 'p = q'
+    equivalence(u, v)
+
+
+# abstract
+  ------------------------------------
+
+context
+  let 'f'
+  let 'g'
+  assume t: '∀ x. f x = g x'
+  theorem '(x ↦ f x) = (x ↦ g x)'
+    abstract t
+
+# abstract
+  ------------------------------------
+
+context
+  let 'P : 𝒰 → 𝒰 → 𝒰 → ℙ'
+  assume t: '∀ x y z. P x y z'
+  let 'a'
+  let 'b'
+  let 'c'
+  theorem 'P a b c'
+    instantiate (t, 'a', 'b', 'c')
+  theorem 'P b c a'
+    instantiate (t, 'b', 'c', 'a')
+  failure instantiate []
+  failure instantiate t
+  theorem (term t) 
+    instantiate [t]
+  theorem '∀ y z. P a y z'
+    instantiate (t, 'a')
+  theorem '∀ z. P a b z'
+    instantiate (t, 'a', 'b')
+  theorem '∀ x z. P x b z'
+    instantiate (t, nil, 'b', nil)
+  theorem '∀ y. P a y b'
+    instantiate (t, 'a', nil, 'b')    
+  theorem (term t) 
+    instantiate [t, nil, nil, nil]
 
 
 
