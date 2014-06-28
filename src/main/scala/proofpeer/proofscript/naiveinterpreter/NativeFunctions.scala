@@ -124,7 +124,7 @@ object NativeFunctions {
               if (thm == null) 
                 thm = ctx.lift(t)
               else 
-                thm = ctx.modusponens(ctx.lift(t), thm)
+                thm = ctx.modusponens(thm, ctx.lift(t))
             case _ => 
               Right("all arguments to modusponens must be theorems")
           }  

@@ -21,6 +21,17 @@ context
   assert term t == '∀ y. x = y → x = y'
 
 
+# string
+  ------------------------------------
+
+context
+  let 'x'
+  assert string 'x' == "x"
+  assert string "x" == "x"
+  assume x: 'x = x'
+  assert string x == "x = x"
+
+
 # transitive
   ------------------------------------
 
@@ -38,6 +49,26 @@ context
     transitive [t12]
   failure transitive []
   failure transitive t12
+
+
+# modusponens
+  ------------------------------------
+
+context
+  let 'x1 : ℙ'
+  let 'x2 : ℙ'
+  let 'x3 : ℙ'
+  let 'x4 : ℙ'
+  assume t12: 'x1 = x2'
+  assume t23: 'x2 → x3'
+  assume t34: 'x3 = x4'
+  theorem t14: 'x1 → x4'
+    assume t1: 'x1'
+    modusponens (t1, t12, t23, t34)
+  theorem 'x1 = x2'
+    modusponens [t12]
+  failure modusponens []
+  failure modusponens t12
 
 
 # reflexive
@@ -70,6 +101,16 @@ context
     combine (eq3, eq2, eq1)
   failure combine (eq1)
   failure combine []
+
+# normalize
+  ------------------------------------
+
+context
+  let 'Q : 𝒰 → ℙ'
+  val u = '(P ↦ (x ↦ P x)) Q'
+  theorem t: '‹u› = Q'
+    reflexive 'Q'
+  assert t == normalize u
 
 
 

@@ -68,7 +68,8 @@ object KernelUtils {
   def dest_binop(term : Term) : (Name, Term, Term) = {
     term match {
       case Comb(Comb(Const(name), left), right) => (name, left, right)
-      case _ => failwith("dest_binop: term is not a binary operation")
+      case Comb(Comb(PolyConst(name, _), left), right) => (name, left, right)     
+      case _ => failwith("dest_binop: term is not a binary operation: "+term)
     }
   }
   
