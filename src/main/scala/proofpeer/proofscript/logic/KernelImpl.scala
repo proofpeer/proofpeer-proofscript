@@ -1,11 +1,19 @@
 package proofpeer.proofscript.logic
 
-private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Kernel {
-  
+private class KernelImpl(
+  val mk_theorem : (CTerm) => Theorem,
+  val mk_cterm : (Context, Term, Type) => CTerm)
+extends Kernel {
+
   import Term._
   import Type._
   import Utils._
   import KernelUtils._
+
+  def mk_theorem(context : Context, term : Term) : Theorem = {
+    val ctm = mk_cterm(context, term, Prop)
+    mk_theorem(ctm)
+  }
   
   private class ContextImpl(val kind : ContextKind,
                             val depth : Integer,
@@ -81,18 +89,19 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
           constants + (const_name -> ty))
     } 
 
-    def assume(assumption : Term) : Theorem = {
+    def assume(assumption : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
-      if (typeOfTerm(assumption) != Some(Prop))
+      checkCTermContext(assumption)
+      if (assumption.typeOf != Prop)
         failwith("assumption is not a valid proposition")
       val context = 
         new ContextImpl(
-            ContextKind.Assume(assumption),
+            ContextKind.Assume(assumption.term),
             depth + 1,
             created,
             Some(this),
             constants)
-      mk_theorem(context, assumption)
+      mk_theorem(assumption)
     }
 
     def hasAssumptions : Boolean = {
@@ -107,24 +116,23 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       false
     }
   
-    def define(const_name : Name, tm : Term) : Theorem = {
+    def define(const_name : Name, ctm : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
+      checkCTermContext(ctm)
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      typeOfTerm(tm) match {
-        case None => failwith("the defining term is not a valid term")
-        case Some(ty) =>
-          val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
-          val context = 
-            new ContextImpl(
-              ContextKind.Define(const_name, ty, tm),
-              depth + 1,
-              created,
-              Some(this),
-              constants + (const_name -> ty))
-          mk_theorem(context, eq)         
-      }
+      val ty = ctm.typeOf
+      val tm = ctm.term
+      val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
+      val context = 
+        new ContextImpl(
+          ContextKind.Define(const_name, ty, tm),
+          depth + 1,
+          created,
+          Some(this),
+          constants + (const_name -> ty))
+      mk_theorem(context, eq)         
     }
 
     def choose(const_name : Name, thm : Theorem) : Theorem = {
@@ -156,9 +164,17 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       mk_theorem(context, prop)             
     }
     
-    def instantiate(thm : Theorem, insts : List[Option[Term]]) : Theorem = {
+    def instantiate(thm : Theorem, insts : List[Option[CTerm]]) : Theorem = {
       checkTheoremContext(thm)
-      mk_theorem(this, KernelUtils.instantiate(this, thm.proposition, insts))
+      def mkTerm(inst : Option[CTerm]) : Option[Term] = {
+        inst match {
+          case None => None
+          case Some(t) => 
+            checkCTermContext(t)
+            Some(t.term)
+        }
+      }
+      mk_theorem(this, KernelUtils.instantiate(this, thm.proposition, insts.map(mkTerm)))
     } 
             
     def checkTheoremContext(thm : Theorem) {
@@ -166,6 +182,20 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         failwith("theorem belongs to a different kernel")
       if (thm.context != this)
         failwith("theorem belongs to a different context")      
+    }
+
+    def checkCTermContext(cterm : CTerm) {
+      if (KernelImpl.this != cterm.context.kernel)   
+        failwith("term belongs to a different kernel")
+      if (cterm.context != this)
+        failwith("term belongs to a different context")      
+    }
+
+    def certifyTerm(term : Term) : Option[CTerm] = {
+      typeOfTerm(term) match {
+        case None => None
+        case Some(ty) => Some(mk_cterm(this, term, ty))
+      }
     }
       
     def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
@@ -185,6 +215,23 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       } else {
         liftLocally(thm, preserve_structure)
       }
+    }
+
+    def lift(cterm : CTerm) : CTerm = {
+      if (KernelImpl.this != cterm.context.kernel)
+        failwith("certified term belongs to a different kernel")
+      val src_context = cterm.context.asInstanceOf[ContextImpl]
+      val src_namespace = src_context.namespace
+      if (namespace != src_namespace) {
+        if (created.ancestorNamespaces.contains(src_namespace)) {
+          return mk_cterm(this, cterm.term, cterm.typeOf)
+        } 
+      } else {
+        val c = findCommonAncestorContext(this, src_context)
+        if (c == src_context) 
+          return mk_cterm(this, cterm.term, cterm.typeOf)
+      }
+      failwith("cannot lift certified term to this context")
     }
     
     // Same as lift, but assumes that the theorem context has the same namespace as this context.
@@ -262,25 +309,33 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       alpha_equivalent(f, g)
     }
   
-    def reflexive(tm : Term) : Theorem = {
-      val ty = getTypeOfTerm(tm)
+    def reflexive(ctm : CTerm) : Theorem = {
+      checkCTermContext(ctm)
+      val ty = ctm.typeOf
+      val tm = ctm.term
       mk_theorem(this, mk_equals(tm, tm, ty))
     }
     
-    def beta(a : Term) : Theorem = {
-      val ty = getTypeOfTerm(a)
+    def beta(ca : CTerm) : Theorem = {
+      checkCTermContext(ca)
+      val ty = ca.typeOf
+      val a = ca.term
       val b = KernelUtils.beta(a)
       mk_theorem(this, mk_equals(a, b, ty))
     }
     
-    def eta(a : Term) : Theorem = {
-      val ty = getTypeOfTerm(a)
+    def eta(ca : CTerm) : Theorem = {
+      checkCTermContext(ca)
+      val ty = ca.typeOf
+      val a = ca.term
       val b = KernelUtils.eta(a)
       mk_theorem(this, mk_equals(a, b, ty))
     }
 
-    def normalize(a : Term) : Theorem = {
-      val ty = getTypeOfTerm(a)
+    def normalize(ca : CTerm) : Theorem = {
+      checkCTermContext(ca)
+      val ty = ca.typeOf
+      val a = ca.term
       val b = 
         KernelUtils.normBetaEta(a) match {
           case None => a
@@ -289,9 +344,9 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       mk_theorem(this, mk_equals(a, b, ty))      
     }
 
-    def normalize(p : Theorem, q : Term) : Theorem = {
+    def normalize(p : Theorem, cq : CTerm) : Theorem = {
       checkTheoremContext(p)
-      getTypeOfTerm(q)
+      val q = cq.term
       if (KernelUtils.betaEtaEq(p.proposition, q))
         mk_theorem(this, q)
       else 

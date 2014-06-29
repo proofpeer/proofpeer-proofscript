@@ -31,7 +31,7 @@ object Collect {
 case object NilValue extends StateValue
 case class ContextValue(value : Context) extends StateValue 
 case class TheoremValue(value : Theorem) extends StateValue
-case class TermValue(value : Term) extends StateValue
+case class TermValue(value : CTerm) extends StateValue
 case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
 case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
@@ -114,7 +114,7 @@ object StateValue {
 						"{context = " + display(th.context) + ", theorem = " + 
 						display(aliases, nameresolution, th.context, th.proposition) + "} : Theorem"
 				}
-			case TermValue(tm) => display(aliases, nameresolution, context, tm)
+			case TermValue(ctm) => display(aliases, nameresolution, ctm.context, ctm.term)
 			case s : StringValue => "\"" + s + "\""
 			case _ => "?@" + value.hashCode
 		}
@@ -124,7 +124,7 @@ object StateValue {
 
 object State {
 	def fromValue(value : StateValue) : State = 
-		new State(null, null, Collect.One(Some(value)), false)
+		new State(null, null, null, Collect.One(Some(value)), false)
 
 	case class StateValueRef(var value : StateValue)
 
@@ -169,46 +169,46 @@ object State {
 	}
 }
 
-class State(val context : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) {
+class State(val context : Context, val lexicalContext : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) {
 
 	def lookup(id : String) : Option[StateValue] = env.lookup(id)
 
 	def assignables : Set[String] = env.linearIds
 
 	def bind(vs : Map[String, StateValue]) : State = {
-		new State(context, env.bind(vs), collect, canReturn)
+		new State(context, lexicalContext, env.bind(vs), collect, canReturn)
 	}
 
 	def rebind(vs : Map[String, StateValue]) : State = {
-		new State(context, env.rebind(vs), collect, canReturn)
+		new State(context, lexicalContext, env.rebind(vs), collect, canReturn)
 	}
 
 	def setCanReturn(cR : Boolean) : State = {
-		new State(context, env, collect, cR)
+		new State(context, lexicalContext, env, collect, cR)
 	}
 
 	def freeze : State = {
-		new State(context, env.freeze, collect, false)
+		new State(context, lexicalContext, env.freeze, collect, false)
 	}
 
-	def setContext(ctx : Context) : State = {
+	def setContext(ctx : Context, l) : State = {
 		new State(ctx, env, collect, canReturn)
 	}
 
 	def setCollect(c : Collect) : State = {
-		new State(context, env, c, canReturn)
+		new State(context, lexicalContext, env, c, canReturn)
 	}
 
 	def subsume(state : State) : State = {
-		new State(state.context, env, state.collect, canReturn)
+		new State(state.context, state.lexicalContext, env, state.collect, canReturn)
 	} 
 
 	def addToCollect(value : StateValue) : State = {
 		collect match {
 			case Collect.One(None) =>
-				new State(context, env, Collect.One(Some(value)), canReturn)
+				new State(context, lexicalContext, env, Collect.One(Some(value)), canReturn)
 			case Collect.Multiple(collector) =>
-				new State(context, env, Collect.Multiple(collector.add(value)), canReturn)
+				new State(context, lexicalContext, env, Collect.Multiple(collector.add(value)), canReturn)
 			case _ => 
 				throw new RuntimeException("internal error: wrong collector multiplicty")
 
