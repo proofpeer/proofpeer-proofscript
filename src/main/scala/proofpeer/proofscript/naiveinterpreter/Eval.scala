@@ -716,12 +716,12 @@ class Eval(states : States, kernel : Kernel,
 					case Success(f : SimpleFunctionValue, _) =>
 						evalExpr(state, v) match {
 							case failed : Failed[_] => failed
-							case Success(x, _) => evalApply(f.state, f.f.param, f.f.body, x)
+							case Success(x, _) => evalApply(f.state.setContext(state.context), f.f.param, f.f.body, x)
 						}
 					case Success(f : RecursiveFunctionValue, _) =>
 						evalExpr(state, v) match {
 							case failed : Failed[_] => failed
-							case Success(x, _) => evalApply(f.state, f.cases, x)
+							case Success(x, _) => evalApply(f.state.setContext(state.context), f.cases, x)
 						}
 					case Success(f : NativeFunctionValue, _) =>
 						evalExpr(state, v) match {
