@@ -22,14 +22,14 @@ object Root {
 
 	val nr = new NamespaceResolution[IndexedName](parentsOfNamespace _, localNames _)
 
-	def parse(context : Context, s : String) : CTerm = {
+	def parse(context : Context, s : String) : Term = {
 		Syntax.parsePreterm(s) match {
 			case None => Utils.failwith("cannot parse as preterm: '"+s+"'")
 			case Some(ptm) => 
 				val aliases = kernel.aliasesOfNamespace(context.namespace).get
 				val typingContext = Preterm.obtainTypingContext(aliases, nr, context)
 				Preterm.inferTerm(typingContext, ptm) match {
-					case Left(tm) => context.certifyTerm(tm).get
+					case Left(tm) => tm
 					case Right(errors) =>
 						for (e <- errors) {
 							println("error: "+e.reason)
@@ -42,20 +42,20 @@ object Root {
 	var context : Context = kernel.createNewNamespace(Kernel.root_namespace, Set(), 
 		new Aliases(Kernel.root_namespace.parent.get, List()))	
 
-	def read(s : String) : CTerm = parse(context, s)	
+	def read(s : String) : Term = parse(context, s)	
 
 	def test(s : String) {
 		println("")
 		println("input:\n  " + s)
 		val t = read(s)
-		println("parsed:\n  " + checkPrinting(context, t.term))
+		println("parsed:\n  " + checkPrinting(context, t))
 	}
 
 	def checkPrinting(context : Context, tm : Term) : String = {
 		val aliases = kernel.aliasesOfNamespace(context.namespace).get
 		val u = Syntax.printTerm(Preterm.obtainNameResolution(aliases, nr, context), tm)
 		val tm2 = parse(context, u)
-		if (!KernelUtils.alpha_equivalent(tm, tm2.term))
+		if (!KernelUtils.alpha_equivalent(tm, tm2))
 			Utils.failwith("term '"+u+"' is not a correct representation of: "+tm)
 		else
 			u
@@ -69,7 +69,7 @@ object Root {
 		val s = Abs(IndexedName("x",None),Universe,Comb(Comb(Const(Name(Some(Namespace("\\root")),IndexedName("apply",None))),Const(Name(None,IndexedName("x",None)))),Var(IndexedName("x",None))))
 		println("s = "+checkPrinting(c, s))
 		val th_r = c.reflexive(r)
-		val th_s = c.reflexive(context.certifyTerm(s).get)
+		val th_s = c.reflexive(s)
 		val th = c.transitive(th_r, th_s)
 		println("th = "+checkPrinting(c, th.proposition)) 
 	}

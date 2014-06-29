@@ -45,14 +45,7 @@ object Term {
   case class Var(name : IndexedName) extends Term
 }
 
-sealed trait CTerm {
-  def term : Term
-  def typeOf : Type
-  def context : Context
-}
-
 sealed trait Theorem {
-  def cproposition : CTerm
   def context : Context
   def proposition : Term
 }
@@ -86,13 +79,10 @@ trait Context {
   // Looks up the type of a constant.
   // A None result means that either no such constant exists in this context, 
   // or that the constant is polymorphic.
-  def typeOfConst(const_name : Name) : Option[Type]
-
-  // Checks if the term is valid in this context by computing its type 
+  def typeOfConst(const_name : Name) : Option[Type] 
+  
+  // Returns the type of the term if the term is valid in this context.
   def typeOfTerm(term : Term) : Option[Type]
-
-  // Certifies a term by making sure it type checks in this context.
-  def certifyTerm(term : Term) : Option[CTerm]
   
   // Introduces a new unspecified constant.
   // The name must either have no namespace, or must be equal to the current namespace.
@@ -100,13 +90,13 @@ trait Context {
 
   // Introduces an assumption. 
   // The new context can be obtained from the theorem.
-  def assume(assumption : CTerm) : Theorem
+  def assume(assumption : Term) : Theorem
 
   def hasAssumptions : Boolean
   
   // Defines a new constant. 
   // The name must either have no namespace, or it must be equal to the current namespace.
-  def define(const_name : Name, tm : CTerm) : Theorem
+  def define(const_name : Name, tm : Term) : Theorem
   
   // Defines a new constant for which a given property holds. 
   // The property is given in the shape of an existential theorem.
@@ -118,24 +108,21 @@ trait Context {
   def lift(thm : Theorem, preserve_structure : Boolean) : Theorem
 
   def lift(thm : Theorem) : Theorem = lift(thm, false)
-
-  // Converts a certified term into a certified term of this context (if possible)
-  def lift(cterm : CTerm) : CTerm 
   
   // Produces the theorem `a = a`
-  def reflexive(a : CTerm) : Theorem
+  def reflexive(a : Term) : Theorem
   
   // Produces the theorem `a = b`, where b results from a by a single beta reduction at the top
-  def beta(a : CTerm) : Theorem 
+  def beta(a : Term) : Theorem 
   
   // Produces the theorem `a = b`, where b results from a by a single eta reduction at the top
-  def eta(a : CTerm) : Theorem
+  def eta(a : Term) : Theorem
 
   // Produces the theorem `a = b`, where b is the beta-eta normalisation of a
-  def normalize(a : CTerm) : Theorem
+  def normalize(a : Term) : Theorem
 
   // Produces the theorem with proposition q, given that the proposition of p is beta-eta equivalent to q
-  def normalize(p : Theorem, q : CTerm) : Theorem
+  def normalize(p : Theorem, q : Term) : Theorem
   
   // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-beta-eta-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem
@@ -153,7 +140,7 @@ trait Context {
   def equiv(p : Theorem, q : Theorem) : Theorem
   
   // Instantiates the given all-quantified theorem. 
-  def instantiate(p : Theorem, insts : List[Option[CTerm]]) : Theorem
+  def instantiate(p : Theorem, insts : List[Option[Term]]) : Theorem
 
   // All constants of this context which are NOT constants of a parent namespace.
   def localConstants : Set[Name]
@@ -227,14 +214,7 @@ object Kernel {
   val existsin = rootname("existsin")
   val pair = rootname("pair")
     
-  private class TheoremImpl(val cproposition : CTerm) extends Theorem {
-    def context : Context = cproposition.context
-    def proposition : Term = cproposition.term
-  }
-  private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm
+  private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
   
-  def createDefaultKernel() : Kernel = new KernelImpl(
-    (p : CTerm) => new TheoremImpl(p),
-    (c : Context, tm : Term, ty : Type) => new CTermImpl(c, tm, ty))
-
+  def createDefaultKernel() : Kernel = new KernelImpl((c : Context, p : Term) => new TheoremImpl(c, p))
 }
