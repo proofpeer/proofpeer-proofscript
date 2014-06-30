@@ -20,12 +20,41 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
-	def evalLogicPreterm(state : State, tm : LogicTerm) : Result[Preterm] = {
+	def mkFresh(context : Context, name : IndexedName) : IndexedName = {
+		def isFresh(name : Name) = 
+			Kernel.isPolymorphicName(name) || context.typeOfConst(name).isEmpty
+	  val namespace = context.namespace
+	  var i : Utils.Integer = if (name.index.isDefined) name.index.get else 0
+	  do {
+	    val indexedName = IndexedName(name.name, if (i == 0) None else Some(i))
+	    if (isFresh(Name(None, indexedName)) && 
+	        isFresh(Name(Some(namespace), indexedName)))
+	      return indexedName
+	    i = i + 1
+	  } while (true)
+	  throw new RuntimeException("internal error")		
+	}
+
+	def evalLogicPreterm(_state : State, tm : LogicTerm, createFresh : Boolean) : Result[(Preterm, State)] = 
+	{
+		var state = _state
 		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
 			tm.quoted match {
 				case expr : Expr =>
-					evalExpr(state, expr) match {
-						case failed : Failed[_] => Right(failed)
+					evalExpr(state.freeze, expr) match {
+						case failed : Failed[_] => 
+							expr match {
+								case Id(name) if createFresh =>
+									Syntax.parsePreterm(name) match {
+					          case Some(Preterm.PTmName(Name(None, indexedName), _)) =>
+					            val freshName = mkFresh(state.context, indexedName)
+					            val codePoints = proofpeer.scala.lang.codePoints(freshName.toString)
+					            state = state.bind(Map(name -> StringValue(codePoints)))
+					            Left(Preterm.PTmName(Name(None, freshName), Pretype.PTyAny))
+					          case _ => Right(failed)       										
+									}
+								case _ => Right(failed)
+							}
 						case Success(TermValue(t), _) => Left(Preterm.translate(t))
 						case Success(s : StringValue, _) =>
 							Syntax.parsePreterm(s.toString) match {
@@ -38,7 +67,7 @@ class Eval(states : States, kernel : Kernel,
 		}
 		Preterm.instQuotes(inst, tm.tm) match {
 		  case Right(f) => fail(f)
-			case Left(preterm) => success(preterm)
+			case Left(preterm) => success((preterm, state))
 		}
 	}
 
@@ -54,9 +83,9 @@ class Eval(states : States, kernel : Kernel,
 	}
 
 	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
-		evalLogicPreterm(state, tm) match {
+		evalLogicPreterm(state, tm, false) match {
 			case failed : Failed[_] => fail(failed)
-			case Success(preterm, _) => resolvePreterm(state.context, preterm)
+			case Success((preterm, _), _) => resolvePreterm(state.context, preterm)
 		}
 	} 
 
@@ -75,17 +104,18 @@ class Eval(states : States, kernel : Kernel,
 		}
 	}
 
-	def evalPretermExpr(state : State, expr : Expr) : Result[Preterm] = {
+	// Note that state is not frozen!!
+	def evalPretermExpr(state : State, expr : Expr) : Result[(Preterm, State)] = {
 		expr match {
-			case tm : LogicTerm => evalLogicPreterm(state, tm)
+			case tm : LogicTerm => evalLogicPreterm(state, tm, true)
 			case _ => 
-				evalExpr(state, expr) match {
+				evalExpr(state.freeze, expr) match {
 					case failed : Failed[_] => fail(failed)
-					case Success(TermValue(tm),_) => success(Preterm.translate(tm))
+					case Success(TermValue(tm),_) => success((Preterm.translate(tm), state))
 					case Success(s : StringValue, _) =>
 						Syntax.parsePreterm(s.toString) match {
 							case None => fail(expr, "parse error")
-							case Some(preterm) => success(preterm)
+							case Some(preterm) => success((preterm, state))
 						}
 					case Success(v, _) => fail(expr, "Preterm expected, found: "+display(state, v))
 				}
@@ -278,9 +308,9 @@ class Eval(states : States, kernel : Kernel,
 						}
 				}
 			case st @ STLet(thm_name, tm) =>
-				evalPretermExpr(state.freeze, tm) match {
+				evalPretermExpr(state, tm) match {
 					case failed : Failed[_] => fail(failed)
-					case Success(ptm, _) =>
+					case Success((ptm, state), _) =>
 						checkTypedName(ptm) match {
 							case None => 
 								letIsDef(ptm) match {
@@ -292,9 +322,9 @@ class Eval(states : States, kernel : Kernel,
 						}
 				}
 			case STChoose(thm_name, tm, proof) =>
-				evalPretermExpr(state.freeze, tm) match {
+				evalPretermExpr(state, tm) match {
 					case failed : Failed[_] => fail(failed)
-					case Success(ptm, _) =>
+					case Success((ptm, state), _) =>
 						checkTypedName(ptm) match {
 							case None => fail(tm, "name expected")
 							case Some((n, tys)) =>

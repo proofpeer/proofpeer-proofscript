@@ -185,26 +185,13 @@ object NativeFunctions {
     }  
   }
 
-  private def isFresh(context : Context, name : Name) : Boolean = {
-    Kernel.isPolymorphicName(name) || context.typeOfConst(name).isEmpty
-  }
-
   private def fresh(eval : Eval, state : State, value : StateValue) : Result = {
     value match {
       case s : StringValue =>
         Syntax.parsePreterm(s.toString) match {
-          case Some(Preterm.PTmName(Name(None, IndexedName(name, None)), _)) =>
-            var context = state.context
-            val namespace = context.namespace
-            var i = 0
-            do {
-              val indexedName = IndexedName(name, if (i == 0) None else Some(i))
-              if (isFresh(context, Name(None, indexedName)) && 
-                  isFresh(context, Name(Some(namespace), indexedName)))
-                return Left(stringValue(indexedName.toString))
-              i = i + 1
-            } while (true)
-            throw new RuntimeException("internal error")
+          case Some(Preterm.PTmName(Name(None, name), _)) =>
+            val freshName = eval.mkFresh(state.context, name)
+            Left(stringValue(freshName.toString))
           case _ => Right("constant name without namespace or index required")       
         }
       case _ => Right("fresh expects a string as its argument")

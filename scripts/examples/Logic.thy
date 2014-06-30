@@ -37,6 +37,29 @@ context
   assert fresh "x" == fresh "x"
   assert string (fresh "x") == fresh "x"
 
+context
+  theorem t: '∀ a b c p. p → p'
+    let '‹a›'
+    let '‹b›'
+    let '‹c›'
+    failure p
+    let '‹p› : ℙ'
+    assert p == "p"
+    assume '‹p›'
+  show t
+
+context
+  let 'p'
+  theorem t: '∀ a b c p. p → p'
+    let '‹a›'
+    let '‹b›'
+    let '‹c›'
+    failure p
+    let '‹p› : ℙ'
+    assert p <> "p"
+    assume '‹p›'
+  show t
+
 
 # string
   ------------------------------------
