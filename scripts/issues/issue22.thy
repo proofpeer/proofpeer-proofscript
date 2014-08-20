@@ -1,3 +1,4 @@
 theory \issue22 extends \root
 
-val f = _ => x 
+failure
+  val f = _ => x 
