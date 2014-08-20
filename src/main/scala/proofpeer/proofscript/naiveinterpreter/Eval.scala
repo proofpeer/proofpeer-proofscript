@@ -16,7 +16,11 @@ class Eval(states : States, kernel : Kernel,
 
 	def success[T](result : T) : Success[T] = Success(result, false)
 
-	def fail[T](p : TracksSourcePosition, error : String) : Failed[T] = Failed(p.sourcePosition, error)
+	def fail[T](p : TracksSourcePosition, error : String) : Failed[T] = 
+		if (p != null)
+			Failed(p.sourcePosition, error)
+		else
+			Failed(null, error)
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
 
@@ -915,7 +919,7 @@ class Eval(states : States, kernel : Kernel,
 							if (isReturnValue) return su
 							state = state.subsume(s)
 					}
-
+				case Success(value, _) => return fail(control.cond, "Boolean expected, found: " + display(state, value))
 			}
 		}
 		success(state)
