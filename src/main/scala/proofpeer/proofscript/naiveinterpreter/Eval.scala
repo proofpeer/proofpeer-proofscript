@@ -1078,6 +1078,15 @@ class Eval(states : States, kernel : Kernel,
 						}
 					case r => r
 				}
+			case PAs(p, name) =>
+				matchPattern(state, p, value, matchings) match {
+					case Success(Some(matchings), _) =>
+						matchings.get(name) match {
+							case None => success(Some(matchings + (name -> value)))
+							case Some(v) => fail(pat, "pattern is not linear, multiple use of: "+v)
+						}
+					case r => r
+				}
 			case PLogic(_preterm) =>
 				val term = 
 					value match {

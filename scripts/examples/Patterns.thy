@@ -58,6 +58,22 @@ assert brackets ["(","(",")",")"]
 assert brackets ["(", "(", "(", "(", ")", ")", ")", ")"]
 assert not brackets ["(", "(", ")"]
 
+def 
+  even x if x mod 2 == 0 = true
+  even x if x mod 2 == 1 = false
+  even _ = fail "unexpected case in even"
+
+assert even 10
+assert not even 11
+assert even (-10)
+failure even (-11)
+
+def 
+  duphead x <+ _ as xs = x <+ xs
+  duphead xs = xs
+
+assert duphead [] == []
+assert duphead [1, 2, 3] == [1, 1, 2, 3]
 
 # Let's do some term matching
 

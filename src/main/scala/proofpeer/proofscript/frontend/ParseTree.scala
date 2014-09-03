@@ -236,6 +236,12 @@ object ParseTree {
     }
   }
 
+  case class PAs(pat : Pattern, name : String) extends Pattern {
+    protected def calcVars = {
+      (pat.freeVars, pat.introVars + name)
+    }
+  }
+
   case object PNil extends Pattern {
     protected def calcVars = (Set(), Set())
   }

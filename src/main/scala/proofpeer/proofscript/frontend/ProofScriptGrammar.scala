@@ -135,7 +135,8 @@ val g_literals =
   litrule("Downto", "downto") ++
   litrule("Theorem", "theorem") ++
   litrule("Assert", "assert") ++
-  litrule("Failure", "failure")
+  litrule("Failure", "failure") ++
+  litrule("As", "as")
 
 def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
           action : Derivation.Context => Any) : Grammar = 
@@ -430,7 +431,9 @@ val g_pattern =
   arule("PrependPattern", "AppendPattern", _.AppendPattern.result) ++
   arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern.resultAs[Pattern], c.AtomicPattern.resultAs[Pattern])) ++
   arule("AppendPattern", "AtomicPattern", _.AtomicPattern.result) ++
-  arule("IfPattern", "PrependPattern", _.PrependPattern.result) ++
+  arule("AsPattern", "PrependPattern", _.PrependPattern.result) ++
+  arule("AsPattern", "AsPattern As IndexedName", c => PAs(c.AsPattern.resultAs[Pattern], c.IndexedName.text)) ++
+  arule("IfPattern", "AsPattern", _.AsPattern.result) ++
   arule("IfPattern", "IfPattern If Expr", c => PIf(c.IfPattern.resultAs[Pattern], c.Expr.resultAs[Expr])) ++
   arule("Pattern", "IfPattern", _.IfPattern.result) ++
   arule("OptPattern", "", c => None) ++
