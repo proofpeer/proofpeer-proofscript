@@ -75,6 +75,12 @@ def
 assert duphead [] == []
 assert duphead [1, 2, 3] == [1, 1, 2, 3]
 
+do
+  val x = 10
+  def tricky ((y if y == x) <+ _ as x) = x
+  assert tricky [10] == [10]
+  failure tricky [11]
+
 # Let's do some term matching
 
 def 
