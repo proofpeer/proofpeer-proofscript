@@ -6,7 +6,11 @@ import proofpeer.proofscript.logic._
 
 object Interpreter {
 
-	class FileSource(val f : File) extends Source 
+	class FileSource(val f : File) extends Source {
+		override def toString : String = {
+			return f.toString
+		}
+	}
 
 	var numTheories = 0
 
@@ -165,7 +169,12 @@ object Interpreter {
 						pos.span match {
 							case None => ""
 							case Some(span) =>
-								" at row "+(span.firstRow + 1)+", column "+(span.leftMostFirst + 1)			
+								val rc = " at row "+(span.firstRow + 1)+", column "+(span.leftMostFirst + 1)
+								if (pos.source == thy.source) rc
+								else {
+									val src = if (pos.source != null) pos.source.toString else "?"
+									" (error in "+src+rc+")"
+								}	
 						}
 					} else ""
 				println("failed executing theory "+thy.namespace+w+":\n  "+error)
