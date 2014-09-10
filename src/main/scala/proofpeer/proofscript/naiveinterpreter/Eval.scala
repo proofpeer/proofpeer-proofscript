@@ -686,7 +686,7 @@ class Eval(states : States, kernel : Kernel,
 					case f => f
 				}
 			case BinaryOperation(Or, left, right) =>
-				evalExpr(state, right) match {
+				evalExpr(state, left) match {
 					case Success(v @ BoolValue(true), _) => success(v)
 					case Success(BoolValue(false), _) => 
 						evalExpr(state, right) match {
