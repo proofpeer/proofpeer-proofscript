@@ -281,11 +281,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
 
     def normalize(a : Term) : Theorem = {
       val ty = getTypeOfTerm(a)
-      val b = 
-        KernelUtils.normBetaEta(a) match {
-          case None => a
-          case Some(b) => b
-        }
+      val b = KernelUtils.betaEtaNormalform(a)
       mk_theorem(this, mk_equals(a, b, ty))      
     }
 

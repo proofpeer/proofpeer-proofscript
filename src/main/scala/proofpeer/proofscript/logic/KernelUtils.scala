@@ -458,7 +458,7 @@ object KernelUtils {
   def betaEtaNormalform(term : Term) : Term = {
     normBetaEta(term) match {
       case None => term
-      case Some(term) => term
+      case Some(term) => betaEtaNormalform(term)
     }
   }
 
