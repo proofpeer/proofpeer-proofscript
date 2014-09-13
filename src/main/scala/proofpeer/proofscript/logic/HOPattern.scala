@@ -12,7 +12,12 @@ case class Abs(x : IndexedName, ty : Pretype, body : HOPattern) extends HOPatter
 case class Comb(f : HOPattern, g : HOPattern) extends HOPattern
 
 // converts a term which is assumed to be valid in the context into a HOPattern
-def term2HOP(context : Context, term : Term, vars : Map[IndexedName, Pretype]) : HOPattern = {
+// part of the conversion is beta-normalization, as HOPatterns must be in beta-normalform by definition
+def term2HOP(context : Context, term : Term) : HOPattern = {
+  term2HOP(context, KernelUtils.betaEtaNormalform(term), Map())
+}
+
+private def term2HOP(context : Context, term : Term, vars : Map[IndexedName, Pretype]) : HOPattern = {
   term match {
     case c : Term.PolyConst => Const(c.name, Pretype.translate(context.typeOfTerm(c).get))
     case c : Term.Const => Const(c.name, Pretype.translate(context.typeOfTerm(c).get))
@@ -81,7 +86,7 @@ private def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm
 }
 
 def patternMatch(context : Context, hop : HOPattern, term : Term) : Either[Map[Integer, Term], Boolean] = {
-  unify(hop, term2HOP(context, term, Map())) match {
+  unify(hop, term2HOP(context, term)) match {
     case Left((subst, _)) => Left(subst.mapValues(hop2Term))
     case Right(invalid) => Right(invalid)
   }
@@ -421,7 +426,9 @@ private class Unification {
         val hs = lookupVars(zs, xs)
         val h = freshMetaVar
         (f.name -> lambda(xs, h, hs)) :: theta
-      case _ => throw InvalidPattern
+      case _ => 
+
+        throw InvalidPattern
     }
   }
 
