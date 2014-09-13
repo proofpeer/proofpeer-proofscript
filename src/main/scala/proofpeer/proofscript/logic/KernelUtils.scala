@@ -64,15 +64,7 @@ object KernelUtils {
   def mk_equals(left : Term, right : Term, ty : Type) : Term = {
     Comb(Comb(PolyConst(Kernel.equals, ty), left), right)    
   }
-  
-  def dest_binop(term : Term) : (Name, Term, Term) = {
-    term match {
-      case Comb(Comb(Const(name), left), right) => (name, left, right)
-      case Comb(Comb(PolyConst(name, _), left), right) => (name, left, right)     
-      case _ => failwith("dest_binop: term is not a binary operation: "+term)
-    }
-  }
-  
+    
   def maxIndex(x : Option[Option[Integer]], y : Option[Option[Integer]]) : Option[Option[Integer]] = {
     (x, y) match {
       case (None, m) => m
@@ -135,6 +127,10 @@ object KernelUtils {
       case Var(varname) =>
         Some(varname.index)
     }
+  }
+
+  def freshVar(name : String, term : Term) : Var = {
+    Var(IndexedName(name, incIndex(findHighestVarIndex(name, term))))
   }
   
   // naive substitution, does not check for variable capture
@@ -218,12 +214,30 @@ object KernelUtils {
       case _ => false
     }
   }
+
+  def dest_implies(term : Term) : Option[(Term, Term)] = {
+    term match {
+      case Comb(Comb(Const(Kernel.implies), left), right) =>
+        Some((left, right))
+      case _ => 
+        betaNormalform(term) match {
+          case Comb(Comb(Const(Kernel.implies), left), right) =>
+            Some((left, right))
+          case _ => None
+        }
+    }    
+  }
     
-  def dest_equals(term : Term) : (Term, Term, Type) = {
+  def dest_equals(term : Term) : Option[(Term, Term, Type)] = {
     term match {
       case Comb(Comb(PolyConst(Kernel.equals, ty), left), right) =>
-        (left, right, ty)
-      case _ => failwith("dest_equals: term is not an equality")
+        Some((left, right, ty))
+      case _ => 
+        betaNormalform(term) match {
+          case Comb(Comb(PolyConst(Kernel.equals, ty), left), right) =>
+            Some((left, right, ty))
+          case _ => None
+        }
     }
   }
   
@@ -258,36 +272,38 @@ object KernelUtils {
       case _ => u == v
     }
   }
-  
-  def is_forall(term : Term) : Boolean = {
-    term match {
-      case Comb(PolyConst(Kernel.forall, _), Abs(_, _, _)) => true
-      case _ => false
-    }    
-  }
-  
-  def dest_forall(term : Term) : (IndexedName, Type, Term) = {
+
+  def dest_forall(term : Term) : Option[(IndexedName, Type, Term)] = {
     term match {
       case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
-        (x, ty, body)
+        Some((x, ty, body))
       case _ =>
-        failwith("dest_forall: all-quantification expected")
+        betaNormalform(term) match {
+          case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
+            Some((x, ty, body))
+          case Comb(PolyConst(Kernel.forall, ty), p) => 
+            val x = freshVar("x", p)
+            val body = Comb(p, x)
+            Some((x.name, ty, body))
+          case _ => None
+        }
     }
   }
 
-  def is_exists(term : Term) : Boolean = {
-    term match {
-      case Comb(PolyConst(Kernel.exists, _), Abs(_, _, _)) => true
-      case _ => false
-    }    
-  }
-
-  def dest_exists(term : Term) : (IndexedName, Type, Term) = {
+  def dest_exists(term : Term) : Option[(IndexedName, Type, Term)] = {
     term match {
       case Comb(PolyConst(Kernel.exists, _), Abs(x, ty, body)) => 
-        (x, ty, body)
+        Some((x, ty, body))
       case _ =>
-        failwith("dest_exists: existential quantification expected")
+        betaNormalform(term) match {
+          case Comb(PolyConst(Kernel.exists, _), Abs(x, ty, body)) => 
+            Some((x, ty, body))
+          case Comb(PolyConst(Kernel.exists, ty), p) => 
+            val x = freshVar("x", p)
+            val body = Comb(p, x)
+            Some((x.name, ty, body))
+          case _ => None
+        }
     }
   }
   
@@ -322,16 +338,19 @@ object KernelUtils {
     var quantifiers : List[(IndexedName, Type)] = List()
     var term : Term = term_
     var max : Int = max_
-    while (is_forall(term) && (max < 0 || max > 0)) {
-      val (x, ty, tm) = dest_forall(term)
-      var y = x
-      while (names.contains(y)) {
-        y = incIndex(y)
+    while (max < 0 || max > 0) {
+      dest_forall(term) match {
+        case None => return (names, quantifiers.reverse, term)
+        case Some((x, ty, tm)) =>
+          var y = x
+          while (names.contains(y)) {
+            y = incIndex(y)
+          }
+          term = substVar(tm, x, Var(y))
+          names = names + y
+          quantifiers = (y, ty) :: quantifiers
+          max = max - 1        
       }
-      term = substVar(tm, x, Var(y))
-      names = names + y
-      quantifiers = (y, ty) :: quantifiers
-      max = max - 1
     }
     (names, quantifiers.reverse, term)
   }
@@ -464,6 +483,37 @@ object KernelUtils {
 
   def betaEtaEq(u : Term, v : Term) : Boolean = {
     alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v))
+  }
+
+  def normBeta(term : Term) : Option[Term] = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => 
+        val top = substVar(body, x, y)
+        normBeta(top) match {
+          case None => Some(top)
+          case t => t
+        }
+      case Comb(f, g) =>
+        (normBeta(f), normBeta(g)) match {
+          case (Some(f), Some(g)) => Some(Comb(f, g))
+          case (Some(f), None) => Some(Comb(f, g))
+          case (None, Some(g)) => Some(Comb(f, g))
+          case (None, None) => None
+        }
+      case Abs(x, ty, body) =>
+        normBeta(body) match {
+          case None => None
+          case Some(body) => Some(Abs(x, ty, body))
+        }
+      case _ => None
+    }
+  }
+
+  def betaNormalform(term : Term) : Term = {
+    normBeta(term) match {
+      case None => term
+      case Some(term) => betaNormalform(term)
+    }
   }
 
 }

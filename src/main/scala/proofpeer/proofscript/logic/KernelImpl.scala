@@ -134,7 +134,12 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
       val (quantifiers, th) = strip_forall_unique(thm.proposition)
-      val (x, ty, p) = dest_exists(th)
+      val (x, ty, p) = 
+        dest_exists(th) match {
+          case None =>
+            failwith("choose: theorem is not an (possibly universally quantified) existential")
+          case Some(u) => u
+        }
       var c : Term = Const(const_name)
       var cty : Type = ty
       for ((x, xty) <- quantifiers) {
@@ -298,8 +303,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def transitive(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)
-      val (a, b1, ty_a) = dest_equals(p.proposition)
-      val (b2, c, ty_c) = dest_equals(q.proposition)
+      val (a, b1, ty_a) = 
+        dest_equals(p.proposition) match {
+          case None => failwith("transitive: first theorem is not an equation")
+          case Some(u) => u
+        }
+      val (b2, c, ty_c) = 
+        dest_equals(q.proposition) match {
+          case None => failwith("transitive: second theorem is not an equation")
+          case Some(u) => u
+        }
       if (ty_a == ty_c && equivalent(b1, b2))
         mk_theorem(this, mk_equals(a, c, ty_a))
       else
@@ -309,8 +322,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def comb(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)
-      val (f, g, fun_ty) = dest_equals(p.proposition)
-      val (a, b, arg_ty) = dest_equals(q.proposition)
+      val (f, g, fun_ty) = 
+        dest_equals(p.proposition) match {
+          case None => failwith("comb: first theorem is not an equation")
+          case Some(u) => u
+        }
+      val (a, b, arg_ty) = 
+        dest_equals(q.proposition) match {
+          case None => failwith("comb: second theorem is not an equation")
+          case Some(u) => u
+        }
       fun_ty match {
         case Fun(domain, range) if domain == arg_ty =>
           mk_theorem(this, mk_equals(Comb(f, a), Comb(g, b), range))
@@ -320,28 +341,41 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
     
     def modusponens(p : Theorem, q : Theorem) : Theorem = {
-      dest_binop(q.proposition) match {
-        case (Kernel.equals | Kernel.implies, a, b) =>
-          if (equivalent(p.proposition, a))
-            mk_theorem(this, b)
-          else
-            failwith("modusponens: antecedent and hypothesis do not match")
-        case _ => 
-          failwith("modusponens: equality or implication expected")
+      def mk(antecedent : Term, conclusion : Term) : Theorem = {
+        if (equivalent(p.proposition, antecedent))
+          mk_theorem(this, conclusion)
+        else
+          failwith("modusponens: antecedents do not match")
+      }
+      dest_equals(q.proposition) match {
+        case Some((a, b, _)) => mk(a, b)
+        case None =>
+          dest_implies(q.proposition) match {
+            case Some((a, b)) => mk(a, b)
+            case None => failwith("modusponens: equality or implication expected as second theorem")
+          }
       }
     }
     
     def abs(p : Theorem) : Theorem = {
-      val (x, xty, body) = dest_forall(p.proposition)
-      val (a, b, ty) = dest_equals(body)
+      val (x, xty, body) = 
+        dest_forall(p.proposition) match {
+          case None => failwith("abs: theorem is not a universal quantification")
+          case Some(u) => u
+        }
+      val (a, b, ty) = 
+        dest_equals(body) match {
+          case None => failwith("abs: theorem is not a universally quantified equality")
+          case Some(u) => u
+        }
       val left = Abs(x, xty, a)
       val right = Abs(x, xty, b)
       mk_theorem(this, mk_equals(left, right, Fun(xty, ty)))
     }
     
     def equiv(p : Theorem, q : Theorem) : Theorem = {
-      (dest_binop(p.proposition), dest_binop(q.proposition)) match {
-        case ((Kernel.implies, a, b), (Kernel.implies, b_, a_)) =>
+      (dest_implies(p.proposition), dest_implies(q.proposition)) match {
+        case (Some((a,b)), Some((b_, a_))) =>
           if (equivalent(a, a_) && equivalent(b, b_)) 
             mk_theorem(this, mk_equals(a, b, Prop))
           else
