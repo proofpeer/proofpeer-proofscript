@@ -133,7 +133,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      val (quantifiers, th) = strip_forall_unique(thm.proposition)
+      val (quantifiers, th) = strip_forall_unique(betaEtaNormalform(thm.proposition))
       val (x, ty, p) = dest_exists(th)
       var c : Term = Const(const_name)
       var cty : Type = ty
@@ -309,8 +309,8 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     def comb(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)
-      val (f, g, fun_ty) = dest_equals(p.proposition)
-      val (a, b, arg_ty) = dest_equals(q.proposition)
+      val (f, g, fun_ty) = dest_equals(betaEtaNormalform(p.proposition))
+      val (a, b, arg_ty) = dest_equals(betaEtaNormalform(q.proposition))
       fun_ty match {
         case Fun(domain, range) if domain == arg_ty =>
           mk_theorem(this, mk_equals(Comb(f, a), Comb(g, b), range))
@@ -320,7 +320,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
     
     def modusponens(p : Theorem, q : Theorem) : Theorem = {
-      dest_binop(q.proposition) match {
+      dest_binop(betaEtaNormalform(q.proposition)) match {
         case (Kernel.equals | Kernel.implies, a, b) =>
           if (equivalent(p.proposition, a))
             mk_theorem(this, b)
