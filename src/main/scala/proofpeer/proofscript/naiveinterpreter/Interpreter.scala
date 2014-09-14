@@ -6,6 +6,8 @@ import proofpeer.proofscript.logic._
 
 object Interpreter {
 
+	val MAX_TRACE_LENGTH = 1000
+
 	class FileSource(val f : File) extends Source {
 		override def toString : String = {
 			return f.toString
@@ -163,21 +165,38 @@ object Interpreter {
 			}
 		println("executing theory "+thy.namespace+" ...")
 		evaluator.evalBlock(state, ParseTree.Block(thy.statements)) match {
-			case Failed(pos, error) =>
-				val w = 
-					if (pos != null) {
-						pos.span match {
-							case None => ""
-							case Some(span) =>
-								val rc = " at row "+(span.firstRow + 1)+", column "+(span.leftMostFirst + 1)
-								if (pos.source == thy.source) rc
-								else {
-									val src = if (pos.source != null) pos.source.toString else "?"
-									" (error in "+src+rc+")"
-								}	
+			case Failed(trace, error) =>
+				def describePosition(pos : SourcePosition, label : SourceLabel) : String = {
+					val labelDescr =
+						label match {
+							case NoSourceLabel => ""
+							case _ => " (" + label +")"
 						}
-					} else ""
-				println("failed executing theory "+thy.namespace+w+":\n  "+error)
+					if (pos == null) "unknown location" + labelDescr
+					else {
+						val theory = {
+								val src = if (pos.source != null) pos.source.toString else "?"
+								"in " + src
+							}
+						pos.span match {
+							case None => 
+								theory + " at unknown location" + labelDescr
+							case Some(span) => 
+								theory + " at row "+(span.firstRow + 1)+", column "+(span.leftMostFirst + 1) + labelDescr
+						}
+					}
+				}
+				println("failed executing theory "+thy.namespace+": "+error)
+				var trace_overflow = false
+				var positions = trace.reverse
+				if (positions.size > MAX_TRACE_LENGTH) {
+					trace_overflow = true
+					positions = positions.take(MAX_TRACE_LENGTH)
+				}
+				for (pos <- positions) {
+					println("  "+describePosition(pos._1, pos._2))
+				}
+				if (trace_overflow) println("  ... "+(trace.size - MAX_TRACE_LENGTH)+" more")
 				executionFailed = executionFailed + 1
 			case Success(state, _) => {
 				if (state.context.hasAssumptions && state.context.namespace != Kernel.root_namespace) {

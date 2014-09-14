@@ -288,7 +288,6 @@ object ParseTree {
     protected def calcVars = (Set(), ids.map(_.name).toSet)
   }
 
-
   case class STAssign(pat : Pattern, body : Block) extends Statement {
     protected def calcVars = (pat.freeVars ++ body.freeVars, Set())
   }

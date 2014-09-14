@@ -4,9 +4,37 @@ import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import ParseTree._
 
+sealed trait SourceLabel
+case object NoSourceLabel extends SourceLabel
+case class AnonymousFunctionLabel(eval : Eval, state : State, value : StateValue) extends SourceLabel {
+	override def toString : String = 
+		"? applied to: " + eval.display(state, value)
+}
+case class DefFunctionLabel(name : String, eval : Eval, state : State, value : StateValue) extends SourceLabel {
+	override def toString : String = 
+		name + " applied to: " + eval.display(state, value)
+}
+
 sealed trait Result[T]
 case class Success[T](result : T, isReturnValue : Boolean) extends Result[T]
-case class Failed[T](pos : SourcePosition, error : String) extends Result[T]
+case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : String) extends Result[T] {
+	def addToTrace(p : SourcePosition, label : SourceLabel) : Failed[T] = {
+		if (p != null) {
+			trace match {
+				case (q,_) :: tr =>
+					if (q.source != p.source || q.span != p.span)
+						trace = (p, label) :: trace
+				case _ => 
+					trace = List((p, label))
+			}
+		}
+		this
+	}
+	def addToTrace(p : TracksSourcePosition, label : SourceLabel) : Failed[T] = {
+		if (p != null) addToTrace(p.sourcePosition, label)
+		this
+	}
+}
 
 class Eval(states : States, kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
@@ -18,11 +46,11 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[T](p : TracksSourcePosition, error : String) : Failed[T] = 
 		if (p != null)
-			Failed(p.sourcePosition, error)
+			Failed(List((p.sourcePosition, NoSourceLabel)), error)
 		else
-			Failed(null, error)
+			Failed(List(), error)
 
-	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.pos, f.error)
+	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.trace, f.error)
 
 	def mkFresh(context : Context, name : IndexedName) : IndexedName = {
 		def isFresh(name : Name) = 
@@ -130,154 +158,171 @@ class Eval(states : States, kernel : Kernel,
 		StateValue.display(aliases, logicNameresolution, state.context, value)	
 	}
 
+	def recordTrace(tracks : TracksSourcePosition)(block : => Unit) {
+		import scala.runtime.NonLocalReturnControl
+		try {
+			block
+		} catch {
+			case _e : NonLocalReturnControl[_] =>
+				val e = _e.asInstanceOf[NonLocalReturnControl[Result[State]]]
+				e.value match {
+					case f : Failed[_] => f.addToTrace(tracks, NoSourceLabel)
+					case _ =>
+				}
+				throw e
+		}
+	}
+
 	def evalBlock(_state : State, block : Block) : Result[State] = {
 		val statements = block.statements
 		var state = _state
 		val num = statements.size
 		var i = 0
 		for (st <- statements) {
-			st match {
-				case STValIntro(ids) =>
-					if (ids.toSet.size != ids.size)
-						return fail(st, "cannot introduce the same variable more than once")
-					else 
-						for (id <- ids) state = state.bind(Map(id.name -> NilValue))
-				case STVal(pat, body) => 
-					evalBlock(state.setCollect(Collect.emptyOne), body) match {
-						case f : Failed[_] => return fail(f)
-						case su @ Success(s, isReturnValue) => 
-							if (isReturnValue) return su
-							val value = s.reapCollect
-							state = state.setContext(s.context)
-							matchPattern(state.freeze, pat, value) match {
-								case Failed(pos, error) => return Failed(pos, error)
-								case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
-								case Success(Some(matchings), _) => state = state.bind(matchings)
-							}
-					}
-				case STAssign(pat, body) =>
-					if (!(pat.introVars subsetOf state.assignables)) {
-						val unassignables = pat.introVars -- state.assignables
-						var error = "pattern assigns to variables not in linear scope:"
-						for (v <- unassignables) error = error + " " + v
-						return fail(pat, error)
-					}
-					evalBlock(state.setCollect(Collect.emptyOne), body) match {
-						case f : Failed[_] => return fail(f)
-						case su @ Success(s, isReturnValue) => 
-							if (isReturnValue) return su
-							val value = s.reapCollect
-							state = state.setContext(s.context)
-							matchPattern(state.freeze, pat, value) match {
-								case Failed(pos, error) => return Failed(pos, error)
-								case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
-								case Success(Some(matchings), _) => state = state.rebind(matchings)
-							}
-					}					
-				case STExpr(expr) =>
-					val ok =
-						state.collect match {
-							case Collect.Zero => false
-							case _ : Collect.One => i == num - 1
-							case _ : Collect.Multiple => true
-						}
-					if (!ok) return fail(st, "cannot yield here")
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(s, _) => state = state.addToCollect(s)
-					}
-				case STReturn(expr) => 
-					if (!state.canReturn) return fail(st, "cannot return here")
-					expr match {
-						case None => return Success(State.fromValue(NilValue), true)
-						case Some(expr) =>
-							evalExpr(state.freeze, expr) match {
-								case f : Failed[_] => return fail(f)
-								case Success(s, _) => return Success(State.fromValue(s), true)
-							}						
-					}
-				case STShow(expr) => 
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(value, _) => 
-							val location : String = 
-								st.sourcePosition.span match {
-									case None => ""
-									case Some(span) => ":" + (span.firstRow + 1)
+			recordTrace(st) {
+				st match {
+					case STValIntro(ids) =>
+						if (ids.toSet.size != ids.size)
+							return fail(st, "cannot introduce the same variable more than once")
+						else 
+							for (id <- ids) state = state.bind(Map(id.name -> NilValue))
+					case STVal(pat, body) => 
+						evalBlock(state.setCollect(Collect.emptyOne), body) match {
+							case f : Failed[_] => return fail(f)
+							case su @ Success(s, isReturnValue) => 
+								if (isReturnValue) return su
+								val value = s.reapCollect
+								state = state.setContext(s.context)
+								matchPattern(state.freeze, pat, value) match {
+									case Failed(pos, error) => return Failed(pos, error)
+									case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
+									case Success(Some(matchings), _) => state = state.bind(matchings)
 								}
-							println("** show ("+namespace+location+"): "+display(state, value))
-					}
-				case STFail(None) => return fail(st, "fail")
-				case STFail(Some(expr)) =>
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(value, _) => return fail(st, "fail: "+display(state, value))
-					}		
-				case STAssert(expr) =>
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(BoolValue(true), _) => // do nothing
-						case Success(BoolValue(false), _) => return fail(st, "Assertion does not hold")
-						case Success(value, _) => return fail(st, "Assertion does not hold: " + display(state, value))
-					}
-				case STFailure(block) =>
-					evalBlock(state.freeze.setCollect(Collect.emptyMultiple), block) match {
-						case f : Failed[_] => 
-							val location : String = 
-								st.sourcePosition.span match {
-									case None => ""
-									case Some(span) => ":" + (span.firstRow + 1)
+						}
+					case STAssign(pat, body) =>
+						if (!(pat.introVars subsetOf state.assignables)) {
+							val unassignables = pat.introVars -- state.assignables
+							var error = "pattern assigns to variables not in linear scope:"
+							for (v <- unassignables) error = error + " " + v
+							return fail(pat, error)
+						}
+						evalBlock(state.setCollect(Collect.emptyOne), body) match {
+							case f : Failed[_] => return fail(f)
+							case su @ Success(s, isReturnValue) => 
+								if (isReturnValue) return su
+								val value = s.reapCollect
+								state = state.setContext(s.context)
+								matchPattern(state.freeze, pat, value) match {
+									case Failed(pos, error) => return Failed(pos, error)
+									case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
+									case Success(Some(matchings), _) => state = state.rebind(matchings)
+								}
+						}					
+					case STExpr(expr) =>
+						val ok =
+							state.collect match {
+								case Collect.Zero => false
+								case _ : Collect.One => i == num - 1
+								case _ : Collect.Multiple => true
+							}
+						if (!ok) return fail(st, "cannot yield here")
+						evalExpr(state.freeze, expr) match {
+							case f : Failed[_] => return fail(f)
+							case Success(s, _) => state = state.addToCollect(s)
+						}
+					case STReturn(expr) => 
+						if (!state.canReturn) return fail(st, "cannot return here")
+						expr match {
+							case None => return Success(State.fromValue(NilValue), true)
+							case Some(expr) =>
+								evalExpr(state.freeze, expr) match {
+									case f : Failed[_] => return fail(f)
+									case Success(s, _) => return Success(State.fromValue(s), true)
 								}						
-							println("** failure intercepted ("+namespace+location+"): "+f.error)
-						case Success(newState, _) =>
-							val value = newState.reapCollect 
-							return fail(st, "Failure expected, but evaluates successfully to: " + display(state, value))
-					}		
-				case STControlFlow(controlflow) =>
-					val (changedCollect, collect) = 
-						state.collect match {
-							case _ : Collect.One if i != num - 1 => (true, Collect.Zero)
-							case c => (false, c)
 						}
-					evalControlFlow(state.setCollect(collect), controlflow) match {
-						case f : Failed[_] => return fail(f)
-						case su @ Success(value, isReturnValue) =>
-							if (isReturnValue) return su
-							state = if (changedCollect) value.setCollect(state.collect) else value
-					}
-				case stdef : STDef =>
-					lookupVars(state, stdef.freeVars) match {
-						case Right(xs) =>
-							var error = "definition depends on unknown free variables:"
-							for (x <- xs) error = error + " " + x
-							return fail(stdef, error)
-						case Left(bindings) =>
-							var functions : Map[String, RecursiveFunctionValue] = Map()
-							var nonlinear = bindings
-							for ((name, cs) <- stdef.cases) {
-								val f = RecursiveFunctionValue(null, cs)
-								nonlinear = nonlinear + (name -> f)
-								functions = functions + (name -> f)
+					case STShow(expr) => 
+						evalExpr(state.freeze, expr) match {
+							case f : Failed[_] => return fail(f)
+							case Success(value, _) => 
+								val location : String = 
+									st.sourcePosition.span match {
+										case None => ""
+										case Some(span) => ":" + (span.firstRow + 1)
+									}
+								println("** show ("+namespace+location+"): "+display(state, value))
+						}
+					case STFail(None) => return fail(st, "fail")
+					case STFail(Some(expr)) =>
+						evalExpr(state.freeze, expr) match {
+							case f : Failed[_] => return fail(f)
+							case Success(value, _) => return fail(st, "fail: "+display(state, value))
+						}		
+					case STAssert(expr) =>
+						evalExpr(state.freeze, expr) match {
+							case f : Failed[_] => return fail(f)
+							case Success(BoolValue(true), _) => // do nothing
+							case Success(BoolValue(false), _) => return fail(st, "Assertion does not hold")
+							case Success(value, _) => return fail(st, "Assertion does not hold: " + display(state, value))
+						}
+					case STFailure(block) =>
+						evalBlock(state.freeze.setCollect(Collect.emptyMultiple), block) match {
+							case f : Failed[_] => 
+								val location : String = 
+									st.sourcePosition.span match {
+										case None => ""
+										case Some(span) => ":" + (span.firstRow + 1)
+									}						
+								println("** failure intercepted ("+namespace+location+"): "+f.error)
+							case Success(newState, _) =>
+								val value = newState.reapCollect 
+								return fail(st, "Failure expected, but evaluates successfully to: " + display(state, value))
+						}		
+					case STControlFlow(controlflow) =>
+						val (changedCollect, collect) = 
+							state.collect match {
+								case _ : Collect.One if i != num - 1 => (true, Collect.Zero)
+								case c => (false, c)
 							}
-							var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
-							for ((_, f) <- functions) f.state = defstate
-							state = state.bind(functions)
-					}
-				case st if isLogicStatement(st) => 
-					evalLogicStatement(state, st) match {
-						case f : Failed[_] => return fail(f)
-						case Success((_state, name, value), isReturnValue) =>
-							if (isReturnValue) return Success(_state, true)
-							state = _state
-							if (name.isDefined) state = state.bind(Map(name.get -> value))
-							if (i == num - 1) 
-								state.collect match {
-									case _ : Collect.One => state = state.addToCollect(value)
-									case _ => // do nothing
+						evalControlFlow(state.setCollect(collect), controlflow) match {
+							case f : Failed[_] => return fail(f)
+							case su @ Success(value, isReturnValue) =>
+								if (isReturnValue) return su
+								state = if (changedCollect) value.setCollect(state.collect) else value
+						}
+					case stdef : STDef =>
+						lookupVars(state, stdef.freeVars) match {
+							case Right(xs) =>
+								var error = "definition depends on unknown free variables:"
+								for (x <- xs) error = error + " " + x
+								return fail(stdef, error)
+							case Left(bindings) =>
+								var functions : Map[String, RecursiveFunctionValue] = Map()
+								var nonlinear = bindings
+								for ((name, cs) <- stdef.cases) {
+									val f = RecursiveFunctionValue(null, cs)
+									nonlinear = nonlinear + (name -> f)
+									functions = functions + (name -> f)
 								}
-					}
-				case _ : STComment => // ignore comment and do nothing
-				case _ => return fail(st, "statement has not been implemented yet: "+st)
+								var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+								for ((_, f) <- functions) f.state = defstate
+								state = state.bind(functions)
+						}
+					case st if isLogicStatement(st) => 
+						evalLogicStatement(state, st) match {
+							case f : Failed[_] => return fail(f)
+							case Success((_state, name, value), isReturnValue) =>
+								if (isReturnValue) return Success(_state, true)
+								state = _state
+								if (name.isDefined) state = state.bind(Map(name.get -> value))
+								if (i == num - 1) 
+									state.collect match {
+										case _ : Collect.One => state = state.addToCollect(value)
+										case _ => // do nothing
+									}
+						}
+					case _ : STComment => // ignore comment and do nothing
+					case _ => return fail(st, "statement has not been implemented yet: "+st)
+				}
 			}
 			i = i + 1
 		}
@@ -722,7 +767,7 @@ class Eval(states : States, kernel : Kernel,
 								case f : Failed[_] => return f
 								case Success(v, _) =>
 									cmp(state, operators.head, value, v) match {
-										case f : Failed[_] => return Failed(f.pos, f.error)
+										case f : Failed[_] => return fail(f)
 										case Success(false, _) => return success(BoolValue(false))
 										case Success(true, _) => value = v
 									}
@@ -837,11 +882,14 @@ class Eval(states : States, kernel : Kernel,
 
 	def evalApply(state : State, pat : Pattern, body : Block, argument : StateValue) : Result[StateValue] = {
 		matchPattern(state.freeze, pat, argument) match {
-			case failed : Failed[_] => fail(failed)
-			case Success(None, _) => fail(pat, "pattern does not match function argument: " + display(state, argument))
+			case failed : Failed[_] => fail(failed).addToTrace(pat, AnonymousFunctionLabel(this, state, argument))
+			case Success(None, _) => 
+				fail(null, "function argument does not match").addToTrace(pat, 
+					AnonymousFunctionLabel(this, state, argument))
 			case Success(Some(matchings), _) =>
 				evalBlock(state.bind(matchings), body) match {
-					case failed : Failed[_] => fail(failed)
+					case failed : Failed[_] => fail(failed).addToTrace(pat, 
+						AnonymousFunctionLabel(this, state, argument))
 					case Success(state, _) => success(state.reapCollect)
 				}
 		}
@@ -851,17 +899,19 @@ class Eval(states : States, kernel : Kernel,
 		val matchState = state.freeze
 		for (c <- cases) {
 			matchPattern(matchState, c.param, argument) match {
-				case failed : Failed[_] => return fail(failed)
+				case failed : Failed[_] => 
+					return fail(failed).addToTrace(c.param, DefFunctionLabel(c.name, this, state, argument))
 				case Success(None, _) =>
 				case Success(Some(matchings), _) =>
 					evalBlock(state.bind(matchings), c.body) match {
-						case failed : Failed[_] => return fail(failed)
+						case failed : Failed[_] => 
+							return fail(failed).addToTrace(c.param, DefFunctionLabel(c.name, this, state, argument))
 						case Success(state, _) => return success(state.reapCollect)
 					}
 			}
 		}
 		val c = cases.head
-		fail(c.param, "function " + c.name + " cannot be applied to: " + display(state, argument))
+		fail(null, "function argument does not match").addToTrace(c.param, DefFunctionLabel(c.name, this, state, argument))
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {
