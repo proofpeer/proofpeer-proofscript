@@ -370,8 +370,15 @@ class Eval(states : States, kernel : Kernel,
 									var liftedThm = ctx.lift(thm, false)
 									if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
 										val liftedThm2 = ctx.lift(thm, true)
-										if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) 
-											return fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm)))
+										if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) {
+											if (KernelUtils.betaEtaEq(liftedThm.proposition, liftedThm2.proposition)) 
+												return fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm)))
+											else {
+												val th1 = display(state, TheoremValue(liftedThm))
+												val th2 = display(state, TheoremValue(liftedThm2))
+												return fail(proof, "Proven theorem does not match, neither as:\n    "+th1+"\nnor as:\n    "+th2)
+											}
+										}
 										liftedThm = liftedThm2
 									}
 									success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop))))

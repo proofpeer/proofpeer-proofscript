@@ -265,7 +265,7 @@ object KernelUtils {
         alpha_equivalent(gu, su, gv, sv, freshIndex)
       case (Abs(ux, uty, ubody), Abs(vx, vty, vbody)) =>
         if (ux == vx) {
-          uty == vty && alpha_equivalent(ubody, su, vbody, sv, freshIndex)
+          uty == vty && alpha_equivalent(ubody, su - ux, vbody, sv - vx, freshIndex)
         } else {
           uty == vty && alpha_equivalent(ubody, su + (ux -> freshIndex), vbody, sv + (vx -> freshIndex), freshIndex + 1)
         }
