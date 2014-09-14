@@ -396,7 +396,13 @@ class Eval(states : States, kernel : Kernel,
 	def evalProof(state : State, proof : Block) : Result[StateValue] = {
 		evalBlock(state.setCollect(Collect.emptyOne), proof) match {
 			case f : Failed[_] => fail(f)
-			case Success(state, isReturnValue) => Success(state.reapCollect, isReturnValue)
+			case Success(state, isReturnValue) => 
+				state.reapCollect match {
+					case TheoremValue(th) if !isReturnValue =>
+						val liftedTh = state.context.lift(th, false)
+						Success(TheoremValue(liftedTh), false)
+					case value => Success(value, isReturnValue)
+				}
 		}
 	}
 
