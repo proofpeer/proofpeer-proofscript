@@ -85,6 +85,34 @@ private def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm
   }
 }
 
+// Checks if a HOPattern (which resulted from preterm2HOP) is an actual HOPattern,
+// i.e. beta-normalized and metavars only applied to distinct bound variables.
+// Note that this function does not check other necessary properties which are guaranteed when resulting
+// from preterm2HOP, like no unbound variables, etc.
+def isHOPattern(pattern : HOPattern) : Boolean = {
+  pattern match {
+    case Abs(_, _, body) => isHOPattern(body)
+    case c : Comb => 
+      strip(c) match {
+        case (_ : Abs, _ :: args) => false
+        case (_ : MetaVar, args) =>
+          var names : Set[IndexedName] = Set()
+          for (arg <- args) {
+            arg match {
+              case Var(name, _) if !names.contains(name) =>
+                names = names + name
+              case _ => 
+                return false
+            }
+          }
+          true
+        case (p, ps) => (p::ps).forall(isHOPattern _)
+      }
+    case _ => true
+  }
+}
+
+
 def patternMatch(context : Context, hop : HOPattern, term : Term) : Either[Map[Integer, Term], Boolean] = {
   unify(hop, term2HOP(context, term)) match {
     case Left((subst, _)) => Left(subst.mapValues(hop2Term))
@@ -111,6 +139,17 @@ def instTypeVars(u : HOPattern, typeSubst : Integer => Option[Pretype]) : HOPatt
     case Const(name, ty) => Const(name, Pretype.subst(typeSubst, ty))
     case Abs(x, ty, body) => Abs(x, Pretype.subst(typeSubst, ty), instTypeVars(body, typeSubst))
     case Comb(f, g) => Comb(instTypeVars(f, typeSubst), instTypeVars(g, typeSubst))
+  }
+}
+
+private def strip(u : HOPattern) : (HOPattern, List[HOPattern]) = {
+  strip(u, List())
+}
+
+private def strip(u : HOPattern, us : List[HOPattern]) : (HOPattern, List[HOPattern]) = {
+  u match {
+    case Comb(f, g) => strip(f, g::us)
+    case _ => (u, us) 
   }
 }
 
@@ -223,17 +262,6 @@ private class Unification {
           case Some(t) => devar(theta, reduce(t, ts))
         }
       case _ => u
-    }
-  }
-
-  private def strip(u : HOPattern) : (HOPattern, List[HOPattern]) = {
-    strip(u, List())
-  }
-
-  private def strip(u : HOPattern, us : List[HOPattern]) : (HOPattern, List[HOPattern]) = {
-    u match {
-      case Comb(f, g) => strip(f, g::us)
-      case _ => (u, us) 
     }
   }
 

@@ -245,6 +245,22 @@ object Preterm {
   	}
   }
 
+  def computeHigherOrderFlag(comb : PTmComb) : Option[Boolean] = {
+    comb match {
+      case PTmComb(f, x, higherorder, ty) =>
+        higherorder match {
+          case None =>
+            val fty = f.typeOf
+            if (cantBeUniv(fty) || cantBeUniv(x.typeOf) || cantBeUniv(ty))
+              Some(true)
+            else if (cantBeFun(fty))
+              Some(false)
+            else None 
+          case _ => higherorder
+        }
+    }  
+  }
+
   def computeTypeEqualities(context : TypingContext, tm : Preterm, eqs : Set[(Pretype, Pretype)]) : Set[(Pretype, Pretype)] = {
   	tm match {
   		case PTmTyping(tm, ty) =>
@@ -256,20 +272,9 @@ object Preterm {
   	  	}
   	  case PTmAbs(x, ty, body, body_ty) =>
   	    computeTypeEqualities(context.addVar(x, ty), body, eqs) + (body_ty -> body.typeOf)
-  	  case PTmComb(f, x, _higherorder, ty) =>
+  	  case tmComb @ PTmComb(f, x, _higherorder, ty) =>
   	    val eqs1 = computeTypeEqualities(context, x, computeTypeEqualities(context, f, eqs))
-  	    val higherorder = 
-  	      _higherorder match {
-  	    	  case None =>
-  	    	  	val fty = f.typeOf
-  	    	  	if (cantBeUniv(fty) || cantBeUniv(x.typeOf) || cantBeUniv(ty))
-  	    	  	  Some(true)
-  	    	  	else if (cantBeFun(fty))
-  	    	  	  Some(false)
-  	    	  	else None 
-  	    	  case _ => _higherorder
-  	      }
-  	    higherorder match {
+  	    computeHigherOrderFlag(tmComb) match {
   	    	case Some(false) =>
   	    		eqs1 + (f.typeOf -> Pretype.PTyUniverse) + (x.typeOf -> Pretype.PTyUniverse) + (ty -> Pretype.PTyUniverse)
   	    	case Some(true) =>
@@ -281,6 +286,18 @@ object Preterm {
         eqs
   		case _ => Utils.failwith("internal error: computeTypeEqualities")
   	}
+  }
+
+  def updateHigherOrderFlags(tm : Preterm) : Preterm = {
+    tm match {
+      case PTmTyping(tm, ty) => 
+        PTmTyping(updateHigherOrderFlags(tm), ty)
+      case PTmAbs(x, ty, body, body_ty) => 
+        PTmAbs(x, ty, updateHigherOrderFlags(body), body_ty)
+      case tmComb @ PTmComb(f, x, higherorder, ty) =>
+        PTmComb(updateHigherOrderFlags(f), updateHigherOrderFlags(x), computeHigherOrderFlag(tmComb), ty)
+      case _ => tm
+    }
   }
 
   def subst(s : Integer => Option[Pretype], tm : Preterm) : Preterm = {
@@ -368,7 +385,7 @@ object Preterm {
   def inferTypes1(context : TypingContext, tm : Preterm) : Option[Preterm] = {
   	val eqs = computeTypeEqualities(context, tm, Set())
   	val s = Pretype.solve(eqs)
-  	if (s == null) None else Some(subst(n => s.get(n), tm))
+  	if (s == null) None else Some(updateHigherOrderFlags(subst(n => s.get(n), tm)))
   }
 
   def inferTypes(context : TypingContext, term : Preterm) : Option[Preterm] = {

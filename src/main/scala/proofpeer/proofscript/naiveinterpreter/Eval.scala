@@ -1168,7 +1168,10 @@ class Eval(states : States, kernel : Kernel,
 				val preterm = 
 					Preterm.inferPattern(tc, _preterm) match {
 						case Left(preterm) => preterm
-						case Right(errors) => return fail(pat, "ill-typed pattern")
+						case Right(errors) => 
+							for (err <- errors)
+								println("error: "+err)
+							return fail(pat, "ill-typed pattern")
 					}
 				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
 				HOPattern.patternMatch(state.context, hop, term) match {
