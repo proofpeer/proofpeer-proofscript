@@ -197,11 +197,21 @@ context
   theorem '∀ z. P a b z'
     instantiate (t, 'a', 'b')
   theorem '∀ x z. P x b z'
-    instantiate (t, nil, 'b', nil)
+    instantiate (t, , 'b', nil)
   theorem '∀ y. P a y b'
     instantiate (t, 'a', nil, 'b')    
   theorem (term t) 
-    instantiate [t, nil, nil, nil]
+    instantiate [t, , nil, nil]
 
+# destcomb
+  ------------------------------------
+
+context
+  let 'f : 𝒰 → 𝒰'
+  let 'x : 𝒰'
+  val (u, v) = destcomb 'f x'
+  assert u == 'f'
+  assert v == 'x'
+  assert destcomb 'f' == nil
 
 
