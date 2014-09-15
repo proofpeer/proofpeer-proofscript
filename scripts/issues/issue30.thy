@@ -12,8 +12,16 @@ context
 context
   let 'f:𝒰 → 𝒰'
   let 'x:𝒰'
-  val foo = 
+  def foo () =  
     match 'f x'
       case '(‹rat› : _ → _) ‹rand›' => true
       case _ => false
-  assert foo
+  failure foo()
+
+context
+  let 'f : 𝒰 → 𝒰'
+  let 'x : 𝒰'
+  val (u, v) = destcomb 'f x'
+  assert u == 'f'
+  assert v == 'x'
+  assert destcomb 'f' == nil

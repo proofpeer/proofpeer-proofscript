@@ -20,7 +20,8 @@ object NativeFunctions {
       "term" -> wrap(convert_to_term),
       "string" -> wrap(convert_to_string),
       "size" -> wrap(compute_size),
-      "fresh" -> wrap(fresh)
+      "fresh" -> wrap(fresh),
+      "destcomb" -> wrap(destcomb)
     )
 
   private def wrap(f : F) : F = {
@@ -196,6 +197,15 @@ object NativeFunctions {
         }
       case _ => Right("fresh expects a string as its argument")
     }
+  }
+
+  private def destcomb(eval : Eval, state : State, tm : StateValue) : Result = {    
+    val ctx = state.context
+    tm match {
+      case TermValue(Term.Comb(f, g)) => Left(TupleValue(Vector(TermValue(f), TermValue(g))))
+      case TermValue(f) => Left(NilValue)
+      case _ => Right("term expected")
+    }    
   }
 
 }
