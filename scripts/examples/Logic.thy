@@ -175,7 +175,7 @@ context
   theorem '(x ↦ f x) = (x ↦ g x)'
     abstract t
 
-# abstract
+# instantiate
   ------------------------------------
 
 context
@@ -213,5 +213,14 @@ context
   assert u == 'f'
   assert v == 'x'
   assert destcomb 'f' == nil
+
+context
+  let 'x'
+  val (eq, right) = destcomb (term (normalize '(x ↦ x) x'))
+  val (_, left) = destcomb eq
+  assert left == right
+  assert destcomb left <> destcomb right
+  assert destcomb left == ('x ↦ x', 'x')
+  assert destcomb right == nil
 
 
