@@ -37,7 +37,7 @@ context
   assert fresh "x" == fresh "x"
   assert string (fresh "x") == fresh "x"
 
-context
+# context
   theorem t: '∀ a b c p. p → p'
     let '‹a›'
     let '‹b›'
@@ -48,7 +48,7 @@ context
     assume '‹p›'
   show t
 
-context
+# context
   let 'p'
   theorem t: '∀ a b c p. p → p'
     let '‹a›'

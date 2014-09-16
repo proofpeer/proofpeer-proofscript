@@ -139,7 +139,10 @@ class Eval(states : States, kernel : Kernel,
 	// Note that state is not frozen!!
 	def evalPretermExpr(state : State, expr : Expr) : Result[(Preterm, State)] = {
 		expr match {
-			case tm : LogicTerm => evalLogicPreterm(state, tm, true)
+			case tm : LogicTerm => 
+			  // Instead of evalLogicPreterm(state, tm, true), because of 
+			  // issue #31 temporarily remove quote intro feature from language:
+				evalLogicPreterm(state, tm, false)
 			case _ => 
 				evalExpr(state.freeze, expr) match {
 					case failed : Failed[_] => fail(failed)
