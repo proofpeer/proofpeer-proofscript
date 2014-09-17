@@ -35,4 +35,14 @@ val eqTrueIntro =
 val apThm = (thm <+ terms) =>
   combine (thm <+ (for t in terms do
                      reflexive t))
-     
+                     
+val eqFalseElim =
+  theorem eqFalse:'∀ p. p = ⊥ → ¬p'
+    let p:'p:ℙ'
+    assume eq:'p = ⊥'
+    theorem imp:'p → ⊥'
+      assume p:'p:ℙ'
+      modusponens [p,eq]
+    modusponens [imp,sym (apThm [notDef,p])]
+  thm => (match term thm
+            case '‹p› = ‹_›' => modusponens [thm,instantiate [eqFalse,p]])
