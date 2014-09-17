@@ -3,10 +3,9 @@ extends
 
 let trueDef: 'true = ((p : ℙ ↦ p) = (p ↦ p))'
 let falseDef: 'false = (∀ p. p)'
-let andDef: 'and = (x y ↦ ((f ↦ f x y) = (f ↦ f ⊤ ⊤)))'
+let andDef: 'and = (x y ↦ ((f ↦ (f x y) : ℙ) = (f ↦ f ⊤ ⊤)))'
 let notDef: 'not = (p ↦ (p → ⊥))'
 let orDef: 'or = (x y ↦ (∀ z. (x → z) → (y → z) → z))'
-assume implies: '∀ x, y. (x → y) = ((x ∧ y) = x)'
 
 let 'empty'
 let 'difference : 𝒰 → 𝒰 → 𝒰'
