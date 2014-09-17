@@ -225,6 +225,7 @@ context
 
 # destabs
   ------------------------------------
+  
 context  
   let 'f : 𝒰 → 𝒰'
   assert destabs 'f' == nil
