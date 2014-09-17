@@ -299,6 +299,30 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         failwith("propositions are not alpha/beta/eta equivalent")
     }
 
+    def mkFresh(name : IndexedName) : IndexedName = {
+      def isFresh(name : Name) = 
+        Kernel.isPolymorphicName(name) || typeOfConst(name).isEmpty
+      var i : Utils.Integer = if (name.index.isDefined) name.index.get else 0
+      do {
+        val indexedName = IndexedName(name.name, if (i == 0) None else Some(i))
+        if (isFresh(Name(None, indexedName)) && 
+            isFresh(Name(Some(namespace), indexedName)))
+          return indexedName
+        i = i + 1
+      } while (true)
+      failwith("mkFresh: internal error")    
+    }
+
+    def destAbs(term : Term) : Option[(Context, Term, Term)] = {
+      term match {
+        case Abs(name, ty, body) =>
+          val x = Const(Name(Some(namespace), mkFresh(name)))
+          val context = introduce(x.name, ty)
+          Some((context, x, KernelUtils.substVar(body, name, x)))
+        case _ => None
+      }
+    }
+
     def transitive(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
       checkTheoremContext(q)

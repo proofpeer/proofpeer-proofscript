@@ -123,6 +123,14 @@ trait Context {
 
   // Produces the theorem with proposition q, given that the proposition of p is beta-eta equivalent to q
   def normalize(p : Theorem, q : Term) : Theorem
+
+  // Creates a new constant name which is fresh for this context and resembles the given name
+  def mkFresh(name : IndexedName) : IndexedName 
+
+  // If abs is structurally an abstraction, destructs it
+  // and returns (context, x, body), where context contains the constant x 
+  // which corresponds to the variable that abs is abstracting over.
+  def destAbs(abs : Term) : Option[(Context, Term, Term)]
   
   // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-beta-eta-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem
@@ -143,8 +151,7 @@ trait Context {
   def instantiate(p : Theorem, insts : List[Option[Term]]) : Theorem
 
   // All constants of this context which are NOT constants of a parent namespace.
-  def localConstants : Set[Name]
-  
+  def localConstants : Set[Name]  
 }
 
 trait Kernel {

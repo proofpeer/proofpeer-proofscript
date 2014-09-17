@@ -21,7 +21,8 @@ object NativeFunctions {
       "string" -> wrap(convert_to_string),
       "size" -> wrap(compute_size),
       "fresh" -> wrap(fresh),
-      "destcomb" -> wrap(destcomb)
+      "destcomb" -> wrap(destcomb),
+      "destabs" -> wrap(destabs)
     )
 
   private def wrap(f : F) : F = {
@@ -191,7 +192,7 @@ object NativeFunctions {
       case s : StringValue =>
         Syntax.parsePreterm(s.toString) match {
           case Some(Preterm.PTmName(Name(None, name), _)) =>
-            val freshName = eval.mkFresh(state.context, name)
+            val freshName = state.context.mkFresh(name)
             Left(stringValue(freshName.toString))
           case _ => Right("constant name without namespace or index required")       
         }
@@ -207,5 +208,19 @@ object NativeFunctions {
       case _ => Right("term expected")
     }    
   }
+
+  private def destabs(eval : Eval, state : State, tm : StateValue) : Result = {    
+    val ctx = state.context
+    tm match {
+      case TermValue(t) => 
+        ctx.destAbs(t) match {
+          case None => Left(NilValue)
+          case Some((context, x, body)) =>
+            Left(TupleValue(Vector(ContextValue(context), TermValue(x), TermValue(body))))
+        }
+      case _ => Right("term expected")
+    }    
+  }
+
 
 }

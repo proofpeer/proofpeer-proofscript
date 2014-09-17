@@ -52,21 +52,6 @@ class Eval(states : States, kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.trace, f.error)
 
-	def mkFresh(context : Context, name : IndexedName) : IndexedName = {
-		def isFresh(name : Name) = 
-			Kernel.isPolymorphicName(name) || context.typeOfConst(name).isEmpty
-	  val namespace = context.namespace
-	  var i : Utils.Integer = if (name.index.isDefined) name.index.get else 0
-	  do {
-	    val indexedName = IndexedName(name.name, if (i == 0) None else Some(i))
-	    if (isFresh(Name(None, indexedName)) && 
-	        isFresh(Name(Some(namespace), indexedName)))
-	      return indexedName
-	    i = i + 1
-	  } while (true)
-	  throw new RuntimeException("internal error")		
-	}
-
 	def evalLogicPreterm(_state : State, tm : LogicTerm, createFresh : Boolean) : Result[(Preterm, State)] = 
 	{
 		var state = _state
@@ -79,7 +64,7 @@ class Eval(states : States, kernel : Kernel,
 								case Id(name) if createFresh =>
 									Syntax.parsePreterm(name) match {
 					          case Some(Preterm.PTmName(Name(None, indexedName), _)) =>
-					            val freshName = mkFresh(state.context, indexedName)
+					            val freshName = state.context.mkFresh(indexedName)
 					            val codePoints = proofpeer.scala.lang.codePoints(freshName.toString)
 					            state = state.bind(Map(name -> StringValue(codePoints)))
 					            Left(Preterm.PTmName(Name(None, freshName), Pretype.PTyAny))

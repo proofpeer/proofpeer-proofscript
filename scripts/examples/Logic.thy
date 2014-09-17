@@ -223,4 +223,15 @@ context
   assert destcomb left == ('x ↦ x', 'x')
   assert destcomb right == nil
 
+# destabs
+  ------------------------------------
+context  
+  let 'f : 𝒰 → 𝒰'
+  assert destabs 'f' == nil
+  val (ctx, x, body) = destabs 'k ↦ f k'
+  context <ctx>
+    assert x == 'k'
+    assert body == 'f k'
+    assert body == 'f ‹x›'
+
 
