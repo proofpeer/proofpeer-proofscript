@@ -28,7 +28,10 @@ object Interpreter {
 			val source = scala.io.Source.fromFile(f)
 			val code = source.getLines.mkString("\n")
 			source.close()
+			val t1 = System.currentTimeMillis
 			val result = Parser.parseFromSource(new FileSource(f), code)
+			val t2 = System.currentTimeMillis
+			println("  parsed in " + (t2 - t1) + "ms")
 			result match {
 				case Parser.SuccessfulParse(tree) =>
 					addTheory(f, tree)
