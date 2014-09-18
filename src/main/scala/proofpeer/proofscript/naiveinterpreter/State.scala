@@ -74,16 +74,16 @@ object StateValue {
 		}
 	}
 
-	def display(aliases : Aliases,
+	private def display(aliases : Aliases,
 							nameresolution : NamespaceResolution[IndexedName], 
 							context : Context, 
 							tm : Term) : String = 
 	{
-		try {
-			"'" + Syntax.checkprintTerm(aliases, nameresolution, context, tm) + "'"
-		} catch {
-			case _ : Utils.KernelException => "{error printing} : Theorem"
-		}
+		"'" + Syntax.checkprintTerm(aliases, nameresolution, context, tm) + "'"
+	}
+
+	private def displayRaw(tm : Term) : String = {
+		Syntax.printTerm(Preterm.unknownResolution, tm)
 	}
 
 	def display(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName], 
@@ -97,13 +97,13 @@ object StateValue {
 			case f : RecursiveFunctionValue => "? : Function"
 			case f : NativeFunctionValue => "? : Function"
 			case TupleValue(value) =>
-				var error = "["
+				var s = "["
 				var first = true
 				for (v <- value) {
-					if (first) first = false else error = error + ", "
-					error = error + display(aliases, nameresolution, context, v)
+					if (first) first = false else s = s + ", "
+					s = s + display(aliases, nameresolution, context, v)
 				} 
-				error + "]"
+				s + "]"
 			case ContextValue(context) => display(context) + " : Context"
 			case TheoremValue(th) =>
 				try {
@@ -111,10 +111,16 @@ object StateValue {
 					display(aliases, nameresolution, liftedTh.context, liftedTh.proposition) + " : Theorem"
 				} catch {
 					case _ : Utils.KernelException => 
-						"{context = " + display(th.context) + ", theorem = " + 
+						"{invalid in current context, context = " + display(th.context) + ", theorem = " + 
 						display(aliases, nameresolution, th.context, th.proposition) + "} : Theorem"
 				}
-			case TermValue(tm) => display(aliases, nameresolution, context, tm)
+			case TermValue(tm) => 
+				try {
+					display(aliases, nameresolution, context, tm)
+				} catch {
+					case _ : Utils.KernelException =>
+						"{invalid in current context, raw term is: '" + displayRaw(tm) + "'} : Term"
+				}
 			case s : StringValue => "\"" + s + "\""
 			case _ => "?@" + value.hashCode
 		}

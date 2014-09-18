@@ -523,6 +523,8 @@ object Preterm {
 
   type NameResolution = Name => Either[Name, Set[Namespace]]
 
+  val unknownResolution : NameResolution = name => Right(Set())
+
   trait TypingContext {
   	def lookupPolymorphic(name : Name, fresh : Integer) : Option[(Name, Pretype, Integer, Boolean)] // like lookup, but also works for polymorphic constants
   	def lookup(name : Name) : Option[Pretype] // returns None for polymorphic constants!
