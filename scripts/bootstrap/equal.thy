@@ -3,14 +3,13 @@ extends root
 
 # Very basic derived theorems and rules concerning equality
 
-val sym =
-  theorem symThm: '∀ x:ℙ, y. x = y → y = x'
-    let 'x:ℙ'
-    let 'y:ℙ'
-    assume asm:'x = y'
-    modusponens (reflexive 'x',combine (reflexive '(z ↦ z = x)', asm))
-  '‹x›=‹y›' as thm => modusponens(thm,instantiate (symThm,x,y))
-
+def
+  sym ('‹x› = ‹y›' as thm) =
+    theorem symThm: '‹x› = ‹y› → ‹y› = ‹x›'
+      assume asm: '‹x› = ‹y›'
+      modusponens (reflexive '‹x›',combine (reflexive '(z ↦ z = ‹x›)', asm))
+    modusponens(thm,symThm,x,y)
+  
 theorem truth:'⊤'
   modusponens (reflexive '(p : ℙ ↦ p)',sym trueDef)
 
