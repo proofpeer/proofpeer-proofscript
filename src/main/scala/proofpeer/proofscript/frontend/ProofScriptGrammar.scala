@@ -170,7 +170,40 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
     PTuple(elements)
 }
 
-def mkStringLiteral(escapedCodes : Vector[Int]) : StringLiteral = {
+def mkStringLiteral(quot1 : Derivation.ParseResult, quot2 : Derivation.ParseResult,
+  literal : Derivation.ParseResult) : StringLiteral = 
+{
+  def calculateWhitespace(start : Span, end : Span) : Vector[Int] = {
+    var v : Vector[Int] = Vector()
+    var startRow = start.lastRow
+    var startCol = start.rightMostLast + 1
+    val endRow = end.firstRow
+    val endCol = end.leftMostFirst
+    val NEWLINE : Int = '\n'
+    while (startRow < endRow) {
+      startCol = 0
+      startRow = startRow + 1
+      v = v :+ NEWLINE
+    }
+    val SPACE : Int = ' '
+    while (startCol < endCol) {
+      startCol = startCol + 1
+      v = v :+ SPACE
+    }
+    v
+  }
+  literal.span match {
+    case None =>
+      mkStringLiteralFromCodes(calculateWhitespace(quot1.span.get, quot2.span.get))
+    case Some(span) =>
+      val u = calculateWhitespace(quot1.span.get, span)
+      val v = calculateWhitespace(span, quot2.span.get)
+      mkStringLiteralFromCodes(u ++ literal.codes ++ v)
+  }
+}
+
+def mkStringLiteralFromCodes(escapedCodes : Vector[Int]) : StringLiteral = 
+{
   def readInt(i : Int, j : Int) : Int = {
     var v = 0
     for (k <- i until j) {
@@ -224,7 +257,7 @@ val g_expr =
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
-  arule("PrimitiveExpr", "QuotationMark StringLiteral QuotationMark", c => mkStringLiteral(c.StringLiteral.codes)) ++
+  arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, c.StringLiteral)) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
   arule("OrExpr", "AndExpr", _.AndExpr.result) ++
@@ -420,8 +453,8 @@ val g_pattern =
   arule("AtomicPattern", "Nil", c => PNil) ++
   arule("AtomicPattern", "IndexedName", c => PId(c.IndexedName.text)) ++
   arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
-  arule("AtomicPattern", "QuotationMark StringLiteral QuotationMark", 
-    c => PString(mkStringLiteral(c.StringLiteral.codes).value)) ++
+  arule("AtomicPattern", "QuotationMark_1 StringLiteral QuotationMark_2", 
+    c => PString(mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, c.StringLiteral).value)) ++
   arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
   arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
   arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[Preterm])) ++

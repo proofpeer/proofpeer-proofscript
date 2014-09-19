@@ -1162,6 +1162,8 @@ class Eval(states : States, kernel : Kernel,
 							return fail(pat, "ill-typed pattern")
 					}
 				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
+				if (!state.context.typeOfTerm(term).isDefined)
+					return fail(pat, "value to be matched is invalid in current context, value is:\n    " + display(state, value))
 				HOPattern.patternMatch(state.context, hop, term) match {
 					case Right(invalid) => 
 						if (invalid) fail(pat, "pattern is not a higher-order pattern")
