@@ -3,15 +3,16 @@ extends root
 
 # Basic term tools
 
-val desteq = tm =>
-  match tm
-    case '‹p› = ‹q›' => [[p,q]]
-    case _           => []
+def
+  desteq '‹x› = ‹y›' = [x,y]
+  desteq _           = nil
 
-val lhs = tm =>
-  for [l,_] in desteq tm do
-    l
+def lhs tm =
+  match desteq tm
+    case [l,_] => l
+    case _     => nil
 
-val rhs = tm =>
-  for [_,r] in desteq tm do
-    r
+def rhs tm =
+  match desteq tm
+    case [_,r] => r
+    case _     => nil

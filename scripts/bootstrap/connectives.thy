@@ -2,69 +2,61 @@ theory Connectives
 extends Conversions
 
 val orIntroL =
-  theorem thm: '∀ p, q. p → p ∨ q'
+  theorem orIntroL:'∀ p q. p → p ∨ q'
     let 'p:ℙ'
     let 'q:ℙ'
     assume p:'p'
-    val orElim =
-      theorem '∀ z. (p → z) → ((q → z) → z)'
-        let 'z:ℙ'
-        assume assum:'p → z'
-        assume 'q → z'
-        modusponens (p,assum)
+    theorem orElim:'∀ z. (p → z) → (q → z) → z'
+      let 'z:ℙ'
+      assume assum:'p → z'
+      assume 'q → z'
+      modusponens (p,assum)
     modusponens (orElim,sym (apThm (orDef,'p:ℙ','q:ℙ')))
-  [lthm,rterm] => modusponens (lthm,instantiate (thm,term lthm,rterm))
+  [lthm,rterm] => modusponens (lthm,instantiate (orIntroL,term lthm,rterm))
 
 val orIntroR =
-  theorem thm:'∀ p, q. q → p ∨ q'
+  theorem orIntroR:'∀ p, q. q → p ∨ q'
     let 'p:ℙ'
     let 'q:ℙ'
     assume q:'q'
-    val orElim =
-      theorem '∀ z. (p → z) → ((q → z) → z)'
-        let 'z:ℙ'
-        assume 'p → z'
-        assume assum:'q → z'
-        modusponens (q,assum)
+    theorem orElim:'∀ z. (p → z) → (q → z) → z'
+      let 'z:ℙ'
+      assume 'p → z'
+      assume assum:'q → z'
+      modusponens (q,assum)
     modusponens (orElim,sym (apThm (orDef,'p:ℙ','q:ℙ')))
-  [lterm,rthm] => modusponens (rthm,instantiate (thm,lterm,term rthm))
+  [lterm,rthm] => modusponens (rthm,instantiate (orIntroR,lterm,term rthm))
 
-val [conjunct1Thm,conjunct1,conjunct2Thm,conjunct2] =
-  val thm1 =
-    theorem '∀ p, q. p ∧ q → p'
-      let 'p:ℙ'
-      let 'q:ℙ'
-      assume conj:'p ∧ q'
-      eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
-                          'x:ℙ ↦ y:ℙ ↦ x'))
-  val thm2 =
-    theorem '∀ p, q. p ∧ q → q'
-        let 'p:ℙ'
-        let 'q:ℙ'
-        assume conj:'p ∧ q'
-        eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
-                            'x:ℙ ↦ y:ℙ ↦ y'))
-  val conjunct1 = thm =>
-    val '‹p› ∧ ‹q›' = term thm
-    modusponens (thm,instantiate (thm1,p,q))
-  val conjunct2 = thm =>
-    val '‹p› ∧ ‹q›' = term thm
-    modusponens (thm,instantiate (thm2,p,q))
-  [thm1,conjunct1,thm2,conjunct2]
+val conjunct1 =
+  theorem conjunct1:'∀ p, q. p ∧ q → p'
+    let 'p:ℙ'
+    let 'q:ℙ'
+    assume conj:'p ∧ q'
+    eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
+                       'x:ℙ ↦ y:ℙ ↦ x'))
+  '‹p› ∧ ‹q›' as thm => modusponens (thm,instantiate (conjunct1,p,q))
 
-val [conjThm,andIntro] =
-  val thm =
-    theorem '∀ p:ℙ, q:ℙ. p → q → p ∧ q'
-      let 'p:ℙ'
-      let 'q:ℙ'
-      assume p:'p:ℙ'
-      assume q:'q:ℙ'
-      val conv = treeConv (subsConv (eqTrueIntro p,eqTrueIntro q))
-      val thms = convRule (randConv (seqConv (conv,reflConv)),
-                           apThm (andDef,'p:ℙ','q:ℙ'))
-      val [thm] = thms
-      eqTrueElim thm
-  [thm,([l,r] => modusponens (r,modusponens (l,instantiate (thm,term l,term r))))]
+val conjunct2 =
+  theorem conjunct2:'∀ p, q. p ∧ q → q'
+    let 'p:ℙ'
+    let 'q:ℙ'
+    assume conj:'p ∧ q'
+    eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
+                       'x:ℙ ↦ y:ℙ ↦ y'))
+  '‹p› ∧ ‹q›' as thm => modusponens (thm,instantiate (conjunct2,p,q))
+
+val andIntro =
+  theorem andIntro:'∀ p:ℙ, q:ℙ. p → q → p ∧ q'
+    let 'p:ℙ'
+    let 'q:ℙ'
+    assume p:'p:ℙ'
+    assume q:'q:ℙ'
+    val conv = treeConv (subsConv (eqTrueIntro p,eqTrueIntro q))
+    val thms = convRule (randConv (seqConv (conv,reflConv)),
+                         apThm (andDef,'p:ℙ','q:ℙ'))
+    val [thm] = thms
+    eqTrueElim thm
+  [l,r] => modusponens (r,modusponens (l,instantiate (andIntro,term l,term r)))
 
 theorem orAndDistrib:'∀ p q r. (p ∧ (q ∨ r)) = ((p ∧ q) ∨ (p ∧ r))'
   let 'p:ℙ'
@@ -90,7 +82,7 @@ theorem orAndDistrib:'∀ p q r. (p ∧ (q ∨ r)) = ((p ∧ q) ∨ (p ∧ r))'
   theorem rightThm:right
     assume disj:'(p ∧ q) ∨ (p ∧ r)'
     val '‹_› → ‹goal›' = right
-    val '‹disjl› ∨ ‹disjr›' = term disj
+    val '‹disjl› ∨ ‹disjr›' = disj
     val unfoldOr = modusponens (disj,apThm (orDef,disjl,disjr))
 
     theorem l:'p ∧ q → p ∧ (q ∨ r)'
