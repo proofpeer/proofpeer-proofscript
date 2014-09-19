@@ -3,12 +3,8 @@ extends root
 
 # Very basic derived theorems and rules concerning equality
 
-def
-  sym ('‹x› = ‹y›' as thm) =
-    theorem symThm: '‹x› = ‹y› → ‹y› = ‹x›'
-      assume asm: '‹x› = ‹y›'
-      modusponens (reflexive '‹x›',combine (reflexive '(z ↦ z = ‹x›)', asm))
-    modusponens(thm,symThm,x,y)
+def sym ('‹x› = ‹y›' as thm) =
+  modusponens (reflexive '‹x›',combine (reflexive '(z ↦ z = ‹x›)', thm))
 
 def
   trans [thm] = thm
