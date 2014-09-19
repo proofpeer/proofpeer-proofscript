@@ -13,3 +13,14 @@ val every = bs =>
     if not b then return false
   return true
 
+def
+  elem [_,[]]      = false
+  elem [x,y <+ ys] = x == y or elem [x,ys]
+
+def
+  assoc [_,[]] = nil
+  assoc [k,(theKey,v) <+ kvs] =
+    if k == theKey then
+      [v]
+    else
+      assoc [k,kvs]

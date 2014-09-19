@@ -3,8 +3,6 @@ extends root
 
 # Basic term tools
 
-val destconj = '‹p› ∧ ‹q›' => [p, q]
-
 val desteq = tm =>
   match tm
     case '‹p› = ‹q›' => [[p,q]]
@@ -17,4 +15,3 @@ val lhs = tm =>
 val rhs = tm =>
   for [_,r] in desteq tm do
     r
-

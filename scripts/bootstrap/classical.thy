@@ -1,11 +1,11 @@
 theory Classical
-extends Equal
+extends Connectives
 
 choose choiceDef:'epsilon:(ℙ → ℙ) → ℙ'
   let 'p:ℙ → ℙ'
   assume ex:'∃x. p x'
   choose 'chosen:ℙ' ex
-  
+
 theorem choice:'∀ p x. (p:ℙ → ℙ) (x:ℙ) → p (epsilon p)'
   let p:'p:ℙ → ℙ'
   let 'x:ℙ'
@@ -14,5 +14,3 @@ theorem choice:'∀ p x. (p:ℙ → ℙ) (x:ℙ) → p (epsilon p)'
     let ydef:'y:ℙ = x'
     modusponens [assum,combine [reflexive p,sym ydef]]
   modusponens [pExists,instantiate [choiceDef,'p:ℙ → ℙ']]
-
-show choice
