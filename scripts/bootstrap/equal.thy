@@ -9,7 +9,12 @@ def
       assume asm: '‹x› = ‹y›'
       modusponens (reflexive '‹x›',combine (reflexive '(z ↦ z = ‹x›)', asm))
     modusponens(thm,symThm,x,y)
-  
+
+def
+  trans [thm] = thm
+  trans (('‹x›=‹_›' as xy) <+ yz <+ eqs) =
+    trans (modusponens (xy,combine (reflexive ('s ↦ ‹x› = s'),yz)) <+ eqs)
+
 theorem truth:'⊤'
   modusponens (reflexive '(p : ℙ ↦ p)',sym trueDef)
 
@@ -30,7 +35,7 @@ val eqTrueIntro =
 def apThm (thm <+ terms) =
   combine (thm <+ (for t in terms do
                      reflexive t))
-                     
+  
 val eqFalseElim =
   theorem eqFalse:'∀ p. p = ⊥ → ¬p'
     let p:'p:ℙ'
