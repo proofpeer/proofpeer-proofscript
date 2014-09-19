@@ -12,5 +12,5 @@ theorem choice:'∀ p x. (p:ℙ → ℙ) (x:ℙ) → p (epsilon p)'
   assume assum:'p x'
   theorem pExists:'∃ x:ℙ. p x'
     let ydef:'y:ℙ = x'
-    modusponens [assum,combine [reflexive p,sym ydef]]
-  modusponens [pExists,instantiate [choiceDef,'p:ℙ → ℙ']]
+    modusponens (assum,combine (reflexive p,sym ydef))
+  modusponens (pExists,instantiate (choiceDef,'p:ℙ → ℙ'))

@@ -19,10 +19,10 @@ val combConv = [ratorConv,randConv] => tm =>
     case _         => []
 
 # Applies a conversion to the rator of a combination    
-val ratorConv = conv => combConv [conv,idConv]
+val ratorConv = conv => combConv (conv,idConv)
 
 # Applies a conversion to the rand of a combination
-val randConv  = conv => combConv [idConv,conv]
+val randConv  = conv => combConv (idConv,conv)
 
 # Applies a conversion to the body of an abstraction
 val absConv = conv => tm =>
@@ -52,8 +52,8 @@ val seqConv = convs => tm =>
   val thenConv = conv1 => conv2 => tm =>
     for '‹x› = ‹y›' as xy in conv1 tm do
       for yz in conv2 y do
-        transitive [xy,yz]
-  foldl [thenConv,convs,idConv] tm
+        transitive (xy,yz)
+  foldl (thenConv,convs,idConv) tm
 
 # Applies a conversion as an inference rule.  
 val convRule = [conv,thm] =>
@@ -87,16 +87,16 @@ val seqWhenChangedConv = convs => tm =>
   val thenConv = conv1 => conv2 => tm =>
     for '‹x› = ‹y›' as xy if x <> y in conv1 tm do
       for yz in conv2 y do
-        transitive [xy,yz]
+        transitive (xy,yz)
   match convs
     case []              => idConv
-    case (conv <+ convs) => foldl [thenConv,convs,conv] tm
+    case (conv <+ convs) => foldl (thenConv,convs,conv) tm
 
 # Applies a conversion top-down through a term, immediately retraversing a changed
 # term.
 def treeConv conv =
   tm =>
-    tryConv (sumConv [seqWhenChangedConv [conv,tryConv (treeConv conv)],
-                      combConv [treeConv conv,treeConv conv],
-                      absConv (treeConv conv)]) tm
+    tryConv (sumConv (seqWhenChangedConv (conv,tryConv (treeConv conv)),
+                      combConv (treeConv conv,treeConv conv),
+                      absConv (treeConv conv))) tm
 

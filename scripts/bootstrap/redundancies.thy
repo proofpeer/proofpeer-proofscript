@@ -12,11 +12,11 @@ val impliesAxRedundant =
         conjunct1 assum
       theorem r:'x → x ∧ y'
         assume x:'x'
-        andIntro [x,modusponens [x,imp]]
-      equivalence [l,r]
+        andIntro (x,modusponens (x,imp))
+      equivalence (l,r)
     theorem r:'(x ∧ y) = x → (x → y)'
       assume assum:'(x ∧ y) = x'
       theorem 'x → y'
         assume x:'x'
-        conjunct2 (modusponens [x,sym assum])
-    equivalence [l,r]
+        conjunct2 (modusponens (x,sym assum))
+    equivalence (l,r)

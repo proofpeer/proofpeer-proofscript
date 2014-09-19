@@ -15,7 +15,7 @@ val every = bs =>
 
 def
   elem [_,[]]      = false
-  elem [x,y <+ ys] = x == y or elem [x,ys]
+  elem [x,y <+ ys] = x == y or elem (x,ys)
 
 def
   assoc [_,[]] = nil
@@ -23,4 +23,4 @@ def
     if k == theKey then
       [v]
     else
-      assoc [k,kvs]
+      assoc (k,kvs)

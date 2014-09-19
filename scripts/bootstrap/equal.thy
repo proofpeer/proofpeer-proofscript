@@ -42,7 +42,7 @@ val eqFalseElim =
     assume eq:'p = ⊥'
     theorem imp:'p → ⊥'
       assume p:'p:ℙ'
-      modusponens [p,eq]
-    modusponens [imp,sym (apThm [notDef,p])]
+      modusponens (p,eq)
+    modusponens (imp,sym (apThm (notDef,p)))
   thm => (match term thm
-            case '‹p› = ‹_›' => modusponens [thm,instantiate [eqFalse,p]])
+            case '‹p› = ‹_›' => modusponens (thm,instantiate (eqFalse,p)))
