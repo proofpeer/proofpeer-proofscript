@@ -1,277 +1,184 @@
 package proofpeer.proofscript.frontend
 
-object Parser {
-
 import proofpeer.indent._
 import proofpeer.indent.APIConversions._
+import java.io._
 
-var currentSource : Source = null
 
-class SourcePos(val span : Option[Span]) extends SourcePosition {
-  val src = currentSource
-  def source : Source = src
-}
+object Parser {
 
-def annotate(v : Any, span : Option[Span]) : Any = {
-  if (v != null && v.isInstanceOf[TracksSourcePosition]) {
-    val w = v.asInstanceOf[TracksSourcePosition]
-    w.sourcePosition = new SourcePos(span)
+  var currentSource : Source = null
+
+  class SourcePos(val span : Option[Span]) extends SourcePosition {
+    val src = currentSource
+    def source : Source = src
   }
-  v
-}
 
-val scriptGrammar = new ProofScriptGrammar(annotate)
-import scriptGrammar._
-  
-def parse(prog : String) {
-  if (!g_prog.info.wellformed) {
-    println("grammar errors:\n"+g_prog.info.errors)
-    return
+  def annotate(v : Any, span : Option[Span]) : Any = {
+    if (v != null && v.isInstanceOf[TracksSourcePosition]) {
+      val w = v.asInstanceOf[TracksSourcePosition]
+      w.sourcePosition = new SourcePos(span)
+    }
+    v
   }
-  println("term: '"+prog+"'")
-  val d = UnicodeDocument.fromString(prog)
-  val g = g_prog.parser.parse(d, "Prog", 0)
-  g match {
-    case None => 
-      println("Does not parse.")
-    case Some((v, i)) => 
-      if (v.isUnique && i == d.size) {
-        println("Parsed successfully.")
-        val result = Derivation.computeParseResult(g_prog, d, t => null, v)
-        println("Result:\n"+result.result)
-      } else if (i < d.size) {
-        println("Parse error at token "+i)
-      } else {
-        println("Parsed successfully, but ambiguous parse tree.")       
-      }
-  }  
-  println()
-} 
 
-sealed trait ParseResult
-case class SuccessfulParse(tree : ParseTree.Block) extends ParseResult 
-case class AmbiguousParse(pos : SourcePosition) extends ParseResult
-case class FailedParse(pos : SourcePosition) extends ParseResult
-
-def parseFromSource(source : Source, prog : String) : ParseResult = {
-  currentSource = source
-  if (!g_prog.info.wellformed) {
-    throw new RuntimeException("ProofScript grammar is not wellformed:\n" + g_prog.info.errors)
+  val scriptGrammar = new ProofScriptGrammar(annotate)
+  import scriptGrammar._
+    
+  def parse(prog : String) {
+    if (!g_prog.info.wellformed) {
+      println("grammar errors:\n"+g_prog.info.errors)
+      return
+    }
+    println("term: '"+prog+"'")
+    val d = UnicodeDocument.fromString(prog)
+    val g = g_prog.parser.parse(d, "Prog", 0)
+    g match {
+      case None => 
+        println("Does not parse.")
+      case Some((v, i)) => 
+        if (v.isUnique && i == d.size) {
+          println("Parsed successfully.")
+          val result = Derivation.computeParseResult(g_prog, d, t => null, v)
+          println("Result:\n"+result.result)
+        } else if (i < d.size) {
+          println("Parse error at token "+i)
+        } else {
+          println("Parsed successfully, but ambiguous parse tree.")       
+        }
+    }  
+    println()
   } 
-  val document = UnicodeDocument.fromString(prog)
-  g_prog.parser.parse(document, "Prog", 0) match {
-    case None => FailedParse(new SourcePos(None))
-    case Some((v, i)) =>
-      if (v.isUnique && i == document.size) {
-        val result = Derivation.computeParseResult(g_prog, document, t => null, v)
-        SuccessfulParse(result.resultAs[ParseTree.Block])
-      } else if (i < document.size) {
-        val token = document.getToken(i)
-        FailedParse(new SourcePos(Some(token.span)))
-      } else {
-        AmbiguousParse(new SourcePos(None))
-      }
+
+  sealed trait ParseResult
+  case class SuccessfulParse(tree : ParseTree.Block) extends ParseResult 
+  case class AmbiguousParse(pos : SourcePosition) extends ParseResult
+  case class FailedParse(pos : SourcePosition) extends ParseResult
+
+  def parseFromSource(source : Source, prog : String) : ParseResult = {
+    currentSource = source
+    if (!g_prog.info.wellformed) {
+      throw new RuntimeException("ProofScript grammar is not wellformed:\n" + g_prog.info.errors)
+    } 
+    val document = UnicodeDocument.fromString(prog)
+    g_prog.parser.parse(document, "Prog", 0) match {
+      case None => FailedParse(new SourcePos(None))
+      case Some((v, i)) =>
+        if (v.isUnique && i == document.size) {
+          val result = Derivation.computeParseResult(g_prog, document, t => null, v)
+          SuccessfulParse(result.resultAs[ParseTree.Block])
+        } else if (i < document.size) {
+          val token = document.getToken(i)
+          FailedParse(new SourcePos(Some(token.span)))
+        } else {
+          AmbiguousParse(new SourcePos(None))
+        }
+    }
   }
+
+  def printLexicals(g : API.Grammar) {
+    import API._
+    var numLexicals : Int = 0
+    var normallyScoped : Int = 0
+    for (ann <- g.annotations) {
+      ann match {
+        case Lexical(n, LexicalPriority(scope, prio)) =>
+          numLexicals += 1
+          if (scope == 0) normallyScoped += 1
+          println("  lexical " + n + " => " + prio)
+      }
+    }
+    println("number of lexicals: " + numLexicals)
+    println("normally scoped: " + normallyScoped)
+  }
+
+  def parseFromSourceNew(source : Source, prog : String) {
+    val t1 = System.currentTimeMillis
+    currentSource = source
+    if (!g_prog.info.wellformed) {
+      throw new RuntimeException("ProofScript grammar is not wellformed:\n" + g_prog.info.errors)
+    } 
+    for (rule <- g_prog.rules) {
+      for (s <- rule.rhs) {
+        if (s.ignore_layout) println("ignore layout of: " + rule.lhs + " -> " + s)
+      }
+    }
+    printLexicals(g_prog)
+    val document = UnicodeDocument.fromString(prog)
+    println("size of document: " + document.size)
+    g_prog.recognizer.parse(document, "Prog", 0) match {
+      case None => 
+        println("parsing failed")
+      case Some((v, i)) =>
+        if (v.unique && i == document.size) {
+          println("parsing succeeded")
+        } else if (i < document.size) {
+          println("couldn't parse all of it")
+        } else {
+          println("amiguous parse")
+        }
+    }
+    val t2 = System.currentTimeMillis
+    println("time needed: " + (t2 - t1) + "ms")
+    import proofpeer.indent.earley.Recognizer._
+    println("number of blackboxcalls: " + blackboxCalls)
+    println("maxduration: " + maxduration)
+    println("totalduration: " + totalduration)
+    println("totalFinalvalues: " + totalFinalvalues)
+    println("ambiguousFinalvalues: " + ambiguousFinalvalues)
+  }
+
+
+  def read(f : File) : String = {
+    val source = scala.io.Source.fromFile(f)
+    val lines = source.mkString
+    source.close()    
+    lines
+  }
+
+  def chunkify(prog : String) : Vector[String] = {
+    import proofpeer.scala.lang._
+    val lines = split(prog, "\n")
+    var chunks : Vector[String] = Vector()
+    var chunk : String = ""
+    for (line <- lines) {
+      if (line.startsWith(" ") || line == "")
+        chunk = chunk + line + "\n"
+      else {
+        chunks = chunks :+ chunk
+        chunk = line
+      }
+    }
+    chunks :+ chunk
+  }
+
+  def standard(source : Source, prog : String) {
+    val t1 = System.currentTimeMillis
+    val result = parseFromSource(source, prog)
+    val t2 = System.currentTimeMillis
+    println("parsed in " + (t2 - t1) + "ms")    
+  }
+
+  def chunkified(source : Source, prog : String) {
+    val t1 = System.currentTimeMillis
+    val chunks = chunkify(prog)
+    for (chunk <- chunks) {
+      println("------------------------------------------")
+      println(chunk)
+      parseFromSource(source, chunk)
+    }
+    val t2 = System.currentTimeMillis
+    println("chunkified and parsed in " + (t2 - t1) + "ms")    
+  }
+
+  def main(args : Array[String]) {
+    //val f = new File("/Users/stevenobua/myrepos/proofpeer-proofscript/scripts/bootstrap/conversions.thy")
+    val f = new File("/Users/stevenobua/myrepos/proofpeer-hollight/proofscript/Lib.thy")
+    val source = new proofpeer.proofscript.naiveinterpreter.Interpreter.FileSource(f)
+    val prog = read(f)
+    standard(source, prog)
+    //parseFromSourceNew(source, prog)
+  }
+
 }
 
-def oldmain(args : Array[String]) {
-  parse("x - y")
-
-  parse("x - y = 10 < y ≤ z - 4")
-  
-  parse("not 2 * (x + 4) + y mod 7 or 2 and 3")
-
-  parse("not 2 * (x + 4)")
-  
-  parse("not x or y")
-  
-  parse("not not x or y")
-  
-  parse("- x + y")
-  
-  parse("- - x + y")
-  
-  parse("- x * y")
-  
-  parse("true or false")
-  
-  parse("f x")
-  
-  parse("f x y")
-  
-  parse("c * f x")
-  
-  parse("(c * f) x y z * d")
-  
-  parse("lazy lazy x + y")
-  
-  parse("3 * (x ⇒ _ ⇒ x + 10)")
-  
-  parse("""
-return 3 * 4
-  f x
- g y
-h z
-""")
-
-  parse("""
-if x < y then 1 - x else y * 3 
-""")
-
-  parse("""
-if true then
-    1
-else
-    2
-""")
-
-  parse("""
-if true then
-    1
-else 
-    if false then x else y
-""")
-
-  parse("""
-if true then
-  if false then
-    1
-  else
-    2
-""")
-
-  parse("""
-def 
-  u ≔ 10
-  f x ≔ 
-    val y ≔ 13  
-    y ≔ y * 42
-    return y + 1   
-  v ≔ u + 1
-""")
-
-  parse("""
-val x ≔ ((10 + 5) -
-   y)
-""")
-
-  parse("""
-match x 
-case 1 ⇒ 2
-case 2 ⇒ 3
-case y ⇒ y + 2
-      """) 
-     
-  parse("match x case 1 ⇒ 2 case x ⇒ x * x")
-
-  parse("val x ≔ match x case 1 ⇒ 2 case x ⇒ x * x")
-  
-  parse("""
-  def f ≔ 10
-  val u ≔ 20
-  u - f""")
-  
-  parse("""
-  def 
-    f ≔ 10
-  val 
-    u ≔ 20
-  u - f""")
-  
-  parse("""
-val x ≔ 3 * (do
-  def f ≔ 10
-  val u ≔ 20
-  u - f)""")
-
-  
-  parse("match x case 1 ⇒ match y case 2 ⇒ x*y")
-
-  parse("match x case 1 ⇒ (match y) case 2 ⇒ x*y")
-
-  parse("match x case 1 ⇒ (match y case 2 ⇒ x*y)")
-  
-  parse("val x ≔ return 2")
-
-  parse("3 + 'A, p ↦ {x | x ∈ A. p x}'")
-
-  parse("3 + 'A, p ↦ {x | x ∈ A. p x ∧ ‹q› x}'")
-
-  parse("""
-match x 
-case '{‹q› x | x ∈ A. x = ‹3›}' ⇒ 2
-case 2 ⇒ 3
-case y ⇒ y + 2
-      """) 
-
-  parse("(7)")
-
-  parse("[7]")
-
-  parse("[7, 13]")
-
-  parse("(7, 13)")
-
-  parse("val (x,y) ≔ s")
-
-  parse("x <+ y ≔ t")
-
-  parse("x +> y ≔ t")
-
-  parse("x <+ y +> z ≔ t")
-
-  parse("x <+ y <+ z ≔ t")
-
-  parse("x +> y +> z ≔ t")
-
-  parse("x <+ y +> z <+ r ≔ t")  
-   
-  parse("(x <+ y +> z) <+ r ≔ t")  
-
-  parse("x <+ y +> (z <+ r) ≔ t")  
-
-  parse("x +> y <+ z ≔ t")
-
-  parse("x <+ y ++ u +> z ≔ t")
-
-  parse("t ≔ x <+ y ++ u +> z")
-
-  parse("assume 'x'")
-
-  parse("assume t ≔ 'x'")
-
-  parse("""
-assume 
-  t ≔ 'x'
-""")
-
-  parse("""
-let 'x = (x ↦ x)'
-choose 'y' from t
-""")
-
-  parse("""
-theory root 
-extends squares \blub\whatever great 
-""")
-
-  parse("context")
-
-  parse("(context)")
-
-parse("""
-context
-context
-  context<context>
-context
-  context<(context)>
-""")
-
-parse("val x ≔ 3")
-
-parse("def x ≔ 3")
-
-}  
-  
-  
-}

@@ -140,12 +140,12 @@ object Syntax {
   import Pretype._
   
   def ltokenrule(nonterminal : Nonterminal, c1 : Char, c2 : Char) : Grammar = 
-      tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, None))
+      tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, 0))
   
   def ltokenrule(nonterminal : Nonterminal, c : Char) : Grammar = ltokenrule(nonterminal, c, c)
 
   def ltokenrule(nonterminal : Nonterminal, r : Range) : Grammar =
-      tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(0, None))
+      tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(0, 0))
       
   def parseIndexedName(s : String) : IndexedName = {
     val index = s.lastIndexOf("_")
@@ -174,11 +174,11 @@ object Syntax {
   }
 
   def lexrule(n : Nonterminal, rhs : String) : Grammar = {
-    API.lexrule(n, rhs, LexicalPriority(0, None))
+    API.lexrule(n, rhs, LexicalPriority(0, 0))
   }
 
   def lexrule(n : Nonterminal, rhs : String, prio : Int) : Grammar = {
-    API.lexrule(n, rhs, LexicalPriority(0, Some(prio)))
+    API.lexrule(n, rhs, LexicalPriority(0, prio))
   }
  
   val literals = 
@@ -194,20 +194,20 @@ object Syntax {
     ltokenrule("Dot", '.') ++
     ltokenrule("Comma", ',') ++
     lexrule("Id", "Letter", 1) ++
-    lexrule("Id", "Id Digit") ++
-    lexrule("Id", "Id Letter") ++
-    lexrule("Id", "Id Underscore Letter") ++
-    lexrule("RelativeNamespace", "Id") ++
-    lexrule("RelativeNamespace", "RelativeNamespace Backslash Id") ++
-    lexrule("AbsoluteNamespace", "Backslash RelativeNamespace") ++
-    lexrule("Namespace", "AbsoluteNamespace") ++
-    lexrule("Namespace", "RelativeNamespace") ++
-    lexrule("RelativeName", "IndexedName") ++
-    lexrule("RelativeName", "IndexedName Backslash RelativeName") ++
+    lexrule("Id", "Id Digit", 1) ++
+    lexrule("Id", "Id Letter", 1) ++
+    lexrule("Id", "Id Underscore Letter", 1) ++
+    lexrule("RelativeNamespace", "Id", 1) ++
+    lexrule("RelativeNamespace", "RelativeNamespace Backslash Id", 1) ++
+    lexrule("AbsoluteNamespace", "Backslash RelativeNamespace", 1) ++
+    lexrule("Namespace", "AbsoluteNamespace", 1) ++
+    lexrule("Namespace", "RelativeNamespace", 1) ++
+    lexrule("RelativeName", "IndexedName", 1) ++
+    lexrule("RelativeName", "IndexedName Backslash RelativeName", 1) ++
     lexrule("Name", "RelativeName", 1) ++
-    lexrule("Name", "Backslash RelativeName") ++
+    lexrule("Name", "Backslash RelativeName", 1) ++
     lexrule("IndexedName", "Id", 1) ++
-    lexrule("IndexedName", "Id Underscore Digits") ++
+    lexrule("IndexedName", "Id Underscore Digits", 1) ++
     ltokenrule("Eq", '=') ++
     ltokenrule("NotEq", Range.singleton(0x2260)) ++
     ltokenrule("RoundBracketOpen", '(') ++

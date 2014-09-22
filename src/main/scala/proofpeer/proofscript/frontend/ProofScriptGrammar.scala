@@ -11,24 +11,23 @@ import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
 class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
   
 def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar = 
-  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, None))
+  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(1, 0))
   
 def ltokenrule(nonterminal : String, c : Char) : Grammar = 
   ltokenrule(nonterminal, c, c)
 
 def ltokenrule(nonterminal : String, i : Int) : Grammar = 
-  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(0, None))
+  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(1, 0))
 
 def ltokenrule(nonterminal : String, r : Range) : Grammar = 
-  tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(0, None))
-
+  tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(1, 0))
 
 def lexrule(n : Nonterminal, rhs : String) : Grammar = {
-  API.lexrule(n, rhs, LexicalPriority(0, None))
+  API.lexrule(n, rhs, LexicalPriority(1, 0))
 }
 
 def litrule(n : Nonterminal, lit : String) : Grammar = {
-  API.lexrule(n, literal(lit), LexicalPriority(0, Some(2)))
+  API.lexrule(n, literal(lit), LexicalPriority(0, 2))
 }
   
 /*
