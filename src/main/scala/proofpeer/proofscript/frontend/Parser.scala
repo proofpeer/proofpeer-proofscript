@@ -171,7 +171,7 @@ object Parser {
     println("chunkified and parsed in " + (t2 - t1) + "ms")    
   }
 
-  def main(args : Array[String]) {
+  def oldmain(args : Array[String]) {
     //val f = new File("/Users/stevenobua/myrepos/proofpeer-proofscript/scripts/bootstrap/conversions.thy")
     val f = new File("/Users/stevenobua/myrepos/proofpeer-hollight/proofscript/Lib.thy")
     val source = new proofpeer.proofscript.naiveinterpreter.Interpreter.FileSource(f)
