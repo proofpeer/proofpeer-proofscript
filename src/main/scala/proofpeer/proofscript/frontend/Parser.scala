@@ -176,7 +176,7 @@ object Parser {
     val f = new File("/Users/stevenobua/myrepos/proofpeer-hollight/proofscript/Lib.thy")
     val source = new proofpeer.proofscript.naiveinterpreter.Interpreter.FileSource(f)
     val prog = read(f)
-    standard(source, prog)
+    standard(source, prog) // parsed in 262389ms
     //parseFromSourceNew(source, prog)
   }
 
