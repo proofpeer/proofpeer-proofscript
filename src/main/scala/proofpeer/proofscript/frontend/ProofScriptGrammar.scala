@@ -11,19 +11,22 @@ import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
 class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
   
 def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar = 
-  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(1, 0))
+  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, 0))
   
 def ltokenrule(nonterminal : String, c : Char) : Grammar = 
   ltokenrule(nonterminal, c, c)
 
 def ltokenrule(nonterminal : String, i : Int) : Grammar = 
-  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(1, 0))
+  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(0, 0))
+
+def ltokenrule(nonterminal : String, r : Range, prio : LexicalPriority) : Grammar = 
+  tokenrule(nonterminal, r) ++ lexical(nonterminal, prio)
 
 def ltokenrule(nonterminal : String, r : Range) : Grammar = 
-  tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(1, 0))
+  ltokenrule(nonterminal, r, LexicalPriority(0, 0))
 
 def lexrule(n : Nonterminal, rhs : String) : Grammar = {
-  API.lexrule(n, rhs, LexicalPriority(1, 0))
+  API.lexrule(n, rhs, LexicalPriority(0, 0))
 }
 
 def litrule(n : Nonterminal, lit : String) : Grammar = {
@@ -78,9 +81,9 @@ val g_string_literals =
 val g_literals =
   g_string_literals ++
   ltokenrule("Hash", '#') ++
-  ltokenrule("AnyChar", Range.universal) ++
-  lexrule("AnyToken", "AnyChar") ++
-  lexrule("AnyToken", "AnyToken AnyChar") ++
+  ltokenrule("AnyChar", Range.universal, LexicalPriority(1, 0)) ++
+  API.lexrule("AnyToken", "AnyChar", LexicalPriority(1, 1)) ++
+  API.lexrule("AnyToken", "AnyToken AnyChar", LexicalPriority(1, 1)) ++
   ltokenrule("Plus", '+') ++  
   ltokenrule("Minus", '-') ++
   ltokenrule("Times", '*') ++

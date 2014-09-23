@@ -121,11 +121,13 @@ object Parser {
     val t2 = System.currentTimeMillis
     println("time needed: " + (t2 - t1) + "ms")
     import proofpeer.indent.earley.Recognizer._
+    import proofpeer.indent.earley.Measurements._
     println("number of blackboxcalls: " + blackboxCalls)
     println("maxduration: " + maxduration)
     println("totalduration: " + totalduration)
     println("totalFinalvalues: " + totalFinalvalues)
-    println("ambiguousFinalvalues: " + ambiguousFinalvalues)
+    println("number of item additions: " + numAdditions)
+    println("average cost of item additions: " + (addingCost / numAdditions))
   }
 
 
@@ -171,13 +173,13 @@ object Parser {
     println("chunkified and parsed in " + (t2 - t1) + "ms")    
   }
 
-  def oldmain(args : Array[String]) {
+  def main(args : Array[String]) {
     //val f = new File("/Users/stevenobua/myrepos/proofpeer-proofscript/scripts/bootstrap/conversions.thy")
     val f = new File("/Users/stevenobua/myrepos/proofpeer-hollight/proofscript/Lib.thy")
     val source = new proofpeer.proofscript.naiveinterpreter.Interpreter.FileSource(f)
     val prog = read(f)
-    standard(source, prog) // parsed in 262389ms
-    //parseFromSourceNew(source, prog)
+    //standard(source, prog) // parsed in 262389ms
+    parseFromSourceNew(source, prog)
   }
 
 }
