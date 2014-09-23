@@ -88,7 +88,7 @@ def parseFromSourceNew(source : Source, prog : String) {
     }
     val document = UnicodeDocument.fromString(prog)
     println("size of document: " + document.size)
-    g_prog.parser.parse(document, "Prog", 0) match {
+    g_prog.recognizer.parse(document, "Prog", 0) match {
       case None => 
         println("parsing failed")
       case Some((v, i)) =>
