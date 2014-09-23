@@ -73,7 +73,7 @@ val g_string_literals =
   lexrule("StringCharacter", literal("\\\"")) ++ 
   lexrule("StringCharacter", "Backslash LowerU HexDigit_1 HexDigit_2 HexDigit_3 HexDigit_4") ++
   lexrule("StringCharacter", "Backslash UpperU HexDigit_1 HexDigit_2 HexDigit_3 HexDigit_4 HexDigit_5 HexDigit_6 HexDigit_7 HexDigit_8") ++
-  lexrule("StringLiteral", "") ++
+  lexrule("StringLiteral", "StringCharacter") ++
   rule("StringLiteral", "StringLiteral StringCharacter") 
 
 val g_literals =
@@ -171,7 +171,7 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
 }
 
 def mkStringLiteral(quot1 : Derivation.ParseResult, quot2 : Derivation.ParseResult,
-  literal : Derivation.ParseResult) : StringLiteral = 
+  literal : Option[Derivation.ParseResult]) : StringLiteral = 
 {
   def calculateWhitespace(start : Span, end : Span) : Vector[Int] = {
     var v : Vector[Int] = Vector()
@@ -192,13 +192,14 @@ def mkStringLiteral(quot1 : Derivation.ParseResult, quot2 : Derivation.ParseResu
     }
     v
   }
-  literal.span match {
+  val literalSpan = if (literal.isDefined) literal.get.span else None
+  literalSpan match {
     case None =>
       mkStringLiteralFromCodes(calculateWhitespace(quot1.span.get, quot2.span.get))
     case Some(span) =>
       val u = calculateWhitespace(quot1.span.get, span)
       val v = calculateWhitespace(span, quot2.span.get)
-      mkStringLiteralFromCodes(u ++ literal.codes ++ v)
+      mkStringLiteralFromCodes(u ++ literal.get.codes ++ v)
   }
 }
 
@@ -257,7 +258,8 @@ val g_expr =
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
-  arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, c.StringLiteral)) ++
+  arule("PrimitiveExpr", "QuotationMark_1 QuotationMark_2", c => mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, None)) ++  
+  arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, Some(c.StringLiteral))) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
   arule("OrExpr", "AndExpr", _.AndExpr.result) ++
@@ -453,8 +455,10 @@ val g_pattern =
   arule("AtomicPattern", "Nil", c => PNil) ++
   arule("AtomicPattern", "IndexedName", c => PId(c.IndexedName.text)) ++
   arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
+  arule("AtomicPattern", "QuotationMark_1 QuotationMark_2", 
+    c => PString(mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, None).value)) ++
   arule("AtomicPattern", "QuotationMark_1 StringLiteral QuotationMark_2", 
-    c => PString(mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, c.StringLiteral).value)) ++
+    c => PString(mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, Some(c.StringLiteral)).value)) ++
   arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
   arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
   arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[Preterm])) ++
