@@ -106,7 +106,7 @@ object Parser {
     printLexicals(g_prog)
     val document = UnicodeDocument.fromString(prog)
     println("size of document: " + document.size)
-    g_prog.recognizer.parse(document, "Prog", 0) match {
+    g_prog.parser.parse(document, "Prog", 0) match {
       case None => 
         println("parsing failed")
       case Some((v, i)) =>
@@ -120,14 +120,6 @@ object Parser {
     }
     val t2 = System.currentTimeMillis
     println("time needed: " + (t2 - t1) + "ms")
-    import proofpeer.indent.earley.Recognizer._
-    import proofpeer.indent.earley.Measurements._
-    println("number of blackboxcalls: " + blackboxCalls)
-    println("maxduration: " + maxduration)
-    println("totalduration: " + totalduration)
-    println("totalFinalvalues: " + totalFinalvalues)
-    println("number of item additions: " + numAdditions)
-    println("average cost of item additions: " + (addingCost / numAdditions))
   }
 
 
