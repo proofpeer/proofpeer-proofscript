@@ -215,7 +215,7 @@ object Interpreter {
 		}
 	}
 
-	def main(args : Array[String]) {
+	def oldmain(args : Array[String]) {
 		for (arg <- args) {
 			val f = new File(arg)
 			if (f.isDirectory) findTheoriesInDirectory(f)
