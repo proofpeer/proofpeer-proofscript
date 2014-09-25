@@ -56,7 +56,7 @@ def seqConv convs =
     val thenConv = conv1 => conv2 => tm =>
       for '‹x› = ‹y›' as xy in conv1 tm do
         for yz in conv2 y do
-          transitive (xy,yz)
+          trans (xy,yz)
     foldl (thenConv,convs,idConv) tm
 
 # Applies a conversion as an inference rule.  
@@ -94,7 +94,7 @@ def seqWhenChangedConv convs =
     val thenConv = conv1 => conv2 => tm =>
       for '‹x› = ‹y›' as xy if x <> y in conv1 tm do
         for yz in conv2 y do
-          transitive (xy,yz)
+          trans (xy,yz)
     match convs
       case []              => idConv
       case (conv <+ convs) => foldl (thenConv,convs,conv) tm
