@@ -102,6 +102,9 @@ def parseFromSourceNew(source : Source, prog : String) {
     }
     val t2 = System.currentTimeMillis
     println("time needed: " + (t2 - t1) + "ms")
+    println("number of active bins: " + proofpeer.indent.earley.Measurements.numActiveBins)
+    println("number of straight bins: " + proofpeer.indent.earley.Measurements.numStraightBins)
+
   }
 
 
@@ -147,9 +150,9 @@ def parseFromSourceNew(source : Source, prog : String) {
     println("chunkified and parsed in " + (t2 - t1) + "ms")    
   }
 
-  def oldmain(args : Array[String]) {
-    //val f = new File("/Users/stevenobua/myrepos/proofpeer-proofscript/scripts/bootstrap/conversions.thy")
-    val f = new File("/Users/stevenobua/myrepos/proofpeer-hollight/proofscript/Lib.thy")
+  def main(args : Array[String]) {
+    val f = new File("/Users/stevenobua/myrepos/proofpeer-proofscript/scripts/bootstrap/conversions.thy")
+    //val f = new File("/Users/stevenobua/myrepos/proofpeer-hollight/proofscript/Lib.thy")
     val source = new proofpeer.proofscript.naiveinterpreter.Interpreter.FileSource(f)
     val prog = read(f)
     //standard(source, prog) // parsed in 262389ms

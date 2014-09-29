@@ -1,10 +1,10 @@
 theory Conversions
 extends List Syntax Equal
 
-# Identity for seqConv
+val x = 1 <> 2
+
 val idConv   = tm => [reflexive tm]
 
-# Zero for seqConv and identity for sumConv
 val zeroConv = tm => []
 
 # Applies one conversion to the rator and the other to the rand of a combination.
