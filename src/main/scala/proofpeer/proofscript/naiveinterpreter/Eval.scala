@@ -65,7 +65,7 @@ class Eval(states : States, kernel : Kernel,
 									Syntax.parsePreterm(name) match {
 					          case Some(Preterm.PTmName(Name(None, indexedName), _)) =>
 					            val freshName = state.context.mkFresh(indexedName)
-					            val codePoints = proofpeer.scala.lang.codePoints(freshName.toString)
+					            val codePoints = proofpeer.general.StringUtils.codePoints(freshName.toString)
 					            state = state.bind(Map(name -> StringValue(codePoints)))
 					            Left(Preterm.PTmName(Name(None, freshName), Pretype.PTyAny))
 					          case _ => Right(failed)       										

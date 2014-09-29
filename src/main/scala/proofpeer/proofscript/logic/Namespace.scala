@@ -1,6 +1,6 @@
 package proofpeer.proofscript.logic
 
-import proofpeer.scala.lang._
+import proofpeer.general.StringUtils._
 
 object Namespace {
   def apply(namespace : String) : Namespace = {

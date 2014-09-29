@@ -3,7 +3,6 @@ package proofpeer.proofscript.frontend
 object Parser {
 
 import proofpeer.indent._
-import proofpeer.indent.APIConversions._
 
 var currentSource : Source = null
 
@@ -20,14 +19,27 @@ def annotate(v : Any, span : Option[Span]) : Any = {
   v
 }
 
-val scriptGrammar = new ProofScriptGrammar(annotate)
-import scriptGrammar._
-  
-def parse(prog : String) {
-  if (!g_prog.info.wellformed) {
-    println("grammar errors:\n"+g_prog.info.errors)
-    return
+val earleyAutomaton : earley.EarleyAutomaton = {
+  println("Initializing parser ...")
+  val grammar = new ProofScriptGrammar(annotate).g_prog
+  if (!grammar.isWellformed) {
+    val errors = grammar.errors
+    println("The ProofScript grammar contains " + errors.size + " errors: ")
+    for (i <- 1 to errors.size) {
+      println ("" + i +") " + errors(i - 1))
+    }
+    println("")
+    null
+  } else {
+    val automaton = new earley.EarleyAutomaton(grammar)
+    println("Parser is initialized.")
+    automaton
   }
+}
+
+val earleyParser : earley.Earley = new earley.Earley(earleyAutomaton)
+  
+/*def parse(prog : String) {
   println("term: '"+prog+"'")
   val d = UnicodeDocument.fromString(prog)
   val g = g_prog.parser.parse(d, "Prog", 0)
@@ -46,232 +58,38 @@ def parse(prog : String) {
       }
   }  
   println()
-} 
+} */
 
 sealed trait ParseResult
 case class SuccessfulParse(tree : ParseTree.Block) extends ParseResult 
 case class AmbiguousParse(pos : SourcePosition) extends ParseResult
 case class FailedParse(pos : SourcePosition) extends ParseResult
 
+def sourcepos(document : Document, start : Int, end : Int) : SourcePos = {
+  val e = if (end >= document.size) document.size - 1 else end
+  val s = if (start >= e) e else start 
+  if (s < 0) return new SourcePos(None)
+  val (row, col, _) = document.character(s)
+  val (_, firstCol, _) = document.character(document.firstPositionInRow(row))
+  val span = Span(firstCol, row, col, s, e - s + 1)
+  new SourcePos(Some(span))
+}
+
 def parseFromSource(source : Source, prog : String) : ParseResult = {
   currentSource = source
-  if (!g_prog.info.wellformed) {
-    throw new RuntimeException("ProofScript grammar is not wellformed:\n" + g_prog.info.errors)
-  } 
-  val document = UnicodeDocument.fromString(prog)
-  g_prog.parser.parse(document, "Prog", 0) match {
-    case None => FailedParse(new SourcePos(None))
-    case Some((v, i)) =>
-      if (v.isUnique && i == document.size) {
-        val result = Derivation.computeParseResult(g_prog, document, t => null, v)
-        SuccessfulParse(result.resultAs[ParseTree.Block])
-      } else if (i < document.size) {
-        val token = document.getToken(i)
-        FailedParse(new SourcePos(Some(token.span)))
+  val document = Document.fromString(prog)
+  val PROG = earleyAutomaton.idOfTerminal("Prog")
+  earleyParser.parse(document, "Prog") match {
+    case Right(i) => FailedParse(sourcepos(document, i, i))
+    case Left(parsetree) =>
+      if (parsetree.hasAmbiguities) {
+        val span = parsetree.ambiguities.head.span
+        AmbiguousParse(new SourcePos(if (span == null) None else Some(span)))
       } else {
-        AmbiguousParse(new SourcePos(None))
+        SuccessfulParse(parsetree.getValue)
       }
   }
 }
 
-def oldmain(args : Array[String]) {
-  parse("x - y")
-
-  parse("x - y = 10 < y ≤ z - 4")
-  
-  parse("not 2 * (x + 4) + y mod 7 or 2 and 3")
-
-  parse("not 2 * (x + 4)")
-  
-  parse("not x or y")
-  
-  parse("not not x or y")
-  
-  parse("- x + y")
-  
-  parse("- - x + y")
-  
-  parse("- x * y")
-  
-  parse("true or false")
-  
-  parse("f x")
-  
-  parse("f x y")
-  
-  parse("c * f x")
-  
-  parse("(c * f) x y z * d")
-  
-  parse("lazy lazy x + y")
-  
-  parse("3 * (x ⇒ _ ⇒ x + 10)")
-  
-  parse("""
-return 3 * 4
-  f x
- g y
-h z
-""")
-
-  parse("""
-if x < y then 1 - x else y * 3 
-""")
-
-  parse("""
-if true then
-    1
-else
-    2
-""")
-
-  parse("""
-if true then
-    1
-else 
-    if false then x else y
-""")
-
-  parse("""
-if true then
-  if false then
-    1
-  else
-    2
-""")
-
-  parse("""
-def 
-  u ≔ 10
-  f x ≔ 
-    val y ≔ 13  
-    y ≔ y * 42
-    return y + 1   
-  v ≔ u + 1
-""")
-
-  parse("""
-val x ≔ ((10 + 5) -
-   y)
-""")
-
-  parse("""
-match x 
-case 1 ⇒ 2
-case 2 ⇒ 3
-case y ⇒ y + 2
-      """) 
-     
-  parse("match x case 1 ⇒ 2 case x ⇒ x * x")
-
-  parse("val x ≔ match x case 1 ⇒ 2 case x ⇒ x * x")
-  
-  parse("""
-  def f ≔ 10
-  val u ≔ 20
-  u - f""")
-  
-  parse("""
-  def 
-    f ≔ 10
-  val 
-    u ≔ 20
-  u - f""")
-  
-  parse("""
-val x ≔ 3 * (do
-  def f ≔ 10
-  val u ≔ 20
-  u - f)""")
-
-  
-  parse("match x case 1 ⇒ match y case 2 ⇒ x*y")
-
-  parse("match x case 1 ⇒ (match y) case 2 ⇒ x*y")
-
-  parse("match x case 1 ⇒ (match y case 2 ⇒ x*y)")
-  
-  parse("val x ≔ return 2")
-
-  parse("3 + 'A, p ↦ {x | x ∈ A. p x}'")
-
-  parse("3 + 'A, p ↦ {x | x ∈ A. p x ∧ ‹q› x}'")
-
-  parse("""
-match x 
-case '{‹q› x | x ∈ A. x = ‹3›}' ⇒ 2
-case 2 ⇒ 3
-case y ⇒ y + 2
-      """) 
-
-  parse("(7)")
-
-  parse("[7]")
-
-  parse("[7, 13]")
-
-  parse("(7, 13)")
-
-  parse("val (x,y) ≔ s")
-
-  parse("x <+ y ≔ t")
-
-  parse("x +> y ≔ t")
-
-  parse("x <+ y +> z ≔ t")
-
-  parse("x <+ y <+ z ≔ t")
-
-  parse("x +> y +> z ≔ t")
-
-  parse("x <+ y +> z <+ r ≔ t")  
-   
-  parse("(x <+ y +> z) <+ r ≔ t")  
-
-  parse("x <+ y +> (z <+ r) ≔ t")  
-
-  parse("x +> y <+ z ≔ t")
-
-  parse("x <+ y ++ u +> z ≔ t")
-
-  parse("t ≔ x <+ y ++ u +> z")
-
-  parse("assume 'x'")
-
-  parse("assume t ≔ 'x'")
-
-  parse("""
-assume 
-  t ≔ 'x'
-""")
-
-  parse("""
-let 'x = (x ↦ x)'
-choose 'y' from t
-""")
-
-  parse("""
-theory root 
-extends squares \blub\whatever great 
-""")
-
-  parse("context")
-
-  parse("(context)")
-
-parse("""
-context
-context
-  context<context>
-context
-  context<(context)>
-""")
-
-parse("val x ≔ 3")
-
-parse("def x ≔ 3")
-
-}  
-  
   
 }

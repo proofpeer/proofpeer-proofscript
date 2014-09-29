@@ -164,7 +164,7 @@ object NativeFunctions {
   }
 
   private def stringValue(s : String) : StringValue = {
-    StringValue(proofpeer.scala.lang.codePoints(s))
+    StringValue(proofpeer.general.StringUtils.codePoints(s))
   }
 
   private def convert_to_string(eval : Eval, state : State, value : StateValue) : Result = {

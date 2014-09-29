@@ -1,36 +1,23 @@
 package proofpeer.proofscript.frontend
 
-import proofpeer.indent._
-import proofpeer.indent.API._
-import proofpeer.indent.APIConversions._
-import Derivation.Context  
-import proofpeer.indent.{Constraints => CS}
+import proofpeer.indent.{ParseTree => IndentParseTree, _}
+import proofpeer.indent.regex._
+import GrammarConversions._
+import RegularExpr._
+import proofpeer.indent.{Constraint => CS}
+import Utils._
 import ParseTree._
+
 import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
 
 class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
-  
-def ltokenrule(nonterminal : String, c1 : Char, c2 : Char) : Grammar = 
-  tokenrule(nonterminal, Range.interval(c1, c2)) ++ lexical(nonterminal, LexicalPriority(0, None))
-  
-def ltokenrule(nonterminal : String, c : Char) : Grammar = 
-  ltokenrule(nonterminal, c, c)
+    
+def lex(terminal : String, expr : RegularExpr, prio : Option[Int] = None) : Grammar = 
+  Grammar(ScanRule(terminal, "\\root", prio, expr))
 
-def ltokenrule(nonterminal : String, i : Int) : Grammar = 
-  tokenrule(nonterminal, Range.interval(i, i)) ++ lexical(nonterminal, LexicalPriority(0, None))
+def keyword(terminal : String, kw : String) : Grammar = 
+  lex(terminal, string(kw), Some(2))
 
-def ltokenrule(nonterminal : String, r : Range) : Grammar = 
-  tokenrule(nonterminal, r) ++ lexical(nonterminal, LexicalPriority(0, None))
-
-
-def lexrule(n : Nonterminal, rhs : String) : Grammar = {
-  API.lexrule(n, rhs, LexicalPriority(0, None))
-}
-
-def litrule(n : Nonterminal, lit : String) : Grammar = {
-  API.lexrule(n, literal(lit), LexicalPriority(0, Some(2)))
-}
-  
 /*
 
 ≤
@@ -55,106 +42,96 @@ Unicode: U+0027, UTF-8: 27
 
 */ 
 
-val g_string_literals = 
-  ltokenrule("HexDigit", 'a', 'f') ++
-  ltokenrule("HexDigit", 'A', 'F') ++
-  ltokenrule("HexDigit", '0', '9') ++
-  ltokenrule("QuotationMark", '"') ++
-  ltokenrule("LowerU", 'u') ++
-  ltokenrule("UpperU", 'U') ++
-  ltokenrule("StringCharacter", 
-    Range.add(
-      Range.singleton(0x21), 
-      Range.interval(0x23, 0x5B),
-      Range.interval(0x5D, 0x7E),
-      Range.interval(0xA0, Int.MaxValue))) ++
-  lexrule("StringCharacter", literal("\\n")) ++
-  lexrule("StringCharacter", literal("\\\\")) ++ 
-  lexrule("StringCharacter", literal("\\\"")) ++ 
-  lexrule("StringCharacter", "Backslash LowerU HexDigit_1 HexDigit_2 HexDigit_3 HexDigit_4") ++
-  lexrule("StringCharacter", "Backslash UpperU HexDigit_1 HexDigit_2 HexDigit_3 HexDigit_4 HexDigit_5 HexDigit_6 HexDigit_7 HexDigit_8") ++
-  lexrule("StringLiteral", "") ++
-  rule("StringLiteral", "StringLiteral StringCharacter") 
+val hexdigit = alt(chars('a', 'f'), chars('A', 'F'), chars('0', '9'))
 
-val g_literals =
-  g_string_literals ++
-  ltokenrule("Hash", '#') ++
-  ltokenrule("AnyChar", Range.universal) ++
-  lexrule("AnyToken", "AnyChar") ++
-  lexrule("AnyToken", "AnyToken AnyChar") ++
-  ltokenrule("Plus", '+') ++  
-  ltokenrule("Minus", '-') ++
-  ltokenrule("Times", '*') ++
-  ltokenrule("Slash", '/') ++
-  ltokenrule("Le", '<') ++
-  ltokenrule("Gr", '>') ++
-  ltokenrule("Leq", 0x2264) ++
-  lexrule("Leq", literal("<=")) ++
-  ltokenrule("Geq", 0x2265) ++
-  lexrule("Geq", literal(">=")) ++
-  ltokenrule("SquareBracketOpen", '[') ++
-  ltokenrule("SquareBracketClose", ']') ++
-  ltokenrule("DoubleArrow", 0x21D2) ++
-  lexrule("DoubleArrow", literal("=>")) ++
-  lexrule("ScriptEq", literal("==")) ++
-  lexrule("ScriptNotEq", literal("<>")) ++ 
-  ltokenrule("ScriptNotEq", 0x2260) ++
-  ltokenrule("Apostrophe", 0x27) ++
-  lexrule("Prepend", literal("<+")) ++
-  lexrule("Append", literal("+>")) ++
-  lexrule("Concat", literal("++")) ++
-  litrule("Val", "val") ++
-  litrule("Def", "def") ++
-  litrule("Mod", "mod") ++
-  litrule("ScriptOr", "or") ++
-  litrule("ScriptAnd", "and") ++
-  litrule("ScriptNot", "not") ++
-  litrule("ScriptTrue", "true") ++
-  litrule("ScriptFalse", "false") ++
-  litrule("Lazy", "lazy") ++
-  litrule("If", "if") ++
-  litrule("Then", "then") ++
-  litrule("Else", "else") ++
-  litrule("While", "while") ++
-  litrule("Do", "do") ++
-  litrule("For", "for") ++
-  litrule("In", "in") ++
-  litrule("Match", "match") ++
-  litrule("Case", "case") ++
-  litrule("Return", "return") ++
-  litrule("Assume", "assume") ++
-  litrule("Let", "let") ++
-  litrule("Choose", "choose") ++
-  litrule("Theory", "theory") ++
-  litrule("Extends", "extends") ++
-  litrule("Context", "context") ++
-  litrule("Show", "show") ++
-  litrule("Fail", "fail") ++
-  litrule("Nil", "nil") ++
-  litrule("To", "to") ++
-  litrule("Downto", "downto") ++
-  litrule("Theorem", "theorem") ++
-  litrule("Assert", "assert") ++
-  litrule("Failure", "failure") ++
-  litrule("As", "as")
+def g_literals = 
+  lex("HexDigit", hexdigit) ++
+  lex("QuotationMark", char('"')) ++
+  lex("StringLiteralToken", REPEAT1(alt(
+    string("\\n"),
+    string("\\\\"),
+    string("\\\""),
+    seq(char('\\'), char('u'), hexdigit, hexdigit, hexdigit, hexdigit),
+    seq(char('\\'), char('U'), hexdigit, hexdigit, hexdigit, hexdigit, hexdigit, hexdigit),
+    char(0x21),
+    chars(0x23, 0x5B),
+    chars(0x5D, 0x7E),
+    chars(0xA0, Int.MaxValue))))
+  lex("Hash", char('#')) ++
+  lex("AnyToken", REPEAT1(CHAR(Range.universal))) ++
+  lex("Plus", char('+')) ++  
+  lex("Minus", char('-')) ++
+  lex("Times", char('*')) ++
+  lex("Slash", char('/')) ++
+  lex("Le", char('<')) ++
+  lex("Gr", char('>')) ++
+  lex("Leq", ALT(char(0x2264), string("<="))) ++
+  lex("Geq", ALT(char(0x2265), string(">="))) ++
+  lex("SquareBracketOpen", char('[')) ++
+  lex("SquareBracketClose", char(']')) ++
+  lex("DoubleArrow", ALT(char(0x21D2), string("=>"))) ++
+  lex("ScriptEq", string("==")) ++
+  lex("ScriptNotEq", ALT(char(0x2260), string("<>"))) ++  
+  lex("Apostrophe", char(0x27)) ++
+  lex("Prepend", string("<+")) ++
+  lex("Append", string("+>")) ++
+  lex("Concat", string("++")) ++
+  keyword("Val", "val") ++
+  keyword("Def", "def") ++
+  keyword("Mod", "mod") ++ 
+  keyword("ScriptOr", "or") ++ 
+  keyword("ScriptAnd", "and") ++ 
+  keyword("ScriptNot", "not") ++ 
+  keyword("ScriptTrue", "true") ++ 
+  keyword("ScriptFalse", "false") ++ 
+  keyword("Lazy", "lazy") ++ 
+  keyword("If", "if") ++ 
+  keyword("Then", "then") ++ 
+  keyword("Else", "else") ++ 
+  keyword("While", "while") ++ 
+  keyword("Do", "do") ++ 
+  keyword("For", "for") ++ 
+  keyword("In", "in") ++ 
+  keyword("Match", "match") ++ 
+  keyword("Case", "case") ++ 
+  keyword("Return", "return") ++ 
+  keyword("Assume", "assume") ++ 
+  keyword("Let", "let") ++ 
+  keyword("Choose", "choose") ++ 
+  keyword("Theory", "theory") ++ 
+  keyword("Extends", "extends") ++ 
+  keyword("Context", "context") ++ 
+  keyword("Show", "show") ++ 
+  keyword("Fail", "fail") ++ 
+  keyword("Nil", "nil") ++ 
+  keyword("To", "to") ++ 
+  keyword("Downto", "downto") ++ 
+  keyword("Theorem", "theorem") ++ 
+  keyword("Assert", "assert") ++ 
+  keyword("Failure", "failure") ++ 
+  keyword("As", "as")  
 
-def arule(n : Nonterminal, rhs : String, constraints : Constraints.Constraint[IndexedSymbol],
-          action : Derivation.Context => Any) : Grammar = 
-{
-  def annotatedAction(c : Derivation.Context) : Any = {     
-    annotate(action(c), c._span)
-  }
-  rule(n, rhs, constraints, annotatedAction)
+def optspan(span : Span) : Option[Span] = {
+  if (span == null) None else Some(span)
 }
 
-def annotateUnop(b : UnaryOperator, span : Option[Span]) : UnaryOperator = 
-  annotate(b, span).asInstanceOf[UnaryOperator]
+def arule(n : String, rhs : String, constraint : Constraint,
+          action : ParseContext => Any) : Grammar = 
+{
+  def annotatedAction(c : ParseContext) : Any = {     
+    annotate(action(c), optspan(c.span))
+  }
+  Grammar(ParseRule(n, string2rhs(rhs), constraint, annotatedAction))
+}
 
-def annotateBinop(b : BinaryOperator, span : Option[Span]) : BinaryOperator = 
-  annotate(b, span).asInstanceOf[BinaryOperator]
+def annotateUnop(b : UnaryOperator, span : Span) : UnaryOperator = 
+  annotate(b, optspan(span)).asInstanceOf[UnaryOperator]
 
-def arule(n : Nonterminal, rhs : String, action : Derivation.Context => Any) : Grammar = 
-  arule(n, rhs, Constraints.Unconstrained[IndexedSymbol], action)
+def annotateBinop(b : BinaryOperator, span : Span) : BinaryOperator = 
+  annotate(b, optspan(span)).asInstanceOf[BinaryOperator]
+
+def arule(n : String, rhs : String, action : ParseContext => Any) : Grammar = 
+  arule(n, rhs, Constraint.unconstrained, action)
 
 def mkTuple(elements : Vector[Expr], collapse : Boolean) : Expr = {
   if (collapse && elements.size == 1) 
@@ -170,36 +147,12 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
     PTuple(elements)
 }
 
-def mkStringLiteral(quot1 : Derivation.ParseResult, quot2 : Derivation.ParseResult,
-  literal : Derivation.ParseResult) : StringLiteral = 
+def mkStringLiteral(c : ParseContext, quot1 : Span, quot2 : Span) : StringLiteral = 
 {
-  def calculateWhitespace(start : Span, end : Span) : Vector[Int] = {
-    var v : Vector[Int] = Vector()
-    var startRow = start.lastRow
-    var startCol = start.rightMostLast + 1
-    val endRow = end.firstRow
-    val endCol = end.leftMostFirst
-    val NEWLINE : Int = '\n'
-    while (startRow < endRow) {
-      startCol = 0
-      startRow = startRow + 1
-      v = v :+ NEWLINE
-    }
-    val SPACE : Int = ' '
-    while (startCol < endCol) {
-      startCol = startCol + 1
-      v = v :+ SPACE
-    }
-    v
-  }
-  literal.span match {
-    case None =>
-      mkStringLiteralFromCodes(calculateWhitespace(quot1.span.get, quot2.span.get))
-    case Some(span) =>
-      val u = calculateWhitespace(quot1.span.get, span)
-      val v = calculateWhitespace(span, quot2.span.get)
-      mkStringLiteralFromCodes(u ++ literal.codes ++ v)
-  }
+  import proofpeer.general.StringUtils
+  val len = quot2.lastTokenIndex - quot1.firstTokenIndex - 1
+  val s = c.document.getText(quot1.firstTokenIndex + 1, len)
+  mkStringLiteralFromCodes(StringUtils.codePoints(s))
 }
 
 def mkStringLiteralFromCodes(escapedCodes : Vector[Int]) : StringLiteral = 
@@ -247,100 +200,103 @@ def mkStringLiteralFromCodes(escapedCodes : Vector[Int]) : StringLiteral =
 def Subalign(a : String, b : String) = CS.or(CS.Indent(a, b), CS.Align(a, b))
 
 val g_expr =
-  arule("PrimitiveExpr", "Name", c => mkId(Syntax.parseName(c.Name.text))) ++
-  arule("Int", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
-  arule("Int", "Minus Digits", c => Integer(-BigInt(c.Digits.text, 10))) ++  
-  arule("PrimitiveExpr", "Digits", c => Integer(BigInt(c.Digits.text, 10))) ++
-  arule("PrimitiveExpr", "RoundBracketOpen ExprList RoundBracketClose", c => mkTuple(c.ExprList.resultAs[Vector[Expr]], true)) ++
-  arule("PrimitiveExpr", "SquareBracketOpen ExprList SquareBracketClose", c => mkTuple(c.ExprList.resultAs[Vector[Expr]], false)) ++
+  arule("StringLiteral", "", c => null) ++
+  arule("StringLiteral", "StringLiteral StringLiteralToken", c => null) ++
+  arule("PrimitiveExpr", "Name", c => mkId(Syntax.parseName(c.text))) ++
+  arule("Int", "Digits", c => Integer(BigInt(c.text, 10))) ++
+  arule("Int", "Minus Digits", c => Integer(-BigInt(c.text("Digits"), 10))) ++  
+  arule("PrimitiveExpr", "Digits", c => Integer(BigInt(c.text("Digits"), 10))) ++
+  arule("PrimitiveExpr", "RoundBracketOpen ExprList RoundBracketClose", c => mkTuple(c.ExprList, true)) ++
+  arule("PrimitiveExpr", "SquareBracketOpen ExprList SquareBracketClose", c => mkTuple(c.ExprList, false)) ++
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
-  arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm.resultAs[Preterm])) ++
-  arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, c.StringLiteral)) ++
+  arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm)) ++
+  arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2"))) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
-      c => BinaryOperation(annotateBinop(Or, c.ScriptOr.span), c.OrExpr.resultAs[Expr], c.AndExpr.resultAs[Expr])) ++
-  arule("OrExpr", "AndExpr", _.AndExpr.result) ++
+      c => BinaryOperation(annotateBinop(Or, c.span("ScriptOr")), c.OrExpr, c.AndExpr)) ++
+  arule("OrExpr", "AndExpr", _.AndExpr) ++
   arule("AndExpr", "AndExpr ScriptAnd NotExpr", 
-      c => BinaryOperation(annotateBinop(And, c.ScriptAnd.span), c.AndExpr.resultAs[Expr], c.NotExpr.resultAs[Expr])) ++
-  arule("AndExpr", "NotExpr", _.NotExpr.result) ++
+      c => BinaryOperation(annotateBinop(And, c.span("ScriptAnd")), c.AndExpr, c.NotExpr)) ++
+  arule("AndExpr", "NotExpr", _.NotExpr) ++
   arule("NotExpr", "ScriptNot NotExpr", 
-      c => UnaryOperation(annotateUnop(Not, c.ScriptNot.span), c.NotExpr.resultAs[Expr])) ++
-  arule("NotExpr", "CmpExpr", _.CmpExpr.result) ++
+      c => UnaryOperation(annotateUnop(Not, c.span("ScriptNot")), c.NotExpr)) ++
+  arule("NotExpr", "CmpExpr", _.CmpExpr) ++
   arule("CmpExpr", "CmpExpr CmpOp GeneralArithExpr", { c =>
-    val operator = c.CmpOp.resultAs[CmpOperator]
-    val operand = c.GeneralArithExpr.resultAs[Expr]
-    c.CmpExpr.resultAs[Expr] match {
+    val operator : CmpOperator = c.CmpOp
+    val operand : Expr = c.GeneralArithExpr
+    val cmpExpr : Expr = c.CmpExpr
+    cmpExpr match {
       case op : CmpOperation =>
         CmpOperation(op.operators :+ operator, op.operands :+ operand)
       case e =>
         CmpOperation(Vector(operator), Vector(e, operand))
     }
   }) ++
-  arule("CmpExpr", "GeneralArithExpr", _.GeneralArithExpr.result) ++
+  arule("CmpExpr", "GeneralArithExpr", _.GeneralArithExpr) ++
   arule("CmpOp", "Le", c => Le) ++
   arule("CmpOp", "Gr", c => Gr) ++
   arule("CmpOp", "Leq", c => Leq) ++
   arule("CmpOp", "Geq", c => Geq) ++
   arule("CmpOp", "ScriptEq", c => Eq) ++
   arule("CmpOp", "ScriptNotEq", c => NEq) ++
-  arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr.result) ++
-  arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr.result) ++
-  arule("ConcatExpr", "ConcatExpr Append ArithExpr", c => BinaryOperation(annotateBinop(Append, c.Append.span), c.ConcatExpr.resultAs[Expr], c.ArithExpr.resultAs[Expr])) ++
-  arule("PrependConcatExpr", "PrependExpr", _.PrependExpr.result) ++ 
-  arule("PrependConcatExpr", "PrependConcatExpr Concat ArithExpr", c => BinaryOperation(annotateBinop(Concat, c.Concat.span), c.PrependConcatExpr.resultAs[Expr], c.ArithExpr.resultAs[Expr])) ++
-  arule("PrependExpr", "ArithExpr Prepend PrependExpr", c => BinaryOperation(annotateBinop(Prepend, c.Prepend.span), c.ArithExpr.resultAs[Expr], c.PrependExpr.resultAs[Expr])) ++
-  arule("PrependExpr", "ArithExpr", _.ArithExpr.result) ++
-  arule("ArithExpr", "RangeExpr", _.RangeExpr.result) ++
-  arule("RangeExpr", "AddExpr", _.AddExpr.result) ++
+  arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr) ++
+  arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr) ++
+  arule("ConcatExpr", "ConcatExpr Append ArithExpr", c => BinaryOperation(annotateBinop(Append, c.span("Append")), c.ConcatExpr, c.ArithExpr)) ++
+  arule("PrependConcatExpr", "PrependExpr", _.PrependExpr) ++ 
+  arule("PrependConcatExpr", "PrependConcatExpr Concat ArithExpr", c => BinaryOperation(annotateBinop(Concat, c.span("Concat")), c.PrependConcatExpr, c.ArithExpr)) ++
+  arule("PrependExpr", "ArithExpr Prepend PrependExpr", c => BinaryOperation(annotateBinop(Prepend, c.span("Prepend")), c.ArithExpr, c.PrependExpr)) ++
+  arule("PrependExpr", "ArithExpr", _.ArithExpr) ++
+  arule("ArithExpr", "RangeExpr", _.RangeExpr) ++
+  arule("RangeExpr", "AddExpr", _.AddExpr) ++
   arule("RangeExpr", "AddExpr_1 To AddExpr_2", 
-    c => BinaryOperation(annotateBinop(RangeTo, c.To.span), c.AddExpr_1.resultAs[Expr], c.AddExpr_2.resultAs[Expr])) ++
+    c => BinaryOperation(annotateBinop(RangeTo, c.span("To")), c.AddExpr_1, c.AddExpr_2)) ++
   arule("RangeExpr", "AddExpr_1 Downto AddExpr_2", 
-    c => BinaryOperation(annotateBinop(RangeDownto, c.Downto.span), c.AddExpr_1.resultAs[Expr], c.AddExpr_2.resultAs[Expr])) ++
+    c => BinaryOperation(annotateBinop(RangeDownto, c.span("Downto")), c.AddExpr_1, c.AddExpr_2)) ++
   arule("AddExpr", "AddExpr Plus NegExpr", 
-      c => BinaryOperation(annotateBinop(Add, c.Plus.span), c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++
+      c => BinaryOperation(annotateBinop(Add, c.span("Plus")), c.AddExpr, c.NegExpr)) ++
   arule("AddExpr", "AddExpr Minus NegExpr", 
-      c => BinaryOperation(annotateBinop(Sub, c.Minus.span), c.AddExpr.resultAs[Expr], c.NegExpr.resultAs[Expr])) ++  
-  arule("AddExpr", "NegExpr", _.NegExpr.result) ++
+      c => BinaryOperation(annotateBinop(Sub, c.span("Minus")), c.AddExpr, c.NegExpr)) ++  
+  arule("AddExpr", "NegExpr", _.NegExpr) ++
   arule("NegExpr", "Minus NegExpr", 
-      c => UnaryOperation(annotateUnop(Neg, c.Minus.span), c.NegExpr.resultAs[Expr])) ++  
-  arule("NegExpr", "MultExpr", _.MultExpr.result) ++  
+      c => UnaryOperation(annotateUnop(Neg, c.span("Minus")), c.NegExpr)) ++  
+  arule("NegExpr", "MultExpr", _.MultExpr) ++  
   arule("MultExpr", "MultExpr Times BasicExpr", 
-      c => BinaryOperation(annotateBinop(Mul, c.Times.span), c.MultExpr.resultAs[Expr], c.BasicExpr.resultAs[Expr])) ++
+      c => BinaryOperation(annotateBinop(Mul, c.span("Times")), c.MultExpr, c.BasicExpr)) ++
   arule("MultExpr", "MultExpr Slash BasicExpr", 
-      c => BinaryOperation(annotateBinop(Div, c.Slash.span), c.MultExpr.resultAs[Expr], c.BasicExpr.resultAs[Expr])) ++
+      c => BinaryOperation(annotateBinop(Div, c.span("Slash")), c.MultExpr, c.BasicExpr)) ++
   arule("MultExpr", "MultExpr Mod BasicExpr", 
-      c => BinaryOperation(annotateBinop(Mod, c.Mod.span), c.MultExpr.resultAs[Expr], c.BasicExpr.resultAs[Expr])) ++
-  arule("MultExpr", "BasicExpr", _.BasicExpr.result) ++
-  arule("BasicExpr", "AppExpr", _.AppExpr.result) ++
-  arule("AppExpr", "PrimitiveExpr", _.PrimitiveExpr.result) ++
-  arule("AppExpr", "AppExpr PrimitiveExpr", c => App(c.AppExpr.resultAs[Expr], c.PrimitiveExpr.resultAs[Expr])) ++
-  arule("LazyExpr", "OrExpr", _.OrExpr.result) ++
-  arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr.resultAs[Expr])) ++ 
-  arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++
-  arule("FunExpr", "LazyExpr", _.LazyExpr.result) ++
-  arule("Expr", "FunExpr", _.FunExpr.result) ++
+      c => BinaryOperation(annotateBinop(Mod, c.span("Mod")), c.MultExpr, c.BasicExpr)) ++
+  arule("MultExpr", "BasicExpr", _.BasicExpr) ++
+  arule("BasicExpr", "AppExpr", _.AppExpr) ++
+  arule("AppExpr", "PrimitiveExpr", _.PrimitiveExpr) ++
+  arule("AppExpr", "AppExpr PrimitiveExpr", c => App(c.AppExpr, c.PrimitiveExpr)) ++
+  arule("LazyExpr", "OrExpr", _.OrExpr) ++
+  arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr)) ++ 
+  arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern, c.Block)) ++
+  arule("FunExpr", "LazyExpr", _.LazyExpr) ++
+  arule("Expr", "FunExpr", _.FunExpr) ++
   arule("ExprList", "", c => Vector[Expr]()) ++
-  arule("ExprList", "ExprList1", _.ExprList1.result) ++
-  arule("ExprList1", "PExpr", c => Vector[Expr](c.PExpr.resultAs[Expr])) ++
-  arule("ExprList1", "Comma PExpr", c => Vector[Expr](NilExpr, c.PExpr.resultAs[Expr])) ++
+  arule("ExprList", "ExprList1", _.ExprList1) ++
+  arule("ExprList1", "PExpr", c => Vector[Expr](c.PExpr)) ++
+  arule("ExprList1", "Comma PExpr", c => Vector[Expr](NilExpr, c.PExpr)) ++
   arule("ExprList1", "Comma", c => Vector[Expr](NilExpr, NilExpr)) ++
-  arule("ExprList1", "ExprList1 Comma PExpr", c => c.ExprList1.resultAs[Vector[Expr]] :+ c.PExpr.resultAs[Expr]) ++
-  arule("ExprList1", "ExprList1 Comma", c => c.ExprList1.resultAs[Vector[Expr]] :+ NilExpr) ++
-  arule("PExpr", "Expr", _.Expr.result) ++
-  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr.resultAs[ControlFlow]))
+  arule("ExprList1", "ExprList1 Comma PExpr", c => c.ExprList1[Vector[Expr]] :+ c.PExpr) ++
+  arule("ExprList1", "ExprList1 Comma", c => c.ExprList1[Vector[Expr]] :+ NilExpr) ++
+  arule("PExpr", "Expr", _.Expr[Expr]) ++
+  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr))
   
 val g_do = 
   arule("STDo", "Do Block",
       CS.Indent("Do", "Block"),
-      c => Do(c.Block.resultAs[Block], false)) ++
+      c => Do(c.Block, false)) ++
   arule("DoExpr", "Do Block",
-      c => Do(c.Block.resultAs[Block], false)) ++
+      c => Do(c.Block, false)) ++
   arule("STDo", "Do Times Block",
       CS.and(CS.Indent("Do", "Times"), CS.Indent("Do", "Block")),
-      c => Do(c.Block.resultAs[Block], true)) ++
+      c => Do(c.Block, true)) ++
   arule("DoExpr", "Do Times Block",
-      c => Do(c.Block.resultAs[Block], true))
+      c => Do(c.Block, true))
   
 val g_if =
   arule("STIf", "If PExpr Then Block_1 Else Block_2", 
@@ -359,7 +315,7 @@ val g_if =
               CS.ifThenElse(CS.Line("Then", "Else"), 
                 CS.Indent("Then", "Block_2"),
                 CS.Indent("Else", "Block_2")))),
-      c => If(c.PExpr.resultAs[Expr], c.Block_1.resultAs[Block], c.Block_2.resultAs[Block])) ++
+      c => If(c.PExpr, c.Block_1, c.Block_2)) ++
   arule("STIf", "If PExpr Then Block",
       CS.and(
           CS.Indent("If", "PExpr"), 
@@ -368,11 +324,11 @@ val g_if =
               CS.and(
                   Subalign("If", "Then"),
                   CS.Indent("Then", "Block")))),
-      c => If(c.PExpr.resultAs[Expr], c.Block.resultAs[Block], Block(Vector()))) ++
+      c => If(c.PExpr, c.Block, Block(Vector()))) ++
   arule("IfExpr", "If PExpr Then Block_1 Else Block_2", 
-      c => If(c.PExpr.resultAs[Expr], c.Block_1.resultAs[Block], c.Block_2.resultAs[Block])) ++
+      c => If(c.PExpr, c.Block_1, c.Block_2)) ++
   arule("IfExpr", "If PExpr Then Block",
-      c => If(c.PExpr.resultAs[Expr], c.Block.resultAs[Block], Block(Vector())))
+      c => If(c.PExpr, c.Block, Block(Vector())))
     
 val g_while = 
   arule("STWhile", "While PExpr Do Block",
@@ -381,9 +337,9 @@ val g_while =
         CS.ifThenElse(CS.Line("While", "Do"),
             CS.Indent("While", "Block"),
             CS.and(Subalign("While", "Do"), CS.Indent("Do", "Block")))),
-      c => While(c.PExpr.resultAs[Expr], c.Block.resultAs[Block])) ++
+      c => While(c.PExpr, c.Block)) ++
   arule("WhileExpr", "While PExpr Do Block",
-      c => While(c.PExpr.resultAs[Expr], c.Block.resultAs[Block]))
+      c => While(c.PExpr, c.Block))
       
 val g_for = 
   arule("STFor", "For Pattern In PExpr Do Block",
@@ -394,108 +350,108 @@ val g_for =
           CS.ifThenElse(CS.Line("For", "Do"),
               CS.Indent("For", "Block"),
               CS.and(Subalign("For", "Do"), CS.Indent("Do", "Block")))),              
-      c => For(c.Pattern.resultAs[Pattern], c.PExpr.resultAs[Expr], c.Block.resultAs[Block])) ++
+      c => For(c.Pattern, c.PExpr, c.Block)) ++
   arule("ForExpr", "For Pattern In PExpr Do Block",
-      c => For(c.Pattern.resultAs[Pattern], c.PExpr.resultAs[Expr], c.Block.resultAs[Block]))
+      c => For(c.Pattern, c.PExpr, c.Block))
 
 val g_match = 
   arule("STMatch", "Match PExpr STMatchCases",
       CS.and(
           CS.Indent("Match", "PExpr"),
           Subalign("Match", "STMatchCases")),
-      c => Match(c.PExpr.resultAs[Expr], c.STMatchCases.resultAs[Vector[MatchCase]])) ++
+      c => Match(c.PExpr, c.STMatchCases)) ++
   arule("STMatchCases", "STMatchCases STMatchCase", 
       CS.or(CS.Align("STMatchCases", "STMatchCase"), CS.Line("STMatchCases", "STMatchCase")),
-      c => c.STMatchCases.resultAs[Vector[MatchCase]] :+ c.STMatchCase.resultAs[MatchCase]) ++
+      c => c.STMatchCases[Vector[MatchCase]] :+ c.STMatchCase) ++
   arule("STMatchCases", "", c => Vector[MatchCase]()) ++
   arule("STMatchCase", "Case Pattern DoubleArrow Block", 
       CS.and(
         CS.Indent("Case", "Pattern"),
         CS.SameLine("Pattern", "DoubleArrow"),
         CS.Indent("Case", "Block")),
-      c => MatchCase(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++     
+      c => MatchCase(c.Pattern, c.Block)) ++     
   arule("MatchExpr", "Match PExpr MatchCases",
-      c => Match(c.PExpr.resultAs[Expr], c.MatchCases.resultAs[Vector[MatchCase]])) ++
+      c => Match(c.PExpr, c.MatchCases)) ++
   arule("MatchCases", "MatchCases MatchCase", 
-      c => c.MatchCases.resultAs[Vector[MatchCase]] :+ c.MatchCase.resultAs[MatchCase]) ++
+      c => c.MatchCases[Vector[MatchCase]] :+ c.MatchCase) ++
   arule("MatchCases", "", c => Vector[MatchCase]()) ++
   arule("MatchCase", "Case Pattern DoubleArrow Block", 
-      c => MatchCase(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))    
+      c => MatchCase(c.Pattern, c.Block))    
 
 val g_context =
   arule("STContext", "Context OptContextParam Block",
       CS.and(
         CS.Indent("Context", "OptContextParam"),
         CS.Indent("Context", "Block")),
-      c => ContextControl(c.OptContextParam.resultAs[Option[Expr]], c.Block.resultAs[Block])) ++
+      c => ContextControl(c.OptContextParam, c.Block)) ++
   arule("ContextExpr", "Context OptContextParam Block",
-      c => ContextControl(c.OptContextParam.resultAs[Option[Expr]], c.Block.resultAs[Block])) ++
+      c => ContextControl(c.OptContextParam, c.Block)) ++
   arule("OptContextParam", "", c => None) ++
-  arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr.resultAs[Expr]))
+  arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr))
       
 val g_controlflow = 
   g_do ++ g_if ++ g_while ++ g_for ++ g_match ++ g_context ++
-  arule("STControlFlow", "STDo", _.STDo.result) ++  
-  arule("STControlFlow", "STIf", _.STIf.result) ++
-  arule("STControlFlow", "STWhile", _.STWhile.result) ++
-  arule("STControlFlow", "STFor", _.STFor.result) ++
-  arule("STControlFlow", "STMatch", _.STMatch.result) ++
-  arule("STControlFlow", "STContext", _.STContext.result) ++
-  arule("ControlFlowExpr", "DoExpr", _.DoExpr.result) ++  
-  arule("ControlFlowExpr", "IfExpr", _.IfExpr.result) ++
-  arule("ControlFlowExpr", "WhileExpr", _.WhileExpr.result) ++
-  arule("ControlFlowExpr", "ForExpr", _.ForExpr.result) ++
-  arule("ControlFlowExpr", "MatchExpr", _.MatchExpr.result) ++
-  arule("ControlFlowExpr", "ContextExpr", _.ContextExpr.result)
+  arule("STControlFlow", "STDo", _.STDo) ++  
+  arule("STControlFlow", "STIf", _.STIf) ++
+  arule("STControlFlow", "STWhile", _.STWhile) ++
+  arule("STControlFlow", "STFor", _.STFor) ++
+  arule("STControlFlow", "STMatch", _.STMatch) ++
+  arule("STControlFlow", "STContext", _.STContext) ++
+  arule("ControlFlowExpr", "DoExpr", _.DoExpr) ++  
+  arule("ControlFlowExpr", "IfExpr", _.IfExpr) ++
+  arule("ControlFlowExpr", "WhileExpr", _.WhileExpr) ++
+  arule("ControlFlowExpr", "ForExpr", _.ForExpr) ++
+  arule("ControlFlowExpr", "MatchExpr", _.MatchExpr) ++
+  arule("ControlFlowExpr", "ContextExpr", _.ContextExpr)
 
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++
   arule("AtomicPattern", "Nil", c => PNil) ++
-  arule("AtomicPattern", "IndexedName", c => PId(c.IndexedName.text)) ++
-  arule("AtomicPattern", "Int", c => PInt(c.Int.resultAs[Integer].value)) ++
+  arule("AtomicPattern", "IndexedName", c => PId(c.text("IndexedName"))) ++
+  arule("AtomicPattern", "Int", c => PInt(c.Int[Integer].value)) ++
   arule("AtomicPattern", "QuotationMark_1 StringLiteral QuotationMark_2", 
-    c => PString(mkStringLiteral(c.QuotationMark_1, c.QuotationMark_2, c.StringLiteral).value)) ++
+    c => PString(mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2")).value)) ++
   arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
   arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
-  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm.resultAs[Preterm])) ++
-  arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList.resultAs[Vector[Pattern]], true)) ++
-  arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList.resultAs[Vector[Pattern]], false)) ++  
-  arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern.resultAs[Pattern], c.PrependPattern.resultAs[Pattern])) ++
-  arule("PrependPattern", "AppendPattern", _.AppendPattern.result) ++
-  arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern.resultAs[Pattern], c.AtomicPattern.resultAs[Pattern])) ++
-  arule("AppendPattern", "AtomicPattern", _.AtomicPattern.result) ++
-  arule("AsPattern", "PrependPattern", _.PrependPattern.result) ++
-  arule("AsPattern", "AsPattern As IndexedName", c => PAs(c.AsPattern.resultAs[Pattern], c.IndexedName.text)) ++
-  arule("IfPattern", "AsPattern", _.AsPattern.result) ++
-  arule("IfPattern", "IfPattern If Expr", c => PIf(c.IfPattern.resultAs[Pattern], c.Expr.resultAs[Expr])) ++
-  arule("Pattern", "IfPattern", _.IfPattern.result) ++
+  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm)) ++
+  arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList, true)) ++
+  arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList, false)) ++  
+  arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern, c.PrependPattern)) ++
+  arule("PrependPattern", "AppendPattern", _.AppendPattern) ++
+  arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern, c.AtomicPattern)) ++
+  arule("AppendPattern", "AtomicPattern", _.AtomicPattern) ++
+  arule("AsPattern", "PrependPattern", _.PrependPattern) ++
+  arule("AsPattern", "AsPattern As IndexedName", c => PAs(c.AsPattern, c.text("IndexedName"))) ++
+  arule("IfPattern", "AsPattern", _.AsPattern) ++
+  arule("IfPattern", "IfPattern If Expr", c => PIf(c.IfPattern, c.Expr)) ++
+  arule("Pattern", "IfPattern", _.IfPattern) ++
   arule("OptPattern", "", c => None) ++
-  arule("OptPattern", "Pattern", c => Some(c.Pattern.resultAs[Pattern])) ++
+  arule("OptPattern", "Pattern", c => Some(c.Pattern)) ++
   arule("PatternList", "", c => Vector[Pattern]()) ++
-  arule("PatternList", "PatternList1", _.PatternList1.result) ++
-  arule("PatternList1", "Comma Pattern", c => Vector[Pattern](PNil, c.Pattern.resultAs[Pattern])) ++
+  arule("PatternList", "PatternList1", _.PatternList1) ++
+  arule("PatternList1", "Comma Pattern", c => Vector[Pattern](PNil, c.Pattern)) ++
   arule("PatternList1", "Comma", c => Vector[Pattern](PNil, PNil)) ++  
-  arule("PatternList1", "Pattern", c => Vector[Pattern](c.Pattern.resultAs[Pattern])) ++
-  arule("PatternList1", "PatternList1 Comma Pattern", c => c.PatternList1.resultAs[Vector[Pattern]] :+ c.Pattern.resultAs[Pattern]) ++
-  arule("PatternList1", "PatternList1 Comma", c => c.PatternList1.resultAs[Vector[Pattern]] :+ PNil)
+  arule("PatternList1", "Pattern", c => Vector[Pattern](c.Pattern)) ++
+  arule("PatternList1", "PatternList1 Comma Pattern", c => c.PatternList1[Vector[Pattern]] :+ c.Pattern) ++
+  arule("PatternList1", "PatternList1 Comma", c => c.PatternList1[Vector[Pattern]] :+ PNil)
 
 val g_comment =
-  arule("Comment", "CommentText", c => Comment(c.CommentText.text)) ++
+  arule("Comment", "CommentText", c => Comment(c.text("CommentText"))) ++
   arule("CommentText", "Hash", c => null) ++
   arule("CommentText", "CommentText AnyToken", CS.Indent("CommentText", "AnyToken"), c => null) ++
-  arule("ST", "Comment", c => STComment(c.Comment.resultAs[Comment]))
+  arule("ST", "Comment", c => STComment(c.Comment))
 
 val g_show =
   arule("ST", "Show PExpr",
     CS.Indent("Show", "PExpr"),
-    c => STShow(c.PExpr.resultAs[Expr]))
+    c => STShow(c.PExpr))
 
 val g_fail =
   arule("ST", "Fail",
     c => STFail(None)) ++
   arule("ST", "Fail PExpr",
     CS.Indent("Fail", "PExpr"),
-    c => STFail(Some(c.PExpr.resultAs[Expr])))
+    c => STFail(Some(c.PExpr)))
 
 val g_val = 
   arule("ST", "Val Pattern Eq Block",
@@ -503,13 +459,12 @@ val g_val =
       CS.Indent("Val", "Pattern"),
       CS.SameLine("Pattern", "Eq"),
       CS.or(CS.Line("Eq", "Block"), CS.Indent("Val", "Block"))),
-    c => STVal(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block])) ++
+    c => STVal(c.Pattern, c.Block)) ++
   arule("ST", "Val IdList", 
     CS.Indent("Val", "IdList"),
-    c => STValIntro(c.IdList.resultAs[List[Id]])) ++
-  arule("IdList", "IndexedName", c => List[Id](Id(c.IndexedName.text))) ++
-  arule("IdList", "IdList IndexedName", c => c.IdList.resultAs[List[Id]] :+ Id(c.IndexedName.text))
-
+    c => STValIntro(c.IdList)) ++
+  arule("IdList", "IndexedName", c => List[Id](Id(c.text("IndexedName")))) ++
+  arule("IdList", "IdList IndexedName", c => c.IdList[List[Id]] :+ Id(c.text("IndexedName")))
 
 val g_assign = 
   arule("ST", "Pattern Eq Block",
@@ -517,7 +472,7 @@ val g_assign =
           CS.SameLine("Pattern", "Eq"),
           CS.Protrude("Pattern"),
           CS.or(CS.Line("Eq", "Block"), CS.Indent("Pattern", "Block"))),
-      c => STAssign(c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
+      c => STAssign(c.Pattern, c.Block))
   
 def mkSTDef(cases : Vector[DefCase]) : STDef = {
   var result : Map[String, Vector[DefCase]] = Map()
@@ -533,7 +488,7 @@ def mkSTDef(cases : Vector[DefCase]) : STDef = {
 val g_def =
   arule("ST", "Def DefCases",
       CS.Indent("Def", "DefCases"),
-      c => mkSTDef(c.DefCases.resultAs[Vector[DefCase]])) ++
+      c => mkSTDef(c.DefCases)) ++
   arule("ST", "Def IndexedName Pattern Eq Block", 
       CS.and(
         CS.SameLine("Def", "IndexedName"),
@@ -541,22 +496,20 @@ val g_def =
         CS.Indent("Def", "Eq"),
         CS.Indent("Def", "Block"), 
         CS.not(CS.SameLine("Def", "Block"))),
-      c => mkSTDef(Vector(DefCase(c.IndexedName.text, c.Pattern.resultAs[Pattern], 
-        c.Block.resultAs[Block])))) ++
+      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.Pattern, c.Block)))) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
-      c => c.DefCases.resultAs[Vector[DefCase]] :+ c.DefCase.resultAs[DefCase]) ++
+      c => c.DefCases[Vector[DefCase]] :+ c.DefCase) ++
   arule("DefCase", "IndexedName Pattern Eq Block",
       CS.and(
           CS.Indent("IndexedName", "Pattern"),
-          //CS.or(CS.SameLine("Pattern", "Eq"), CS.SameLine("IndexedName", "Eq")),
           CS.Indent("IndexedName", "Block")),
-      c => DefCase(c.IndexedName.text, c.Pattern.resultAs[Pattern], c.Block.resultAs[Block]))
+      c => DefCase(c.text("IndexedName"), c.Pattern, c.Block))
       
 val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), 
-    c => STReturn(Some(c.PExpr.resultAs[Expr]))) ++
+    c => STReturn(Some(c.PExpr))) ++
   arule("ST", "Return", c => STReturn(None))
     
 val g_assume =
@@ -564,14 +517,14 @@ val g_assume =
     CS.and(
       CS.Indent("Assume", "OptAssign"),
       CS.Indent("Assume", "PrimitiveExpr")),
-    c => STAssume(c.OptAssign.resultAs[Option[String]], c.PrimitiveExpr.resultAs[Expr]))
+    c => STAssume(c.OptAssign, c.PrimitiveExpr))
 
 val g_let = 
   arule("ST", "Let OptAssign PrimitiveExpr",
     CS.and(
       CS.Indent("Let", "OptAssign"),
       CS.Indent("Let", "PrimitiveExpr")),
-    c => STLet(c.OptAssign.resultAs[Option[String]], c.PrimitiveExpr.resultAs[Expr]))
+    c => STLet(c.OptAssign, c.PrimitiveExpr))
 
 val g_choose = 
   arule("ST", "Choose OptAssign PrimitiveExpr Block",
@@ -579,9 +532,9 @@ val g_choose =
       CS.Indent("Choose", "OptAssign"),
       CS.Indent("Choose", "PrimitiveExpr"),
       CS.Indent("Choose", "Block")),
-    c => STChoose(c.OptAssign.resultAs[Option[String]], 
-                  c.PrimitiveExpr.resultAs[Expr],
-                  c.Block.resultAs[Block])) 
+    c => STChoose(c.OptAssign, 
+                  c.PrimitiveExpr,
+                  c.Block)) 
 
 val g_theorem = 
   arule("ST", "Theorem OptAssign PrimitiveExpr Block",
@@ -589,32 +542,32 @@ val g_theorem =
       CS.Indent("Theorem", "OptAssign"),
       CS.Indent("Theorem", "PrimitiveExpr"),
       CS.Indent("Theorem", "Block")),
-    c => STTheorem(c.OptAssign.resultAs[Option[String]],
-                   c.PrimitiveExpr.resultAs[Expr],
-                   c.Block.resultAs[Block]))
+    c => STTheorem(c.OptAssign,
+                   c.PrimitiveExpr,
+                   c.Block))
 
 
 val g_logic_statements = 
   arule("OptAssign", "", c => None) ++
-  arule("OptAssign", "IndexedName Colon", c => Some(c.IndexedName.text)) ++
+  arule("OptAssign", "IndexedName Colon", c => Some(c.text("IndexedName"))) ++
   g_assume ++ g_let ++ g_choose ++ g_theorem
 
 val g_test = 
-  arule("ST", "Assert PExpr", CS.Indent("Assert", "PExpr"), c => STAssert(c.PExpr.resultAs[Expr])) ++
-  arule("ST", "Failure Block", CS.Indent("Failure", "Block"), c => STFailure(c.Block.resultAs[Block]))
+  arule("ST", "Assert PExpr", CS.Indent("Assert", "PExpr"), c => STAssert(c.PExpr)) ++
+  arule("ST", "Failure Block", CS.Indent("Failure", "Block"), c => STFailure(c.Block))
 
 val g_statement = 
   g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++ g_fail ++
   g_logic_statements ++ g_comment ++ g_test ++
   arule("Statement", "Expr", 
     CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
-    c => STExpr(c.Expr.resultAs[Expr])) ++
-  arule("Statement", "ST", _.ST.result) ++
-  arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow.resultAs[ControlFlow])) ++ 
+    c => STExpr(c.Expr)) ++
+  arule("Statement", "ST", _.ST) ++
+  arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow)) ++ 
   arule("Statements", "", c => Vector[Statement]()) ++
   arule("Statements", "Statements Statement", CS.Align("Statements", "Statement"),
-      c => c.Statements.resultAs[Vector[Statement]] :+ c.Statement.resultAs[Statement]) ++
-  arule("Block", "Statements", c => Block(c.Statements.resultAs[Vector[Statement]])) 
+      c => c.Statements[Vector[Statement]] :+ c.Statement) ++
+  arule("Block", "Statements", c => Block(c.Statements)) 
 
 val g_header = 
   arule("ST", "Theory Namespace AliasList Extends NamespaceList", 
@@ -623,16 +576,16 @@ val g_header =
       CS.ifThenElse(CS.Line("Theory", "Extends"),
         CS.Indent("Theory", "NamespaceList"),
         CS.and(CS.Align("Theory", "Extends"), CS.Indent("Extends", "NamespaceList")))),
-    c => STTheory(Namespace(c.Namespace.text), c.AliasList.resultAs[List[(Id, Namespace)]].reverse, c.NamespaceList.resultAs[List[Namespace]].reverse)) ++
+    c => STTheory(Namespace(c.text("Namespace")), c.AliasList[List[(Id, Namespace)]].reverse, c.NamespaceList[List[Namespace]].reverse)) ++
   arule("NamespaceList", "", c => List[Namespace]()) ++
   arule("NamespaceList", "NamespaceList Namespace",
-    c => (Namespace(c.Namespace.text)) :: c.NamespaceList.resultAs[List[Namespace]]) ++
+    c => Namespace(c.text("Namespace")) :: c.NamespaceList[List[Namespace]]) ++
   arule("AliasList", "", c => List[(Id, Namespace)]()) ++
   arule("AliasList", "AliasList Alias", 
     CS.Align("AliasList", "Alias"),
-    c => c.Alias.resultAs[(Id, Namespace)] :: c.AliasList.resultAs[List[(Id, Namespace)]]) ++
+    c => c.Alias :: c.AliasList[List[(Id, Namespace)]]) ++
   arule("Alias", "IndexedName Eq Namespace", 
-    c => (Id(c.IndexedName.text), Namespace(c.Namespace.text)))
+    c => (Id(c.text("IndexedName")), Namespace(c.text("Namespace"))))
 
 val g_prog = 
   Syntax.grammar ++
@@ -642,8 +595,8 @@ val g_prog =
   g_statement ++
   g_controlflow ++
   g_header ++
-  arule("ValueQuotedTerm", "PExpr", _.PExpr.result) ++
-  arule("PatternQuotedTerm", "Pattern", _.Pattern.result) ++
-  arule("Prog", "Block", _.Block.result)
+  arule("ValueQuotedTerm", "PExpr", _.PExpr) ++
+  arule("PatternQuotedTerm", "Pattern", _.Pattern) ++
+  arule("Prog", "Block", _.Block)
 
 }
