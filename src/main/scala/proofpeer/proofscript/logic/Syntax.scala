@@ -241,8 +241,8 @@ object Syntax {
     rule("AtomicType", "Universe", c => PTyUniverse) ++
     rule("AtomicType", "Prop", c => PTyProp) ++
     rule("AtomicType", "Underscore", c => PTyAny) ++
-    rule("AtomicType", "RoundBracketOpen Type RoundBracketClose", _.Type) ++
-    rule("Type", "AtomicType", _.AtomicType) ++
+    rule("AtomicType", "RoundBracketOpen Type RoundBracketClose", _.Type[Any]) ++
+    rule("Type", "AtomicType", _.AtomicType[Any]) ++
     rule("Type", "AtomicType RightArrow Type", c => PTyFun(c.AtomicType, c.Type))
     
 val g_Value_term = 
@@ -250,45 +250,45 @@ val g_Value_term =
     rule("ValueSetComprehensionTerm", "CurlyBracketOpen ValueTerm Bar ValueBindings CurlyBracketClose", 
       c => pTmSetComprehension(c.ValueBindings, c.ValueTerm, None)) ++
     rule("ValueSetComprehensionTerm", "CurlyBracketOpen ValueTerm_1 Bar ValueBindings Dot ValueTerm_2 CurlyBracketClose",  
-      c => pTmSetComprehension(c.ValueBindings, c.ValueTerm_1, Some(c.ValueTerm_2))) ++ 
+      c => pTmSetComprehension(c.ValueBindings, c.ValueTerm_1, Some(c.ValueTerm_2[Preterm]))) ++ 
     rule("ValueConcreteSetTerm", "CurlyBracketOpen ValueTermList CurlyBracketClose", c => pTmSet(c.ValueTermList)) ++
     rule("ValueConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
-    rule("ValueAtomicTerm", "ValueNameTerm", _.ValueNameTerm) ++
+    rule("ValueAtomicTerm", "ValueNameTerm", _.ValueNameTerm[Any]) ++
     rule("ValueAtomicTerm", "RoundBracketOpen ValueTermList RoundBracketClose", c => pTmTuple(c.ValueTermList)) ++
-    rule("ValueAtomicTerm", "ValueSetComprehensionTerm", _.ValueSetComprehensionTerm) ++
-    rule("ValueAtomicTerm", "ValueConcreteSetTerm", _.ValueConcreteSetTerm) ++    
+    rule("ValueAtomicTerm", "ValueSetComprehensionTerm", _.ValueSetComprehensionTerm[Any]) ++
+    rule("ValueAtomicTerm", "ValueConcreteSetTerm", _.ValueConcreteSetTerm[Any]) ++    
     rule("ValueAtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
     rule("ValueAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("ValueAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("ValueAtomicTerm", "QuoteOpen ValueQuotedTerm QuoteClose", c => pTmQuote(c.ValueQuotedTerm)) ++
-    rule("ValueCombTerm", "ValueAtomicTerm", _.ValueAtomicTerm) ++
+    rule("ValueCombTerm", "ValueAtomicTerm", _.ValueAtomicTerm[Any]) ++
     rule("ValueCombTerm", "ValueCombTerm ValueAtomicTerm", 
       c => PTmComb(c.ValueCombTerm, c.ValueAtomicTerm, None, Pretype.PTyAny)) ++
     rule("ValuePureBinding", "IndexedName", c => Binding(parseIndexedName(c.text("IndexedName")), None)) ++
     rule("ValueAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.text("IndexedName")), Some(TypeDomain(c.Type)))) ++    
     rule("ValueAnnotatedBinding", "IndexedName Elem ValueTerm", c => Binding(parseIndexedName(c.text("IndexedName")), Some(SetDomain(c.ValueTerm)))) ++ 
-    rule("ValueBinding", "ValuePureBinding", _.ValuePureBinding) ++
-    rule("ValueBinding", "ValueAnnotatedBinding", _.ValueAnnotatedBinding) ++    
-    rule("ValuePureBindings", "ValuePureBinding", c => List(c.ValuePureBinding)) ++
+    rule("ValueBinding", "ValuePureBinding", _.ValuePureBinding[Any]) ++
+    rule("ValueBinding", "ValueAnnotatedBinding", _.ValueAnnotatedBinding[Any]) ++    
+    rule("ValuePureBindings", "ValuePureBinding", c => List(c.ValuePureBinding[Any])) ++
     rule("ValuePureBindings", "ValuePureBindings ValuePureBinding", c => c.ValuePureBinding[Binding] :: c.ValuePureBindings[List[Binding]]) ++ 
-    rule("ValueBindings", "ValuePureBindings", _.ValuePureBindings) ++
-    rule("ValueBindings", "ValueAnnotatedBinding", c => List(c.ValueAnnotatedBinding)) ++
+    rule("ValueBindings", "ValuePureBindings", _.ValuePureBindings[Any]) ++
+    rule("ValueBindings", "ValueAnnotatedBinding", c => List(c.ValueAnnotatedBinding[Any])) ++
     rule("ValueBindings", "ValueBindings Comma ValueBinding", c => c.ValueBinding[Binding] :: c.ValueBindings[List[Binding]]) ++ 
-    rule("ValueSetUnaryOpTerm", "ValueCombTerm", _.ValueCombTerm) ++
+    rule("ValueSetUnaryOpTerm", "ValueCombTerm", _.ValueCombTerm[Any]) ++
     rule("ValueSetUnaryOpTerm", "Powerset ValueSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.ValueSetUnaryOpTerm)) ++
     rule("ValueSetUnaryOpTerm", "SetBigUnion ValueSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigunion, c.ValueSetUnaryOpTerm)) ++
     rule("ValueSetUnaryOpTerm", "SetBigIntersection ValueSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigintersection, c.ValueSetUnaryOpTerm)) ++
-    rule("ValueSetIntersectionTerm", "ValueSetUnaryOpTerm", _.ValueSetUnaryOpTerm) ++
+    rule("ValueSetIntersectionTerm", "ValueSetUnaryOpTerm", _.ValueSetUnaryOpTerm[Any]) ++
     rule("ValueSetIntersectionTerm", "ValueSetIntersectionTerm SetIntersection ValueSetUnaryOpTerm",
       c => pTmBinaryOp(Kernel.set_intersection, c.ValueSetIntersectionTerm, c.ValueSetUnaryOpTerm)) ++
-    rule("ValueSetUnionTerm", "ValueSetIntersectionTerm", _.ValueSetIntersectionTerm) ++
+    rule("ValueSetUnionTerm", "ValueSetIntersectionTerm", _.ValueSetIntersectionTerm[Any]) ++
     rule("ValueSetUnionTerm", "ValueSetUnionTerm SetUnion ValueSetIntersectionTerm",
       c => pTmBinaryOp(Kernel.set_union, c.ValueSetUnionTerm, c.ValueSetIntersectionTerm)) ++
-    rule("ValueSetDiffTerm", "ValueSetUnionTerm", _.ValueSetUnionTerm) ++
+    rule("ValueSetDiffTerm", "ValueSetUnionTerm", _.ValueSetUnionTerm[Any]) ++
     rule("ValueSetDiffTerm", "ValueSetDiffTerm SetDiff ValueSetUnionTerm", 
       c => pTmBinaryOp(Kernel.set_difference, c.ValueSetDiffTerm, c.ValueSetUnionTerm)) ++
-    rule("ValueSetTerm", "ValueSetDiffTerm", _.ValueSetDiffTerm) ++
-    rule("ValueSetBinaryRelationTerm", "ValueSetTerm", _.ValueSetTerm) ++
+    rule("ValueSetTerm", "ValueSetDiffTerm", _.ValueSetDiffTerm[Any]) ++
+    rule("ValueSetBinaryRelationTerm", "ValueSetTerm", _.ValueSetTerm[Any]) ++
     rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 Elem ValueSetTerm_2", 
       c => pTmBinaryOp(Kernel.set_elementOf, c.ValueSetTerm_1, c.ValueSetTerm_2)) ++
     rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 NotElem ValueSetTerm_2", 
@@ -297,77 +297,77 @@ val g_Value_term =
       c => pTmBinaryOp(Kernel.set_subsetOf, c.ValueSetTerm_1, c.ValueSetTerm_2)) ++
     rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 NotSubset ValueSetTerm_2", 
       c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.ValueSetTerm_1, c.ValueSetTerm_2))) ++    
-    rule("ValueTypedTerm", "ValueSetBinaryRelationTerm", _.ValueSetBinaryRelationTerm) ++
+    rule("ValueTypedTerm", "ValueSetBinaryRelationTerm", _.ValueSetBinaryRelationTerm[Any]) ++
     rule("ValueTypedTerm", "ValueTypedTerm Colon Type", c => PTmTyping(c.ValueTypedTerm, c.Type)) ++
-    rule("ValueEqTerm", "ValueTypedTerm", _.ValueTypedTerm) ++
+    rule("ValueEqTerm", "ValueTypedTerm", _.ValueTypedTerm[Any]) ++
     rule("ValueEqTerm", "ValueTypedTerm_1 Eq ValueTypedTerm_2", c => pTmEquals(c.ValueTypedTerm_1, c.ValueTypedTerm_2)) ++
     rule("ValueEqTerm", "ValueTypedTerm_1 NotEq ValueTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.ValueTypedTerm_1, c.ValueTypedTerm_2))) ++
     rule("ValueNotTerm", "Not ValueNotTerm", c => pTmUnaryOp(Kernel.logical_not, c.ValueNotTerm)) ++
-    rule("ValueNotTerm", "ValueEqTerm", _.ValueEqTerm) ++
+    rule("ValueNotTerm", "ValueEqTerm", _.ValueEqTerm[Any]) ++
     rule("ValueAndTerm", "ValueAndTerm And ValueNotTerm", c => pTmBinaryOp(Kernel.logical_and, c.ValueAndTerm, c.ValueNotTerm)) ++
-    rule("ValueAndTerm", "ValueNotTerm", _.ValueNotTerm) ++
+    rule("ValueAndTerm", "ValueNotTerm", _.ValueNotTerm[Any]) ++
     rule("ValueOrTerm", "ValueOrTerm Or ValueAndTerm", c => pTmBinaryOp(Kernel.logical_or, c.ValueOrTerm, c.ValueAndTerm)) ++
-    rule("ValueOrTerm", "ValueAndTerm", _.ValueAndTerm) ++
+    rule("ValueOrTerm", "ValueAndTerm", _.ValueAndTerm[Any]) ++
     rule("ValueImpliesTerm", "ValueOrTerm RightArrow ValueImpliesTerm", c => pTmBinaryOp(Kernel.implies, c.ValueOrTerm, c.ValueImpliesTerm)) ++
-    rule("ValueImpliesTerm", "ValueOrTerm", _.ValueOrTerm) ++
-    rule("ValuePropTerm", "ValueImpliesTerm", _.ValueImpliesTerm) ++
-    rule("ValueAbsTerm", "ValuePropTerm", _.ValuePropTerm) ++
-    rule("ValueAbsTerm", "ValueQuantifierTerm", _.ValueQuantifierTerm) ++
-    rule("ValueQuantifierTerm", "Forall ValueBindings ValueQuantifierTerm", c => pTmForall(c.ValueBindings[List[Binding]], c.ValueQuantifierTerm)) ++
-    rule("ValueQuantifierTerm", "Exists ValueBindings ValueQuantifierTerm", c => pTmExists(c.ValueBindings[List[Binding]], c.ValueQuantifierTerm)) ++
-    rule("ValueQuantifierTerm", "NotExists ValueBindings ValueQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.ValueBindings[List[Binding]], c.ValueQuantifierTerm))) ++
-    rule("ValueQuantifierTerm", "Forall ValueBindings Dot ValueAbsTerm", c => pTmForall(c.ValueBindings[List[Binding]], c.ValueAbsTerm)) ++
-    rule("ValueQuantifierTerm", "Exists ValueBindings Dot ValueAbsTerm", c => pTmExists(c.ValueBindings[List[Binding]], c.ValueAbsTerm)) ++
-    rule("ValueQuantifierTerm", "NotExists ValueBindings Dot ValueAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.ValueBindings[List[Binding]], c.ValueAbsTerm))) ++
-    rule("ValueAbsTerm", "ValueBindings MapsTo ValueAbsTerm", c => pTmAbs(c.ValueBindings[List[Binding]], c.ValueAbsTerm)) ++
-    rule("ValueTermList", "ValueTerm", c => List(c.ValueTerm)) ++
+    rule("ValueImpliesTerm", "ValueOrTerm", _.ValueOrTerm[Any]) ++
+    rule("ValuePropTerm", "ValueImpliesTerm", _.ValueImpliesTerm[Any]) ++
+    rule("ValueAbsTerm", "ValuePropTerm", _.ValuePropTerm[Any]) ++
+    rule("ValueAbsTerm", "ValueQuantifierTerm", _.ValueQuantifierTerm[Any]) ++
+    rule("ValueQuantifierTerm", "Forall ValueBindings ValueQuantifierTerm", c => pTmForall(c.ValueBindings[List[Binding]], c.ValueQuantifierTerm[Preterm])) ++
+    rule("ValueQuantifierTerm", "Exists ValueBindings ValueQuantifierTerm", c => pTmExists(c.ValueBindings[List[Binding]], c.ValueQuantifierTerm[Preterm])) ++
+    rule("ValueQuantifierTerm", "NotExists ValueBindings ValueQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.ValueBindings[List[Binding]], c.ValueQuantifierTerm[Preterm]))) ++
+    rule("ValueQuantifierTerm", "Forall ValueBindings Dot ValueAbsTerm", c => pTmForall(c.ValueBindings[List[Binding]], c.ValueAbsTerm[Preterm])) ++
+    rule("ValueQuantifierTerm", "Exists ValueBindings Dot ValueAbsTerm", c => pTmExists(c.ValueBindings[List[Binding]], c.ValueAbsTerm[Preterm])) ++
+    rule("ValueQuantifierTerm", "NotExists ValueBindings Dot ValueAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.ValueBindings[List[Binding]], c.ValueAbsTerm[Preterm]))) ++
+    rule("ValueAbsTerm", "ValueBindings MapsTo ValueAbsTerm", c => pTmAbs(c.ValueBindings[List[Binding]], c.ValueAbsTerm[Preterm])) ++
+    rule("ValueTermList", "ValueTerm", c => List(c.ValueTerm[Preterm])) ++
     rule("ValueTermList", "ValueTermList Comma ValueTerm", c => c.ValueTerm[Preterm] :: c.ValueTermList[List[Preterm]]) ++
-    rule("ValueTerm", "ValueAbsTerm", _.ValueAbsTerm)
+    rule("ValueTerm", "ValueAbsTerm", _.ValueAbsTerm[Any])
 
 val g_Pattern_term = 
     rule("PatternNameTerm", "Name", c => PTmName(parseName(c.text("Name")), Pretype.PTyAny)) ++
     rule("PatternSetComprehensionTerm", "CurlyBracketOpen PatternTerm Bar PatternBindings CurlyBracketClose", 
       c => pTmSetComprehension(c.PatternBindings, c.PatternTerm, None)) ++
     rule("PatternSetComprehensionTerm", "CurlyBracketOpen PatternTerm_1 Bar PatternBindings Dot PatternTerm_2 CurlyBracketClose",  
-      c => pTmSetComprehension(c.PatternBindings, c.PatternTerm_1, Some(c.PatternTerm_2))) ++ 
+      c => pTmSetComprehension(c.PatternBindings, c.PatternTerm_1, Some(c.PatternTerm_2[Preterm]))) ++ 
     rule("PatternConcreteSetTerm", "CurlyBracketOpen PatternTermList CurlyBracketClose", c => pTmSet(c.PatternTermList)) ++
     rule("PatternConcreteSetTerm", "CurlyBracketOpen CurlyBracketClose", c => pTmConst(Kernel.empty_set)) ++   
-    rule("PatternAtomicTerm", "PatternNameTerm", _.PatternNameTerm) ++
+    rule("PatternAtomicTerm", "PatternNameTerm", _.PatternNameTerm[Any]) ++
     rule("PatternAtomicTerm", "RoundBracketOpen PatternTermList RoundBracketClose", c => pTmTuple(c.PatternTermList)) ++
-    rule("PatternAtomicTerm", "PatternSetComprehensionTerm", _.PatternSetComprehensionTerm) ++
-    rule("PatternAtomicTerm", "PatternConcreteSetTerm", _.PatternConcreteSetTerm) ++    
+    rule("PatternAtomicTerm", "PatternSetComprehensionTerm", _.PatternSetComprehensionTerm[Any]) ++
+    rule("PatternAtomicTerm", "PatternConcreteSetTerm", _.PatternConcreteSetTerm[Any]) ++    
     rule("PatternAtomicTerm", "True", c => pTmConst(Kernel.logical_true)) ++
     rule("PatternAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("PatternAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("PatternAtomicTerm", "QuoteOpen PatternQuotedTerm QuoteClose", c => pTmQuote(c.PatternQuotedTerm)) ++
-    rule("PatternCombTerm", "PatternAtomicTerm", _.PatternAtomicTerm) ++
+    rule("PatternCombTerm", "PatternAtomicTerm", _.PatternAtomicTerm[Any]) ++
     rule("PatternCombTerm", "PatternCombTerm PatternAtomicTerm", 
       c => PTmComb(c.PatternCombTerm, c.PatternAtomicTerm, None, Pretype.PTyAny)) ++
     rule("PatternPureBinding", "IndexedName", c => Binding(parseIndexedName(c.text("IndexedName")), None)) ++
     rule("PatternAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.text("IndexedName")), Some(TypeDomain(c.Type)))) ++    
     rule("PatternAnnotatedBinding", "IndexedName Elem PatternTerm", c => Binding(parseIndexedName(c.text("IndexedName")), Some(SetDomain(c.PatternTerm)))) ++ 
-    rule("PatternBinding", "PatternPureBinding", _.PatternPureBinding) ++
-    rule("PatternBinding", "PatternAnnotatedBinding", _.PatternAnnotatedBinding) ++    
-    rule("PatternPureBindings", "PatternPureBinding", c => List(c.PatternPureBinding)) ++
+    rule("PatternBinding", "PatternPureBinding", _.PatternPureBinding[Any]) ++
+    rule("PatternBinding", "PatternAnnotatedBinding", _.PatternAnnotatedBinding[Any]) ++    
+    rule("PatternPureBindings", "PatternPureBinding", c => List(c.PatternPureBinding[Any])) ++
     rule("PatternPureBindings", "PatternPureBindings PatternPureBinding", c => c.PatternPureBinding[Binding] :: c.PatternPureBindings[List[Binding]]) ++ 
-    rule("PatternBindings", "PatternPureBindings", _.PatternPureBindings) ++
-    rule("PatternBindings", "PatternAnnotatedBinding", c => List(c.PatternAnnotatedBinding)) ++
+    rule("PatternBindings", "PatternPureBindings", _.PatternPureBindings[Any]) ++
+    rule("PatternBindings", "PatternAnnotatedBinding", c => List(c.PatternAnnotatedBinding[Any])) ++
     rule("PatternBindings", "PatternBindings Comma PatternBinding", c => c.PatternBinding[Binding] :: c.PatternBindings[List[Binding]]) ++ 
-    rule("PatternSetUnaryOpTerm", "PatternCombTerm", _.PatternCombTerm) ++
+    rule("PatternSetUnaryOpTerm", "PatternCombTerm", _.PatternCombTerm[Any]) ++
     rule("PatternSetUnaryOpTerm", "Powerset PatternSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_power, c.PatternSetUnaryOpTerm)) ++
     rule("PatternSetUnaryOpTerm", "SetBigUnion PatternSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigunion, c.PatternSetUnaryOpTerm)) ++
     rule("PatternSetUnaryOpTerm", "SetBigIntersection PatternSetUnaryOpTerm", c => pTmUnaryOp(Kernel.set_bigintersection, c.PatternSetUnaryOpTerm)) ++
-    rule("PatternSetIntersectionTerm", "PatternSetUnaryOpTerm", _.PatternSetUnaryOpTerm) ++
+    rule("PatternSetIntersectionTerm", "PatternSetUnaryOpTerm", _.PatternSetUnaryOpTerm[Any]) ++
     rule("PatternSetIntersectionTerm", "PatternSetIntersectionTerm SetIntersection PatternSetUnaryOpTerm",
       c => pTmBinaryOp(Kernel.set_intersection, c.PatternSetIntersectionTerm, c.PatternSetUnaryOpTerm)) ++
-    rule("PatternSetUnionTerm", "PatternSetIntersectionTerm", _.PatternSetIntersectionTerm) ++
+    rule("PatternSetUnionTerm", "PatternSetIntersectionTerm", _.PatternSetIntersectionTerm[Any]) ++
     rule("PatternSetUnionTerm", "PatternSetUnionTerm SetUnion PatternSetIntersectionTerm",
       c => pTmBinaryOp(Kernel.set_union, c.PatternSetUnionTerm, c.PatternSetIntersectionTerm)) ++
-    rule("PatternSetDiffTerm", "PatternSetUnionTerm", _.PatternSetUnionTerm) ++
+    rule("PatternSetDiffTerm", "PatternSetUnionTerm", _.PatternSetUnionTerm[Any]) ++
     rule("PatternSetDiffTerm", "PatternSetDiffTerm SetDiff PatternSetUnionTerm", 
       c => pTmBinaryOp(Kernel.set_difference, c.PatternSetDiffTerm, c.PatternSetUnionTerm)) ++
-    rule("PatternSetTerm", "PatternSetDiffTerm", _.PatternSetDiffTerm) ++
-    rule("PatternSetBinaryRelationTerm", "PatternSetTerm", _.PatternSetTerm) ++
+    rule("PatternSetTerm", "PatternSetDiffTerm", _.PatternSetDiffTerm[Any]) ++
+    rule("PatternSetBinaryRelationTerm", "PatternSetTerm", _.PatternSetTerm[Any]) ++
     rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 Elem PatternSetTerm_2", 
       c => pTmBinaryOp(Kernel.set_elementOf, c.PatternSetTerm_1, c.PatternSetTerm_2)) ++
     rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 NotElem PatternSetTerm_2", 
@@ -376,32 +376,32 @@ val g_Pattern_term =
       c => pTmBinaryOp(Kernel.set_subsetOf, c.PatternSetTerm_1, c.PatternSetTerm_2)) ++
     rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 NotSubset PatternSetTerm_2", 
       c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.PatternSetTerm_1, c.PatternSetTerm_2))) ++    
-    rule("PatternTypedTerm", "PatternSetBinaryRelationTerm", _.PatternSetBinaryRelationTerm) ++
+    rule("PatternTypedTerm", "PatternSetBinaryRelationTerm", _.PatternSetBinaryRelationTerm[Any]) ++
     rule("PatternTypedTerm", "PatternTypedTerm Colon Type", c => PTmTyping(c.PatternTypedTerm, c.Type)) ++
-    rule("PatternEqTerm", "PatternTypedTerm", _.PatternTypedTerm) ++
+    rule("PatternEqTerm", "PatternTypedTerm", _.PatternTypedTerm[Any]) ++
     rule("PatternEqTerm", "PatternTypedTerm_1 Eq PatternTypedTerm_2", c => pTmEquals(c.PatternTypedTerm_1, c.PatternTypedTerm_2)) ++
     rule("PatternEqTerm", "PatternTypedTerm_1 NotEq PatternTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.PatternTypedTerm_1, c.PatternTypedTerm_2))) ++
     rule("PatternNotTerm", "Not PatternNotTerm", c => pTmUnaryOp(Kernel.logical_not, c.PatternNotTerm)) ++
-    rule("PatternNotTerm", "PatternEqTerm", _.PatternEqTerm) ++
+    rule("PatternNotTerm", "PatternEqTerm", _.PatternEqTerm[Any]) ++
     rule("PatternAndTerm", "PatternAndTerm And PatternNotTerm", c => pTmBinaryOp(Kernel.logical_and, c.PatternAndTerm, c.PatternNotTerm)) ++
-    rule("PatternAndTerm", "PatternNotTerm", _.PatternNotTerm) ++
+    rule("PatternAndTerm", "PatternNotTerm", _.PatternNotTerm[Any]) ++
     rule("PatternOrTerm", "PatternOrTerm Or PatternAndTerm", c => pTmBinaryOp(Kernel.logical_or, c.PatternOrTerm, c.PatternAndTerm)) ++
-    rule("PatternOrTerm", "PatternAndTerm", _.PatternAndTerm) ++
+    rule("PatternOrTerm", "PatternAndTerm", _.PatternAndTerm[Any]) ++
     rule("PatternImpliesTerm", "PatternOrTerm RightArrow PatternImpliesTerm", c => pTmBinaryOp(Kernel.implies, c.PatternOrTerm, c.PatternImpliesTerm)) ++
-    rule("PatternImpliesTerm", "PatternOrTerm", _.PatternOrTerm) ++
-    rule("PatternPropTerm", "PatternImpliesTerm", _.PatternImpliesTerm) ++
-    rule("PatternAbsTerm", "PatternPropTerm", _.PatternPropTerm) ++
-    rule("PatternAbsTerm", "PatternQuantifierTerm", _.PatternQuantifierTerm) ++
-    rule("PatternQuantifierTerm", "Forall PatternBindings PatternQuantifierTerm", c => pTmForall(c.PatternBindings[List[Binding]], c.PatternQuantifierTerm)) ++
+    rule("PatternImpliesTerm", "PatternOrTerm", _.PatternOrTerm[Any]) ++
+    rule("PatternPropTerm", "PatternImpliesTerm", _.PatternImpliesTerm[Any]) ++
+    rule("PatternAbsTerm", "PatternPropTerm", _.PatternPropTerm[Any]) ++
+    rule("PatternAbsTerm", "PatternQuantifierTerm", _.PatternQuantifierTerm[Any]) ++
+    rule("PatternQuantifierTerm", "Forall PatternBindings PatternQuantifierTerm", c => pTmForall(c.PatternBindings[List[Binding]], c.PatternQuantifierTerm[Preterm])) ++
     rule("PatternQuantifierTerm", "Exists PatternBindings PatternQuantifierTerm", c => pTmExists(c.PatternBindings[List[Binding]], c.PatternQuantifierTerm[Preterm])) ++
-    rule("PatternQuantifierTerm", "NotExists PatternBindings PatternQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PatternBindings[List[Binding]], c.PatternQuantifierTerm))) ++
-    rule("PatternQuantifierTerm", "Forall PatternBindings Dot PatternAbsTerm", c => pTmForall(c.PatternBindings[List[Binding]], c.PatternAbsTerm)) ++
-    rule("PatternQuantifierTerm", "Exists PatternBindings Dot PatternAbsTerm", c => pTmExists(c.PatternBindings[List[Binding]], c.PatternAbsTerm)) ++
-    rule("PatternQuantifierTerm", "NotExists PatternBindings Dot PatternAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PatternBindings[List[Binding]], c.PatternAbsTerm))) ++
-    rule("PatternAbsTerm", "PatternBindings MapsTo PatternAbsTerm", c => pTmAbs(c.PatternBindings[List[Binding]], c.PatternAbsTerm)) ++
-    rule("PatternTermList", "PatternTerm", c => List(c.PatternTerm)) ++
+    rule("PatternQuantifierTerm", "NotExists PatternBindings PatternQuantifierTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PatternBindings[List[Binding]], c.PatternQuantifierTerm[Preterm]))) ++
+    rule("PatternQuantifierTerm", "Forall PatternBindings Dot PatternAbsTerm", c => pTmForall(c.PatternBindings[List[Binding]], c.PatternAbsTerm[Preterm])) ++
+    rule("PatternQuantifierTerm", "Exists PatternBindings Dot PatternAbsTerm", c => pTmExists(c.PatternBindings[List[Binding]], c.PatternAbsTerm[Preterm])) ++
+    rule("PatternQuantifierTerm", "NotExists PatternBindings Dot PatternAbsTerm", c => pTmUnaryOp(Kernel.logical_not, pTmExists(c.PatternBindings[List[Binding]], c.PatternAbsTerm[Preterm]))) ++
+    rule("PatternAbsTerm", "PatternBindings MapsTo PatternAbsTerm", c => pTmAbs(c.PatternBindings[List[Binding]], c.PatternAbsTerm[Preterm])) ++
+    rule("PatternTermList", "PatternTerm", c => List(c.PatternTerm[Any])) ++
     rule("PatternTermList", "PatternTermList Comma PatternTerm", c => c.PatternTerm[Preterm] :: c.PatternTermList[List[Preterm]]) ++
-    rule("PatternTerm", "PatternAbsTerm", _.PatternAbsTerm)
+    rule("PatternTerm", "PatternAbsTerm", _.PatternAbsTerm[Any])
 
 
   def grammar = 

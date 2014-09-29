@@ -78,7 +78,6 @@ def sourcepos(document : Document, start : Int, end : Int) : SourcePos = {
 def parseFromSource(source : Source, prog : String) : ParseResult = {
   currentSource = source
   val document = Document.fromString(prog)
-  val PROG = earleyAutomaton.idOfTerminal("Prog")
   earleyParser.parse(document, "Prog") match {
     case Right(i) => FailedParse(sourcepos(document, i, i))
     case Left(parsetree) =>

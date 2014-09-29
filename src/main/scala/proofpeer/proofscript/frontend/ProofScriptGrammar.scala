@@ -56,7 +56,7 @@ def g_literals =
     char(0x21),
     chars(0x23, 0x5B),
     chars(0x5D, 0x7E),
-    chars(0xA0, Int.MaxValue))))
+    chars(0xA0, Int.MaxValue)))) ++
   lex("Hash", char('#')) ++
   lex("AnyToken", REPEAT1(CHAR(Range.universal))) ++
   lex("Plus", char('+')) ++  
@@ -150,9 +150,9 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
 def mkStringLiteral(c : ParseContext, quot1 : Span, quot2 : Span) : StringLiteral = 
 {
   import proofpeer.general.StringUtils
-  val len = quot2.lastTokenIndex - quot1.firstTokenIndex - 1
-  val s = c.document.getText(quot1.firstTokenIndex + 1, len)
-  mkStringLiteralFromCodes(StringUtils.codePoints(s))
+  val len = quot2.lastTokenIndex - quot1.firstTokenIndex + 1
+  val s = c.document.getText(quot1.firstTokenIndex, len)
+  mkStringLiteralFromCodes(StringUtils.codePoints(s.substring(1, s.length - 1)))
 }
 
 def mkStringLiteralFromCodes(escapedCodes : Vector[Int]) : StringLiteral = 
@@ -215,13 +215,13 @@ val g_expr =
   arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2"))) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.span("ScriptOr")), c.OrExpr, c.AndExpr)) ++
-  arule("OrExpr", "AndExpr", _.AndExpr) ++
+  arule("OrExpr", "AndExpr", _.AndExpr[Any]) ++
   arule("AndExpr", "AndExpr ScriptAnd NotExpr", 
       c => BinaryOperation(annotateBinop(And, c.span("ScriptAnd")), c.AndExpr, c.NotExpr)) ++
-  arule("AndExpr", "NotExpr", _.NotExpr) ++
+  arule("AndExpr", "NotExpr", _.NotExpr[Any]) ++
   arule("NotExpr", "ScriptNot NotExpr", 
       c => UnaryOperation(annotateUnop(Not, c.span("ScriptNot")), c.NotExpr)) ++
-  arule("NotExpr", "CmpExpr", _.CmpExpr) ++
+  arule("NotExpr", "CmpExpr", _.CmpExpr[Any]) ++
   arule("CmpExpr", "CmpExpr CmpOp GeneralArithExpr", { c =>
     val operator : CmpOperator = c.CmpOp
     val operand : Expr = c.GeneralArithExpr
@@ -233,22 +233,22 @@ val g_expr =
         CmpOperation(Vector(operator), Vector(e, operand))
     }
   }) ++
-  arule("CmpExpr", "GeneralArithExpr", _.GeneralArithExpr) ++
+  arule("CmpExpr", "GeneralArithExpr", _.GeneralArithExpr[Any]) ++
   arule("CmpOp", "Le", c => Le) ++
   arule("CmpOp", "Gr", c => Gr) ++
   arule("CmpOp", "Leq", c => Leq) ++
   arule("CmpOp", "Geq", c => Geq) ++
   arule("CmpOp", "ScriptEq", c => Eq) ++
   arule("CmpOp", "ScriptNotEq", c => NEq) ++
-  arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr) ++
-  arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr) ++
+  arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr[Any]) ++
+  arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr[Any]) ++
   arule("ConcatExpr", "ConcatExpr Append ArithExpr", c => BinaryOperation(annotateBinop(Append, c.span("Append")), c.ConcatExpr, c.ArithExpr)) ++
-  arule("PrependConcatExpr", "PrependExpr", _.PrependExpr) ++ 
+  arule("PrependConcatExpr", "PrependExpr", _.PrependExpr[Any]) ++ 
   arule("PrependConcatExpr", "PrependConcatExpr Concat ArithExpr", c => BinaryOperation(annotateBinop(Concat, c.span("Concat")), c.PrependConcatExpr, c.ArithExpr)) ++
   arule("PrependExpr", "ArithExpr Prepend PrependExpr", c => BinaryOperation(annotateBinop(Prepend, c.span("Prepend")), c.ArithExpr, c.PrependExpr)) ++
-  arule("PrependExpr", "ArithExpr", _.ArithExpr) ++
-  arule("ArithExpr", "RangeExpr", _.RangeExpr) ++
-  arule("RangeExpr", "AddExpr", _.AddExpr) ++
+  arule("PrependExpr", "ArithExpr", _.ArithExpr[Any]) ++
+  arule("ArithExpr", "RangeExpr", _.RangeExpr[Any]) ++
+  arule("RangeExpr", "AddExpr", _.AddExpr[Any]) ++
   arule("RangeExpr", "AddExpr_1 To AddExpr_2", 
     c => BinaryOperation(annotateBinop(RangeTo, c.span("To")), c.AddExpr_1, c.AddExpr_2)) ++
   arule("RangeExpr", "AddExpr_1 Downto AddExpr_2", 
@@ -257,27 +257,27 @@ val g_expr =
       c => BinaryOperation(annotateBinop(Add, c.span("Plus")), c.AddExpr, c.NegExpr)) ++
   arule("AddExpr", "AddExpr Minus NegExpr", 
       c => BinaryOperation(annotateBinop(Sub, c.span("Minus")), c.AddExpr, c.NegExpr)) ++  
-  arule("AddExpr", "NegExpr", _.NegExpr) ++
+  arule("AddExpr", "NegExpr", _.NegExpr[Any]) ++
   arule("NegExpr", "Minus NegExpr", 
       c => UnaryOperation(annotateUnop(Neg, c.span("Minus")), c.NegExpr)) ++  
-  arule("NegExpr", "MultExpr", _.MultExpr) ++  
+  arule("NegExpr", "MultExpr", _.MultExpr[Any]) ++  
   arule("MultExpr", "MultExpr Times BasicExpr", 
       c => BinaryOperation(annotateBinop(Mul, c.span("Times")), c.MultExpr, c.BasicExpr)) ++
   arule("MultExpr", "MultExpr Slash BasicExpr", 
       c => BinaryOperation(annotateBinop(Div, c.span("Slash")), c.MultExpr, c.BasicExpr)) ++
   arule("MultExpr", "MultExpr Mod BasicExpr", 
       c => BinaryOperation(annotateBinop(Mod, c.span("Mod")), c.MultExpr, c.BasicExpr)) ++
-  arule("MultExpr", "BasicExpr", _.BasicExpr) ++
-  arule("BasicExpr", "AppExpr", _.AppExpr) ++
-  arule("AppExpr", "PrimitiveExpr", _.PrimitiveExpr) ++
+  arule("MultExpr", "BasicExpr", _.BasicExpr[Any]) ++
+  arule("BasicExpr", "AppExpr", _.AppExpr[Any]) ++
+  arule("AppExpr", "PrimitiveExpr", _.PrimitiveExpr[Any]) ++
   arule("AppExpr", "AppExpr PrimitiveExpr", c => App(c.AppExpr, c.PrimitiveExpr)) ++
-  arule("LazyExpr", "OrExpr", _.OrExpr) ++
+  arule("LazyExpr", "OrExpr", _.OrExpr[Any]) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr)) ++ 
   arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern, c.Block)) ++
-  arule("FunExpr", "LazyExpr", _.LazyExpr) ++
-  arule("Expr", "FunExpr", _.FunExpr) ++
+  arule("FunExpr", "LazyExpr", _.LazyExpr[Any]) ++
+  arule("Expr", "FunExpr", _.FunExpr[Any]) ++
   arule("ExprList", "", c => Vector[Expr]()) ++
-  arule("ExprList", "ExprList1", _.ExprList1) ++
+  arule("ExprList", "ExprList1", _.ExprList1[Any]) ++
   arule("ExprList1", "PExpr", c => Vector[Expr](c.PExpr)) ++
   arule("ExprList1", "Comma PExpr", c => Vector[Expr](NilExpr, c.PExpr)) ++
   arule("ExprList1", "Comma", c => Vector[Expr](NilExpr, NilExpr)) ++
@@ -387,22 +387,22 @@ val g_context =
   arule("ContextExpr", "Context OptContextParam Block",
       c => ContextControl(c.OptContextParam, c.Block)) ++
   arule("OptContextParam", "", c => None) ++
-  arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr))
+  arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr[Any]))
       
 val g_controlflow = 
   g_do ++ g_if ++ g_while ++ g_for ++ g_match ++ g_context ++
-  arule("STControlFlow", "STDo", _.STDo) ++  
-  arule("STControlFlow", "STIf", _.STIf) ++
-  arule("STControlFlow", "STWhile", _.STWhile) ++
-  arule("STControlFlow", "STFor", _.STFor) ++
-  arule("STControlFlow", "STMatch", _.STMatch) ++
-  arule("STControlFlow", "STContext", _.STContext) ++
-  arule("ControlFlowExpr", "DoExpr", _.DoExpr) ++  
-  arule("ControlFlowExpr", "IfExpr", _.IfExpr) ++
-  arule("ControlFlowExpr", "WhileExpr", _.WhileExpr) ++
-  arule("ControlFlowExpr", "ForExpr", _.ForExpr) ++
-  arule("ControlFlowExpr", "MatchExpr", _.MatchExpr) ++
-  arule("ControlFlowExpr", "ContextExpr", _.ContextExpr)
+  arule("STControlFlow", "STDo", _.STDo[Any]) ++  
+  arule("STControlFlow", "STIf", _.STIf[Any]) ++
+  arule("STControlFlow", "STWhile", _.STWhile[Any]) ++
+  arule("STControlFlow", "STFor", _.STFor[Any]) ++
+  arule("STControlFlow", "STMatch", _.STMatch[Any]) ++
+  arule("STControlFlow", "STContext", _.STContext[Any]) ++
+  arule("ControlFlowExpr", "DoExpr", _.DoExpr[Any]) ++  
+  arule("ControlFlowExpr", "IfExpr", _.IfExpr[Any]) ++
+  arule("ControlFlowExpr", "WhileExpr", _.WhileExpr[Any]) ++
+  arule("ControlFlowExpr", "ForExpr", _.ForExpr[Any]) ++
+  arule("ControlFlowExpr", "MatchExpr", _.MatchExpr[Any]) ++
+  arule("ControlFlowExpr", "ContextExpr", _.ContextExpr[Any])
 
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++
@@ -417,18 +417,18 @@ val g_pattern =
   arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList, true)) ++
   arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList, false)) ++  
   arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern, c.PrependPattern)) ++
-  arule("PrependPattern", "AppendPattern", _.AppendPattern) ++
+  arule("PrependPattern", "AppendPattern", _.AppendPattern[Any]) ++
   arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern, c.AtomicPattern)) ++
-  arule("AppendPattern", "AtomicPattern", _.AtomicPattern) ++
-  arule("AsPattern", "PrependPattern", _.PrependPattern) ++
+  arule("AppendPattern", "AtomicPattern", _.AtomicPattern[Any]) ++
+  arule("AsPattern", "PrependPattern", _.PrependPattern[Any]) ++
   arule("AsPattern", "AsPattern As IndexedName", c => PAs(c.AsPattern, c.text("IndexedName"))) ++
-  arule("IfPattern", "AsPattern", _.AsPattern) ++
+  arule("IfPattern", "AsPattern", _.AsPattern[Any]) ++
   arule("IfPattern", "IfPattern If Expr", c => PIf(c.IfPattern, c.Expr)) ++
-  arule("Pattern", "IfPattern", _.IfPattern) ++
+  arule("Pattern", "IfPattern", _.IfPattern[Any]) ++
   arule("OptPattern", "", c => None) ++
-  arule("OptPattern", "Pattern", c => Some(c.Pattern)) ++
+  arule("OptPattern", "Pattern", c => Some(c.Pattern[Any])) ++
   arule("PatternList", "", c => Vector[Pattern]()) ++
-  arule("PatternList", "PatternList1", _.PatternList1) ++
+  arule("PatternList", "PatternList1", _.PatternList1[Any]) ++
   arule("PatternList1", "Comma Pattern", c => Vector[Pattern](PNil, c.Pattern)) ++
   arule("PatternList1", "Comma", c => Vector[Pattern](PNil, PNil)) ++  
   arule("PatternList1", "Pattern", c => Vector[Pattern](c.Pattern)) ++
@@ -451,7 +451,7 @@ val g_fail =
     c => STFail(None)) ++
   arule("ST", "Fail PExpr",
     CS.Indent("Fail", "PExpr"),
-    c => STFail(Some(c.PExpr)))
+    c => STFail(Some(c.PExpr[Expr])))
 
 val g_val = 
   arule("ST", "Val Pattern Eq Block",
@@ -509,7 +509,7 @@ val g_def =
       
 val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), 
-    c => STReturn(Some(c.PExpr))) ++
+    c => STReturn(Some(c.PExpr[Expr]))) ++
   arule("ST", "Return", c => STReturn(None))
     
 val g_assume =
@@ -562,7 +562,7 @@ val g_statement =
   arule("Statement", "Expr", 
     CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
     c => STExpr(c.Expr)) ++
-  arule("Statement", "ST", _.ST) ++
+  arule("Statement", "ST", _.ST[Any]) ++
   arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow)) ++ 
   arule("Statements", "", c => Vector[Statement]()) ++
   arule("Statements", "Statements Statement", CS.Align("Statements", "Statement"),
@@ -583,7 +583,7 @@ val g_header =
   arule("AliasList", "", c => List[(Id, Namespace)]()) ++
   arule("AliasList", "AliasList Alias", 
     CS.Align("AliasList", "Alias"),
-    c => c.Alias :: c.AliasList[List[(Id, Namespace)]]) ++
+    c => c.Alias[(Id, Namespace)] :: c.AliasList[List[(Id, Namespace)]]) ++
   arule("Alias", "IndexedName Eq Namespace", 
     c => (Id(c.text("IndexedName")), Namespace(c.text("Namespace"))))
 
@@ -595,8 +595,8 @@ val g_prog =
   g_statement ++
   g_controlflow ++
   g_header ++
-  arule("ValueQuotedTerm", "PExpr", _.PExpr) ++
-  arule("PatternQuotedTerm", "Pattern", _.Pattern) ++
-  arule("Prog", "Block", _.Block)
+  arule("ValueQuotedTerm", "PExpr", _.PExpr[Any]) ++
+  arule("PatternQuotedTerm", "Pattern", _.Pattern[Any]) ++
+  arule("Prog", "Block", _.Block[Any])
 
 }

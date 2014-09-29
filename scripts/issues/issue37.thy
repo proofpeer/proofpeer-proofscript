@@ -6,6 +6,7 @@ assert "hello
 val w = "hello     
       
     " 
+
 assert w == "hello\n\n    "
 assert size w == 11
 
