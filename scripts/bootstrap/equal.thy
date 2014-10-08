@@ -31,7 +31,7 @@ val eqTrueIntro =
 def apThm (thm <+ terms) =
   combine (thm <+ (for t in terms do
                      reflexive t))
-  
+
 val eqFalseElim =
   theorem eqFalse:'∀ p. p = ⊥ → ¬p'
     let p:'p:ℙ'

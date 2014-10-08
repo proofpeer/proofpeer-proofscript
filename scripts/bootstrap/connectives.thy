@@ -62,7 +62,7 @@ theorem orDef: '∀x y. (x ∨ y) = (∀z. (x → z) → (y → z) → z)'
   let x:'x:ℙ'
   let y:'y:ℙ'
   apThm (orDef,x,y)
-  
+
 theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
   let 'p:ℙ'
   let 'q:ℙ'
@@ -100,7 +100,7 @@ theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
 
     matchmp (orDef, conjunct1 asm, ifP, ifQ)
 
-  equivalence (leftThm,rightThm)      
+  equivalence (leftThm,rightThm)
 
 theorem orComm: '∀p q. (p ∨ q) = (q ∨ p)'
   theorem lemma: '∀p q. (p ∨ q) → (q ∨ p)'
@@ -132,16 +132,16 @@ theorem orAndDistrib2:'∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
     let 'p2:ℙ'
     let 'q2:ℙ'
     let 'r2:ℙ'
-    convRule (binaryConv (subsConv [instantiate (orComm,'p2:ℙ','q2 ∧ r2')],
-                          binaryConv (subsConv [instantiate (orComm,'p2:ℙ','q2:ℙ')],
-                                      subsConv [instantiate (orComm,'p2:ℙ','r2:ℙ')])),
+    convRule
+      (binaryConv (subsConv [instantiate (orComm,'p2:ℙ','q2 ∧ r2')],
+                   binaryConv (subsConv [instantiate (orComm,'p2:ℙ','q2:ℙ')],
+                               subsConv [instantiate (orComm,'p2:ℙ','r2:ℙ')])),
               instantiate (orAndDistrib1,'p2:ℙ','q2:ℙ','r2:ℙ')) 0
   instantiate (lemma,'r:ℙ','p:ℙ','q:ℙ')
-  
+
 theorem orRightZero: '∀p. (p ∨ ⊤) = ⊤'
   let 'p:ℙ'
   theorem right: '⊤ → p ∨ ⊤'
     assume '⊤'
     orIntroR ['p:ℙ',truth]
   equivalence (instantiate (topDef,'p ∨ ⊤'),right)
-    

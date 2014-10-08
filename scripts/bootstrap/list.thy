@@ -3,7 +3,11 @@ extends root
 
 # Basic list functions
 
-def foldl (f,xs,b) =
+def map [f,xs] =
+  for x in xs do
+    f x
+
+def foldl [f,xs,b] =
   match xs
     case []      => b
     case x <+ xs => foldl (f,xs,f b x)
