@@ -91,10 +91,16 @@ def matchmp (imp <+ ants) =
       mp _ = nil
     mp (imp,[])
   for ant in ants do
-    val theImp = matchmp1 (imp,ant)
-    if theImp == nil then
+    imp = matchmp1 (imp,ant)
+    if imp == nil then
       return nil
-    theorem theImp:(term theImp)
-      theImp
-    imp = theImp
   imp
+
+context
+  assume imp:'∀x z w. x → w ∧ w → x ∧ z ∧ w'
+  let 'y:ℙ'
+  let 'z:ℙ'
+  let 'P:ℙ → ℙ'
+  assume ant1:'y:ℙ'
+  assume ant2:'P z ∧ P z'
+  show term(matchmp(imp,ant1,ant2))
