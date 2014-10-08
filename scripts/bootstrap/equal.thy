@@ -46,3 +46,8 @@ theorem topDef: '∀p. p → ⊤'
   let 'p:ℙ'
   assume 'p:ℙ'
   truth
+
+theorem botDef: '∀p. ⊥ → p'
+  let 'p:ℙ'
+  assume bot:'⊥'
+  instantiate (modusponens (bot, falseDef), 'p:ℙ')

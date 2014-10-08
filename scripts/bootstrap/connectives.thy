@@ -1,6 +1,13 @@
 theory Connectives
 extends Conversions Match
 
+theorem trivImp:'∀ p. p → p'
+  let 'p:ℙ'
+  assume 'p:ℙ'
+
+theorem notFalse:'¬⊥'
+  modusponens [instantiate [trivImp,'⊥'],sym (apThm [root\notDef,'⊥'])]
+
 val orIntroL =
   theorem orIntroL:'∀ p q. p → p ∨ q'
     let 'p:ℙ'
@@ -62,6 +69,10 @@ theorem orDef: '∀x y. (x ∨ y) = (∀z. (x → z) → (y → z) → z)'
   let x:'x:ℙ'
   let y:'y:ℙ'
   apThm (orDef,x,y)
+
+theorem notDef: '∀p. (¬p) = (p → ⊥)'
+  let p:'p:ℙ'
+  apThm (notDef,p)
 
 theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
   let 'p:ℙ'
@@ -145,3 +156,35 @@ theorem orRightZero: '∀p. (p ∨ ⊤) = ⊤'
     assume '⊤'
     orIntroR ['p:ℙ',truth]
   equivalence (instantiate (topDef,'p ∨ ⊤'),right)
+
+theorem impliesNot: '∀p. (p → ⊥) = (p = ⊥)'
+  let 'p:ℙ'
+  theorem left: '(p → ⊥) → (p = ⊥)'
+    assume asm:'p → ⊥'
+    equivalence (asm, instantiate (botDef,'p:ℙ'))
+  theorem right: '(p = ⊥) → (p → ⊥)'
+    assume asm:'p = ⊥'
+    convRule (randConv (rewrConv [asm]),instantiate (trivImp,'p:ℙ')) 0
+  equivalence (left,right)
+
+theorem eqFalseWeak: '∀p. (¬p) → (p = ⊥)'
+  let 'p:ℙ'
+  assume asm:'¬p'
+  equivalence (matchmp (notDef,asm), instantiate (botDef,'p:ℙ'))
+
+val eqFalseIntro =
+  '¬‹p›' as thm => modusponens (thm,instantiate (eqFalseWeak,p))
+
+theorem eqFalseEq: '∀p. (p = ⊥) = (¬p)'
+  let 'p:ℙ'
+  theorem left: '(p = ⊥) → ¬p'
+    assume asm:'p = ⊥'
+    convRule (randConv (rewrConv [sym asm]), notFalse) 0
+  equivalence (left,instantiate (eqFalseWeak,'p:ℙ'))
+
+def
+  gsym '‹x› = ‹y›' as thm = sym thm
+  gsym '∀x. ‹p› x' =
+    val [ctx,x,eq] = destabs p
+    context <ctx>
+      return (gsym eq)
