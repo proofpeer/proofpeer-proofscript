@@ -1,5 +1,5 @@
 theory Conversions
-extends List Syntax Equal
+extends List Syntax Equal Match
 
 # Identity for seqConv
 val idConv   = tm => [reflexive tm]
@@ -24,6 +24,10 @@ def ratorConv conv = combConv (conv,idConv)
 
 # Applies a conversion to the rand of a combination
 def randConv conv  = combConv (idConv,conv)
+
+# Applies a conversion to the lhand and rand of a binary application
+def binaryConv [lconv,rconv] =
+  combConv (randConv lconv,rconv)
 
 # Applies a conversion to the body of an abstraction
 def absConv conv =
@@ -106,4 +110,3 @@ def treeConv conv =
     tryConv (sumConv (seqWhenChangedConv (conv,tryConv (treeConv conv)),
                       combConv (treeConv conv,treeConv conv),
                       absConv (treeConv conv))) tm
-

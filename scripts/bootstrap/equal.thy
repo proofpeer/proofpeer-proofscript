@@ -41,3 +41,8 @@ val eqFalseElim =
       modusponens (p,eq)
     modusponens (imp,sym (apThm (notDef,p)))
   '‹p› = ‹_›' as thm => modusponens (thm,instantiate (eqFalse,p))
+
+theorem topDef: '∀p. p → ⊤'
+  let 'p:ℙ'
+  assume 'p:ℙ'
+  truth
