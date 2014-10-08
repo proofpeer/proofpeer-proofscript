@@ -14,6 +14,22 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
                             val constants : Map[Name, Type]) extends Context 
   {
     
+    def debugPrint(name : String) {
+      var kinds : List[ContextKind] = List()
+      var impl : ContextImpl = this
+      while (impl != null) {
+        kinds = impl.kind :: kinds
+        impl.parentContext match {
+          case None => impl = null
+          case Some(c) => impl = c
+        }
+      }
+      println("Context " + name+":")
+      for (kind <- kinds) {
+        println("  " + kind)
+      }
+    }
+
     def kernel : Kernel = KernelImpl.this
     
     def namespace = created.namespace
@@ -508,10 +524,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         depth2 = depth2 - 1
       }
     }
-    if (context1 != context2) 
-      failwith("no common ancestor context found")
-    else 
-      context1
+    while (context1 != context2) {
+      (context1.parentContext, context2.parentContext) match {
+        case (Some(c1), Some(c2)) =>
+          context1 = c1
+          context2 = c2
+        case _ =>
+          failwith("no common ancestor context found")
+      }
+    }
+    context1
   }
    
 }
