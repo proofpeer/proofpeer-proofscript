@@ -28,3 +28,8 @@ def
       [v]
     else
       assoc (k,kvs)
+
+def concat xss =
+  for xs in xss do
+    for x in xs do
+      x

@@ -10,8 +10,6 @@ val zeroConv = tm => []
 # Applies one conversion to the rator and the other to the rand of a combination.
 def combConv [ratorConv,randConv] =
   tm =>
-    show "comb"
-    show tm
     match destcomb tm
       case [f,x] =>
         for fconvthm in ratorConv f do
@@ -32,8 +30,6 @@ def binaryConv [lconv,rconv] =
 # Applies a conversion to the body of an abstraction
 def absConv conv =
   tm =>
-    show "abs"
-    show tm
     match destabs tm
       case [ctx,x,bod] =>
         val cthms
@@ -48,26 +44,23 @@ def absConv conv =
 # theorems, to the corresponding right hand side.
 def subsConv thms =
   tm =>
-    show "subs"
-    show thms
-    show tm
     for thm in thms do
       for ([l,_] if l == tm) in [desteq thm] do
         thm
 
 def rewrConv thms =
   tm =>
-    show "rewr"
-    show thms
-    show tm
-    for thm in thms do
-      for cthm in
-        matchAntThen (thm,tm,
-          thm =>
-            match thm
-              case '‹_› = ‹_›' => [thm]
-              case _           => [])
-         do cthm
+    concat (for thm in thms do
+              val matchedEqs =
+                matchAntThen (thm,tm,
+                  thm =>
+                    match thm
+                      case '‹_› = ‹_›' => [thm]
+                      case _           => [])
+              if matchedEqs == nil then
+                []
+              else
+                matchedEqs)
 
 # Applies a list of conversions in sequence.
 def seqConv convs =
@@ -88,8 +81,6 @@ def convRule [conv,thm] =
 
 # Rewrites an instance of 'x = x' to ⊤
 val reflConv = tm =>
-  show "refl"
-  show tm
   match tm
     case '‹x›=‹y›' if x == y => [eqTrueIntro (reflexive x)]
     case _ => []
@@ -122,6 +113,8 @@ def seqWhenChangedConv convs =
 # term.
 def treeConv conv =
   tm =>
-    tryConv (sumConv (seqWhenChangedConv (conv,tryConv (treeConv conv)),
-                      combConv (treeConv conv,treeConv conv),
-                      absConv (treeConv conv))) tm
+    tryConv (seqWhenChangedConv
+               (sumConv (conv,
+                         combConv (treeConv conv,treeConv conv),
+                         absConv (treeConv conv)),
+                treeConv conv)) tm
