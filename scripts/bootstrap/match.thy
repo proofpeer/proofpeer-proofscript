@@ -1,5 +1,5 @@
 theory Match
-extends List root
+extends Syntax List
 
 def matcher [tm,target,inst] =
   def insertNew [t,v,inst] =
@@ -96,7 +96,7 @@ def matchAntThen [imp,ant,f] =
 
 def matchmp (imp <+ ants) =
   for ant in ants do
-    imp = matchAntThen (imp,ant,thm => modusponens (ant,thm))
+    imp = matchAntThen (imp,rhs (normalize (term ant)),thm => modusponens (ant,thm))
     if imp == nil then
       return nil
   imp
