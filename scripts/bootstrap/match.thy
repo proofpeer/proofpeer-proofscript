@@ -67,31 +67,36 @@ def matcher [tm,target,inst] =
                       else nil
   matcher (tm,target,inst,[])
 
+def matchAntThen [imp,ant,f] =
+  def
+    mp ['∀ x. ‹imp› x',vs] =
+      val (ctx,x,imp) = destabs imp
+      context <ctx>
+        return mp (imp,vs +> x)
+    mp ['‹p› → ‹q›',vs] =
+      val bnds = matcher (term ant,p,vs)
+      if bnds == nil then return nil
+      val inst =
+        for bnd in matcher (term ant,p,vs) do
+          match bnd
+            case [x,v] => x
+            case v     => v
+      f (instantiate (imp <+ inst))
+    mp ['‹p› = ‹q›',vs] =
+      val bnds = matcher (term ant,p,vs)
+      if bnds == nil then return nil
+      val inst =
+        for bnd in matcher (term ant,p,vs) do
+          match bnd
+            case [x,v] => x
+            case v     => v
+      f (instantiate (imp <+ inst))
+    mp _ = nil
+  mp (imp,[])
+
 def matchmp (imp <+ ants) =
-  def matchmp1 [imp,ant] =
-    def
-      mp ['∀ x. ‹imp› x',vs] =
-        val (ctx,x,imp) = destabs imp
-        context <ctx>
-          return mp (imp,vs +> x)
-      mp ['‹p› → ‹q›',vs] =
-        val inst =
-          for bnd in matcher (term ant,p,vs) do
-            match bnd
-              case [x,v] => x
-              case v     => v
-        modusponens (ant,instantiate (imp <+ inst))
-      mp ['‹p› = ‹q›',vs] =
-        val inst =
-          for bnd in matcher (term ant,p,vs) do
-            match bnd
-              case [x,v] => x
-              case v     => v
-        modusponens (ant,instantiate (imp <+ inst))
-      mp _ = nil
-    mp (imp,[])
   for ant in ants do
-    imp = matchmp1 (imp,ant)
+    imp = matchAntThen (imp,ant,thm => modusponens (ant,thm))
     if imp == nil then
       return nil
   imp
