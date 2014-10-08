@@ -1,5 +1,5 @@
 theory Conversions
-extends List Syntax Equal
+extends List Syntax Equal Match
 
 # Identity for seqConv
 val idConv   = tm => [reflexive tm]
@@ -19,7 +19,7 @@ def combConv [ratorConv,randConv] =
             combine (fconvthm,xconvthm)
       case _         => []
 
-# Applies a conversion to the rator of a combination    
+# Applies a conversion to the rator of a combination
 def ratorConv conv = combConv (conv,idConv)
 
 # Applies a conversion to the rand of a combination
@@ -38,9 +38,9 @@ def absConv conv =
       case [ctx,x,bod] =>
         val cthms
         context <ctx>
-          cthms = conv bod
+          cthms = (for cthm in conv bod do
+                     lift cthm)
         for cthm in cthms do
-          show (lift (cthm,true))
           abstract (lift (cthm,true))
       case _ => []
 
@@ -55,7 +55,21 @@ def subsConv thms =
       for ([l,_] if l == tm) in [desteq thm] do
         thm
 
-# Applies a list of conversions in sequence.      
+def rewrConv thms =
+  tm =>
+    show "rewr"
+    show thms
+    show tm
+    for thm in thms do
+      for cthm in
+        matchAntThen (thm,tm,
+          thm =>
+            match thm
+              case '‹_› = ‹_›' => [thm]
+              case _           => [])
+         do cthm
+
+# Applies a list of conversions in sequence.
 def seqConv convs =
   tm =>
     val thenConv = conv1 => conv2 => tm =>
@@ -64,7 +78,7 @@ def seqConv convs =
           trans (xy,yz)
     foldl (thenConv,convs,idConv) tm
 
-# Applies a conversion as an inference rule.  
+# Applies a conversion as an inference rule.
 def convRule [conv,thm] =
   val norm = normalize (term thm)
   match norm
@@ -80,14 +94,14 @@ val reflConv = tm =>
     case '‹x›=‹y›' if x == y => [eqTrueIntro (reflexive x)]
     case _ => []
 
-# Attempt a conversion. If it has no results, just use idConv    
+# Attempt a conversion. If it has no results, just use idConv
 def tryConv conv =
   tm =>
     match conv tm
       case []    => [reflexive tm]
       case cthms => cthms
 
-# Applies a list of conversions non-deterministically.    
+# Applies a list of conversions non-deterministically.
 def sumConv convs =
   tm =>
     for conv in convs do
