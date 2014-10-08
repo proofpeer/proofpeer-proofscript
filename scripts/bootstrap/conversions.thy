@@ -1,5 +1,5 @@
 theory Conversions
-extends List Syntax Equal Match
+extends List Syntax Equal
 
 # Identity for seqConv
 val idConv   = tm => [reflexive tm]
