@@ -40,7 +40,8 @@ def absConv conv =
         context <ctx>
           cthms = conv bod
         for cthm in cthms do
-          abstract cthm
+          show (lift (cthm,true))
+          abstract (lift (cthm,true))
       case _ => []
 
 # Converts a term appearing as the left hand side of an equation in the given list of
