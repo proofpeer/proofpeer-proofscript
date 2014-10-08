@@ -373,7 +373,7 @@ class Eval(states : States, kernel : Kernel,
 										Success((State.fromValue(value), thm_name, value), true)	
 									case Success(TheoremValue(thm), _) =>
 										try {
-											val liftedThm = state.context.lift(thm, false)
+											val liftedThm = state.context.lift(thm)
 											val chosenThm = state.context.choose(name, liftedThm)
 											val ty = chosenThm.context.typeOfConst(name).get
 											if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
@@ -432,7 +432,7 @@ class Eval(states : States, kernel : Kernel,
 			case Success(state, isReturnValue) => 
 				state.reapCollect match {
 					case TheoremValue(th) if !isReturnValue =>
-						val liftedTh = state.context.lift(th, false)
+						val liftedTh = state.context.lift(th)
 						Success(TheoremValue(liftedTh), false)
 					case value => Success(value, isReturnValue)
 				}
