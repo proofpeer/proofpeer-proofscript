@@ -22,7 +22,8 @@ object NativeFunctions {
       "size" -> wrap(compute_size),
       "fresh" -> wrap(fresh),
       "destcomb" -> wrap(destcomb),
-      "destabs" -> wrap(destabs)
+      "destabs" -> wrap(destabs),
+      "lift" -> wrap(lift)
     )
 
   private def wrap(f : F) : F = {
@@ -220,6 +221,17 @@ object NativeFunctions {
         }
       case _ => Right("term expected")
     }    
+  }
+
+  private def lift(eval : Eval, state : State, tm : StateValue) : Result = {
+    val ctx = state.context
+    tm match {
+      case TheoremValue(thm) => 
+        Left(TheoremValue(ctx.lift(thm)))
+      case TupleValue(Vector(TheoremValue(thm), BoolValue(preserve_structure))) =>
+        Left(TheoremValue(ctx.lift(thm, preserve_structure)))
+      case _ => Right("theorem or pair of theorem and boolean expected")
+    }
   }
 
 
