@@ -150,6 +150,7 @@ object Interpreter {
 	var executionSucceeded = 0
 	var executionFailed = 0
 	var executionSkipped = 0
+	var failures : List[String] = List()
 
 	def evalTheory(states : States, thy : Theory, nr : NamespaceResolution[String]) {
 		val evaluator = new Eval(states, Root.kernel, nr, Root.nr, thy.aliases, thy.namespace)
@@ -189,6 +190,7 @@ object Interpreter {
 						}
 					}
 				}
+				failures = thy.namespace.toString :: failures
 				println("failed executing theory "+thy.namespace+": "+error)
 				var trace_overflow = false
 				var positions = trace.reverse
@@ -241,6 +243,9 @@ object Interpreter {
 		println("  "+executionSucceeded+" theories executed successfully")
 		println("  "+(numTheories - numExecution)+" theories failed during preprocessing")		
 		println("  "+executionFailed+" theories failed during execution")
+		for (failure <- failures.reverse) {
+			println("    failed executing theory " + failure)
+		}
 		println("  "+executionSkipped+" theories were skipped because of failed/skipped parent theories")
 		println("")
 	}

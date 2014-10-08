@@ -107,7 +107,7 @@ object StateValue {
 			case ContextValue(context) => display(context) + " : Context"
 			case TheoremValue(th) =>
 				try {
-					val liftedTh = context.lift(th, false)
+					val liftedTh = context.lift(th)
 					display(aliases, nameresolution, liftedTh.context, liftedTh.proposition) + " : Theorem"
 				} catch {
 					case _ : Utils.KernelException => 
