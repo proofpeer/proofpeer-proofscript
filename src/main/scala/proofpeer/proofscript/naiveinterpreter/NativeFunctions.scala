@@ -66,7 +66,7 @@ object NativeFunctions {
               else 
                 thm = ctx.transitive(thm, ctx.lift(t))
             case _ => 
-              Right("all arguments to transitive must be theorems")
+              return Right("all arguments to transitive must be theorems")
           }  
         }
         Left(TheoremValue(thm))
@@ -87,7 +87,7 @@ object NativeFunctions {
               else 
                 thm = ctx.comb(thm, ctx.lift(t))
             case _ => 
-              Right("all arguments to combine must be theorems")
+              return Right("all arguments to combine must be theorems")
           }  
         }
         Left(TheoremValue(thm))
@@ -129,7 +129,7 @@ object NativeFunctions {
               else 
                 thm = ctx.modusponens(thm, ctx.lift(t))
             case _ => 
-              Right("all arguments to modusponens must be theorems")
+              return Right("all arguments to modusponens must be theorems")
           }  
         }
         Left(TheoremValue(thm))
