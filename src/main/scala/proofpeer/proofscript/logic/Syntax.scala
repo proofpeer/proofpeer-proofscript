@@ -3,11 +3,7 @@ package proofpeer.proofscript.logic
 import proofpeer.general.StringUtils._
 import proofpeer.indent._
 import proofpeer.indent.regex._
-import GrammarConversions._
-import RegularExpr._
-import proofpeer.indent.regex.Utils._
 import Utils._
-
 
 /* 
 Special characters used in syntax

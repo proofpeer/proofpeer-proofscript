@@ -2,10 +2,7 @@ package proofpeer.proofscript.frontend
 
 import proofpeer.indent.{ParseTree => IndentParseTree, _}
 import proofpeer.indent.regex._
-import GrammarConversions._
-import RegularExpr._
 import proofpeer.indent.{Constraint => CS}
-import Utils._
 import ParseTree._
 
 import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
