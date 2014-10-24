@@ -12,8 +12,12 @@ class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
 def lex(terminal : String, expr : RegularExpr, prio : Option[Int] = None) : Grammar = 
   Grammar(ScanRule(terminal, "\\root", prio, expr))
 
-def keyword(terminal : String, kw : String) : Grammar = 
-  lex(terminal, string(kw), Some(2))
+var keywords : Set[String] = Set()
+
+def keyword(terminal : String, kw : String) : Grammar = {
+  keywords += kw
+  lex(terminal, string(kw), Some(2))  
+}
 
 /*
 

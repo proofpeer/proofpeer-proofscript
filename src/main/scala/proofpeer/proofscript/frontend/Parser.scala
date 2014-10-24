@@ -19,9 +19,9 @@ def annotate(v : Any, span : Option[Span]) : Any = {
   v
 }
 
-val earleyAutomaton : earley.EarleyAutomaton = {
-  println("Initializing parser ...")
-  val grammar = new ProofScriptGrammar(annotate).g_prog
+val proofscriptGrammar : ProofScriptGrammar = {
+  val g = new ProofScriptGrammar(annotate)
+  val grammar = g.g_prog
   if (!grammar.isWellformed) {
     val errors = grammar.errors
     println("The ProofScript grammar contains " + errors.size + " errors: ")
@@ -29,36 +29,14 @@ val earleyAutomaton : earley.EarleyAutomaton = {
       println ("" + i +") " + errors(i - 1))
     }
     println("")
-    null
-  } else {
-    val automaton = new earley.EarleyAutomaton(grammar)
-    println("Parser is initialized.")
-    automaton
-  }
+    throw new RuntimeException("cannot create ProofScript grammar")
+  } 
+  g
 }
 
+val earleyAutomaton : earley.EarleyAutomaton = new earley.EarleyAutomaton(proofscriptGrammar.g_prog)
+
 val earleyParser : earley.Earley = new earley.Earley(earleyAutomaton)
-  
-/*def parse(prog : String) {
-  println("term: '"+prog+"'")
-  val d = UnicodeDocument.fromString(prog)
-  val g = g_prog.parser.parse(d, "Prog", 0)
-  g match {
-    case None => 
-      println("Does not parse.")
-    case Some((v, i)) => 
-      if (v.isUnique && i == d.size) {
-        println("Parsed successfully.")
-        val result = Derivation.computeParseResult(g_prog, d, t => null, v)
-        println("Result:\n"+result.result)
-      } else if (i < d.size) {
-        println("Parse error at token "+i)
-      } else {
-        println("Parsed successfully, but ambiguous parse tree.")       
-      }
-  }  
-  println()
-} */
 
 sealed trait ParseResult
 case class SuccessfulParse(tree : ParseTree.Block) extends ParseResult 
