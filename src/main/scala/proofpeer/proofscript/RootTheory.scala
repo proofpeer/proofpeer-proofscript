@@ -1,4 +1,8 @@
-theory \root 
+package proofpeer.proofscript
+
+object RootTheory {
+
+  val thy = """theory \root 
 
 let trueDef: 'true = ((p : ℙ ↦ p) = (p ↦ p))'
 let falseDef: 'false = (∀ p. p)'
@@ -43,3 +47,6 @@ assume existsin: '∀ X, P. existsin X P = (∃ x. x ∈ X ∧ P x)'
 assume pair: '∀ x, y. (x, y) = {{x}, {x, y}}'
 assume fun: '∀ X, f. fun X f = {(x, f x)| x ∈ X}'
 assume apply: '∀ X, f, x ∈ X. fun X f x = f x'
+"""
+
+}

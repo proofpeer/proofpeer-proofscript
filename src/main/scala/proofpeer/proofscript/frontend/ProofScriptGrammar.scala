@@ -574,10 +574,14 @@ val g_header =
   arule("ST", "Theory Namespace AliasList Extends NamespaceList", 
     CS.and(
       CS.Indent("Theory", "Namespace"),
+      CS.Indent("Theory", "AliasList"),
       CS.ifThenElse(CS.Line("Theory", "Extends"),
         CS.Indent("Theory", "NamespaceList"),
         CS.and(CS.Align("Theory", "Extends"), CS.Indent("Extends", "NamespaceList")))),
     c => STTheory(Namespace(c.text("Namespace")), c.AliasList[List[(Id, Namespace)]].reverse, c.NamespaceList[List[Namespace]].reverse)) ++
+  arule("ST", "Theory Namespace AliasList", 
+    CS.and(CS.Indent("Theory", "Namespace"), CS.Indent("Theory", "AliasList")),
+    c => STTheory(Namespace(c.text("Namespace")), c.AliasList[List[(Id, Namespace)]].reverse, List[Namespace]())) ++
   arule("NamespaceList", "", c => List[Namespace]()) ++
   arule("NamespaceList", "NamespaceList Namespace",
     c => Namespace(c.text("Namespace")) :: c.NamespaceList[List[Namespace]]) ++
