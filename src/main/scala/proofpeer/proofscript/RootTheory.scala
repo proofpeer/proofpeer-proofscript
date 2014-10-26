@@ -4,6 +4,8 @@ object RootTheory {
 
   val thy = """theory \root 
 
+val ProofScriptVersion = "0.2-SNAPSHOT"
+
 let trueDef: 'true = ((p : ℙ ↦ p) = (p ↦ p))'
 let falseDef: 'false = (∀ p. p)'
 let andDef: 'and = (x y ↦ ((f ↦ (f x y) : ℙ) = (f ↦ f ⊤ ⊤)))'
