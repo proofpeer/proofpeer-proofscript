@@ -608,13 +608,12 @@ object ParseTreeSerializerGenerator {
     ("Block", "VectorSerializer(StatementSerializer)")
   )
   
-  /** Uncomment this to generate the code. 
-  def main(args : Array[String]) {
+  /** Rename _main to main to generate the code. */
+  def _main(args : Array[String]) {
     val tool = new CaseClassSerializerTool("ParseTreeSerializerBase", names, "TracksSourcePosition")
     print("private ")
     tool.output()
   }
-  */
 
 }
 
