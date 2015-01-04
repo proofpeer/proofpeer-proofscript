@@ -3,33 +3,18 @@ package proofpeer.proofscript.frontend
 import ParseTree._
 import proofpeer.general._
 import proofpeer.indent.Span
-import proofpeer.proofscript.logic.Namespace
+import proofpeer.proofscript.logic.NamespaceSerializer
 import proofpeer.proofscript.logic.PretermSerializer
 
 case class SerializedSourcePosition(source : Source, span : Option[Span]) extends SourcePosition
-
-object NamespaceSerializer extends Serializer[Namespace, Vector[Any]] {
-
-  private val serializer = PairSerializer(BooleanSerializer, VectorSerializer(StringSerializer))
-
-  def serialize(namespace : Namespace) : Vector[Any] = {
-    serializer.serialize((namespace.isAbsolute, namespace.components))
-  }
-
-  def deserialize(b : Any) : Namespace = {
-    val (isAbsolute, components) = serializer.deserialize(b)
-    Namespace(isAbsolute, components)
-  }
-
-} 
 
 class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) extends Serializer[TracksSourcePosition, Vector[Any]] {
 
   private val PTS = this
 
-  private class PTSerializer[Special <: TracksSourcePosition] extends Serializer[Special, Any] {
+  private class PTSerializer[Special <: TracksSourcePosition] extends Serializer[Special, Vector[Any]] {
 
-    def serialize(special : Special) : Any = PTS.serialize(special)
+    def serialize(special : Special) : Vector[Any] = PTS.serialize(special)
 
     def deserialize(serialized : Any) : Special = {
       PTS.deserialize(serialized).asInstanceOf[Special]
@@ -210,11 +195,11 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
         case t : Fun =>
           (Kind.FUN, Serializers.FUN.serialize(Fun.unapply(t).get))
         case Lazy(x) =>
-          (Kind.LAZY, Vector(Serializers.LAZY.serialize(x)))
+          (Kind.LAZY, Serializers.LAZY.serialize(x))
         case LogicTerm(x) =>
-          (Kind.LOGICTERM, Vector(Serializers.LOGICTERM.serialize(x)))
+          (Kind.LOGICTERM, Serializers.LOGICTERM.serialize(x))
         case ControlFlowExpr(x) =>
-          (Kind.CONTROLFLOWEXPR, Vector(Serializers.CONTROLFLOWEXPR.serialize(x)))
+          (Kind.CONTROLFLOWEXPR, Serializers.CONTROLFLOWEXPR.serialize(x))
         case t : Do =>
           (Kind.DO, Serializers.DO.serialize(Do.unapply(t).get))
         case t : If =>
@@ -280,7 +265,7 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
         case PString(x) =>
           (Kind.PSTRING, Serializers.PSTRING.serialize(x))
         case PLogic(x) =>
-          (Kind.PLOGIC, Vector(Serializers.PLOGIC.serialize(x)))
+          (Kind.PLOGIC, Serializers.PLOGIC.serialize(x))
         case PTuple(x) =>
           (Kind.PTUPLE, Serializers.PTUPLE.serialize(x))
         case t : PPrepend =>
@@ -296,19 +281,19 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
         case Comment(x) =>
           (Kind.COMMENT, Vector(Serializers.COMMENT.serialize(x)))
         case STComment(x) =>
-          (Kind.STCOMMENT, Vector(Serializers.STCOMMENT.serialize(x)))
+          (Kind.STCOMMENT, Serializers.STCOMMENT.serialize(x))
         case STExpr(x) =>
-          (Kind.STEXPR, Vector(Serializers.STEXPR.serialize(x)))
+          (Kind.STEXPR, Serializers.STEXPR.serialize(x))
         case STControlFlow(x) =>
-          (Kind.STCONTROLFLOW, Vector(Serializers.STCONTROLFLOW.serialize(x)))
+          (Kind.STCONTROLFLOW, Serializers.STCONTROLFLOW.serialize(x))
         case STShow(x) =>
-          (Kind.STSHOW, Vector(Serializers.STSHOW.serialize(x)))
+          (Kind.STSHOW, Serializers.STSHOW.serialize(x))
         case STFail(x) =>
           (Kind.STFAIL, Serializers.STFAIL.serialize(x))
         case STAssert(x) =>
-          (Kind.STASSERT, Vector(Serializers.STASSERT.serialize(x)))
+          (Kind.STASSERT, Serializers.STASSERT.serialize(x))
         case STFailure(x) =>
-          (Kind.STFAILURE, Vector(Serializers.STFAILURE.serialize(x)))
+          (Kind.STFAILURE, Serializers.STFAILURE.serialize(x))
         case t : STVal =>
           (Kind.STVAL, Serializers.STVAL.serialize(STVal.unapply(t).get))
         case STValIntro(x) =>
@@ -363,12 +348,12 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
           App.tupled(Serializers.APP.deserialize(args))
         case Kind.FUN => 
           Fun.tupled(Serializers.FUN.deserialize(args))
-        case Kind.LAZY if args.size == 1 => 
-          Lazy(Serializers.LAZY.deserialize(args(0)))
-        case Kind.LOGICTERM if args.size == 1 => 
-          LogicTerm(Serializers.LOGICTERM.deserialize(args(0)))
-        case Kind.CONTROLFLOWEXPR if args.size == 1 => 
-          ControlFlowExpr(Serializers.CONTROLFLOWEXPR.deserialize(args(0)))
+        case Kind.LAZY => 
+          Lazy(Serializers.LAZY.deserialize(args))
+        case Kind.LOGICTERM => 
+          LogicTerm(Serializers.LOGICTERM.deserialize(args))
+        case Kind.CONTROLFLOWEXPR => 
+          ControlFlowExpr(Serializers.CONTROLFLOWEXPR.deserialize(args))
         case Kind.DO => 
           Do.tupled(Serializers.DO.deserialize(args))
         case Kind.IF => 
@@ -433,8 +418,8 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
           PBool(Serializers.PBOOL.deserialize(args(0)))
         case Kind.PSTRING => 
           PString(Serializers.PSTRING.deserialize(args))
-        case Kind.PLOGIC if args.size == 1 => 
-          PLogic(Serializers.PLOGIC.deserialize(args(0)))
+        case Kind.PLOGIC => 
+          PLogic(Serializers.PLOGIC.deserialize(args))
         case Kind.PTUPLE => 
           PTuple(Serializers.PTUPLE.deserialize(args))
         case Kind.PPREPEND => 
@@ -449,20 +434,20 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
           PNil
         case Kind.COMMENT if args.size == 1 => 
           Comment(Serializers.COMMENT.deserialize(args(0)))
-        case Kind.STCOMMENT if args.size == 1 => 
-          STComment(Serializers.STCOMMENT.deserialize(args(0)))
-        case Kind.STEXPR if args.size == 1 => 
-          STExpr(Serializers.STEXPR.deserialize(args(0)))
-        case Kind.STCONTROLFLOW if args.size == 1 => 
-          STControlFlow(Serializers.STCONTROLFLOW.deserialize(args(0)))
-        case Kind.STSHOW if args.size == 1 => 
-          STShow(Serializers.STSHOW.deserialize(args(0)))
+        case Kind.STCOMMENT => 
+          STComment(Serializers.STCOMMENT.deserialize(args))
+        case Kind.STEXPR => 
+          STExpr(Serializers.STEXPR.deserialize(args))
+        case Kind.STCONTROLFLOW => 
+          STControlFlow(Serializers.STCONTROLFLOW.deserialize(args))
+        case Kind.STSHOW => 
+          STShow(Serializers.STSHOW.deserialize(args))
         case Kind.STFAIL => 
           STFail(Serializers.STFAIL.deserialize(args))
-        case Kind.STASSERT if args.size == 1 => 
-          STAssert(Serializers.STASSERT.deserialize(args(0)))
-        case Kind.STFAILURE if args.size == 1 => 
-          STFailure(Serializers.STFAILURE.deserialize(args(0)))
+        case Kind.STASSERT => 
+          STAssert(Serializers.STASSERT.deserialize(args))
+        case Kind.STFAILURE => 
+          STFailure(Serializers.STFAILURE.deserialize(args))
         case Kind.STVAL => 
           STVal.tupled(Serializers.STVAL.deserialize(args))
         case Kind.STVALINTRO => 
@@ -509,6 +494,15 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
 
   private def toInt(v : Any) = v.asInstanceOf[Long].toInt
 
+  private def getSpan(firstTokenIndex : Int, lastTokenIndex : Int) : Option[Span] = {
+    if (firstTokenIndex < 0)
+      None
+    else {
+      val span = computeSpan(firstTokenIndex, lastTokenIndex)
+      if (span == null) None else Some(span)
+    }
+  }
+
   def deserialize(serialized : Any) : TracksSourcePosition = {
     serialized match {
       case v : Vector[Any] if v.size >= 3 =>
@@ -517,10 +511,11 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
         val lastTokenIndex = toInt(v(2))
         val args : Vector[Any] = v.drop(3)
         val tree = ParseTreeSerializerBase.deserializeAndCompose(kind, args)
-        if (firstTokenIndex < 0)
-          tree.sourcePosition = SerializedSourcePosition(source, None)
-        else
-          tree.sourcePosition = SerializedSourcePosition(source, Some(computeSpan(firstTokenIndex, lastTokenIndex)))
+        val span = getSpan(firstTokenIndex, lastTokenIndex)
+        if (source == null && span == None)
+          tree.sourcePosition = null
+        else 
+          tree.sourcePosition = SerializedSourcePosition(source, span)
         tree
       case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
     }
