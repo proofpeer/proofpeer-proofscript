@@ -2,8 +2,9 @@ package proofpeer.proofscript.naiveinterpreter
 
 import proofpeer.proofscript.logic._
 import proofpeer.proofscript.frontend.ParseTree
+import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
-trait StateValue {}
+trait StateValue extends UniquelyIdentifiable
 
 trait Collect {}
 object Collect {
@@ -134,7 +135,7 @@ object State {
 
 	case class StateValueRef(var value : StateValue)
 
-	case class Env(nonlinear : Map[String, StateValue], linear : Map[String, StateValueRef]) {
+	case class Env(nonlinear : Map[String, StateValue], linear : Map[String, StateValueRef]) extends UniquelyIdentifiable {
 		def lookup(id : String) : Option[StateValue] = {
 			nonlinear.get(id) match {
 				case None => 

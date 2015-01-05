@@ -1,23 +1,30 @@
-package proofpeer.proofscript.frontend
+package proofpeer.proofscript.serialization
 
+import proofpeer.proofscript.frontend._
 import ParseTree._
 import proofpeer.general._
 import proofpeer.indent.Span
-import proofpeer.proofscript.logic.NamespaceSerializer
-import proofpeer.proofscript.logic.PretermSerializer
+import proofpeer.proofscript.logic._
 
-case class SerializedSourcePosition(source : Source, span : Option[Span]) extends SourcePosition
+class CustomizableParseTreeSerializer(
+  SourcePositionSerializer : CompoundSerializer[SourcePosition], 
+  IndexedNameSerializer : CompoundSerializer[IndexedName],
+  NamespaceSerializer : CompoundSerializer[Namespace],
+  NameSerializer : CompoundSerializer[Name]) 
+extends CompoundSerializer[ParseTree] 
+{
 
-class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) extends Serializer[TracksSourcePosition, Vector[Any]] {
+  private val ParseTreeSerializer = this
 
-  private val PTS = this
+  val PretermSerializer = new CustomizablePretermSerializer(SourcePositionSerializer, IndexedNameSerializer, 
+    NamespaceSerializer, NameSerializer, this)
 
-  private class PTSerializer[Special <: TracksSourcePosition] extends Serializer[Special, Vector[Any]] {
+  private class PTSerializer[Special <: TracksSourcePosition] extends CompoundSerializer[Special] {
 
-    def serialize(special : Special) : Vector[Any] = PTS.serialize(special)
+    def serialize(special : Special) : Vector[Any] = ParseTreeSerializerBase.serialize(special)
 
     def deserialize(serialized : Any) : Special = {
-      PTS.deserialize(serialized).asInstanceOf[Special]
+      ParseTreeSerializerBase.deserialize(serialized).asInstanceOf[Special]
     }
   
   }
@@ -478,44 +485,21 @@ class ParseTreeSerializer(source : Source, computeSpan : (Int, Int) => Span) ext
 
   }
 
-  def serialize(parsetree : TracksSourcePosition) : Vector[Any] = {
+  def serialize(parsetree : ParseTree) : Vector[Any] = {
     val (kind, args) : (Int, Vector[Any]) =
       ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
-    val (firstTokenIndex, lastTokenIndex) =
-      if (parsetree.sourcePosition == null) 
-        (-1, -1)
-      else 
-        parsetree.sourcePosition.span match {
-          case None => (-1, -1)
-          case Some(span) => (span.firstTokenIndex, span.lastTokenIndex)
-        }
-    kind +: firstTokenIndex +: lastTokenIndex +: args
+    val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
+    kind +: (serializedSourcePosition +: args)
   }
 
-  private def toInt(v : Any) = v.asInstanceOf[Long].toInt
-
-  private def getSpan(firstTokenIndex : Int, lastTokenIndex : Int) : Option[Span] = {
-    if (firstTokenIndex < 0)
-      None
-    else {
-      val span = computeSpan(firstTokenIndex, lastTokenIndex)
-      if (span == null) None else Some(span)
-    }
-  }
-
-  def deserialize(serialized : Any) : TracksSourcePosition = {
+  def deserialize(serialized : Any) : ParseTree = {
     serialized match {
-      case v : Vector[Any] if v.size >= 3 =>
-        val kind = toInt(v(0))
-        val firstTokenIndex = toInt(v(1))
-        val lastTokenIndex = toInt(v(2))
-        val args : Vector[Any] = v.drop(3)
-        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind, args)
-        val span = getSpan(firstTokenIndex, lastTokenIndex)
-        if (source == null && span == None)
-          tree.sourcePosition = null
-        else 
-          tree.sourcePosition = SerializedSourcePosition(source, span)
+      case v : Vector[Any] if v.size >= 2 =>
+        val kind = v(0).asInstanceOf[Long].toInt
+        val sourcePosition = SourcePositionSerializer.deserialize(v(1))
+        val args : Vector[Any] = v.drop(2)
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind, args).asInstanceOf[ParseTree]
+        tree.sourcePosition = sourcePosition
         tree
       case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
     }

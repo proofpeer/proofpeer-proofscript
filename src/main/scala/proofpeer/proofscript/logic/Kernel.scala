@@ -1,5 +1,7 @@
 package proofpeer.proofscript.logic
 
+import proofpeer.proofscript.serialization.UniquelyIdentifiable
+
 object Utils {
 
   class KernelException(val reason : String) extends RuntimeException(reason) 
@@ -16,27 +18,27 @@ object Utils {
 
 import Utils._
 
-sealed case class IndexedName(val name : String, val index : Option[Integer]) {
+sealed case class IndexedName(val name : String, val index : Option[Integer]) extends UniquelyIdentifiable {
   override def toString : String = {
     if (index.isDefined) name + "_" + index.get else name
   }
 }
 
-sealed case class Name(val namespace : Option[Namespace], val name : IndexedName) {
+sealed case class Name(val namespace : Option[Namespace], val name : IndexedName) extends UniquelyIdentifiable {
   override def toString : String = {
     if (namespace.isDefined) namespace.get + "\\" + name
     else name.toString
   }
 }
 
-sealed abstract class Type
+sealed abstract class Type extends UniquelyIdentifiable
 object Type {
   case object Universe extends Type
   case object Prop extends Type
   case class Fun(domain : Type, range : Type) extends Type
 }
 
-sealed abstract class Term 
+sealed abstract class Term extends UniquelyIdentifiable
 object Term {
   case class PolyConst(name : Name, alpha : Type) extends Term
   case class Const(name : Name) extends Term 
@@ -45,12 +47,12 @@ object Term {
   case class Var(name : IndexedName) extends Term
 }
 
-sealed trait Theorem {
+sealed trait Theorem extends UniquelyIdentifiable {
   def context : Context
   def proposition : Term
 }
 
-sealed trait ContextKind 
+sealed trait ContextKind extends UniquelyIdentifiable
 object ContextKind {
   case class Assume(assumption : Term) extends ContextKind
   case class Define(const_name : Name, ty : Type, tm : Term) extends ContextKind
@@ -60,7 +62,7 @@ object ContextKind {
   case object Complete extends ContextKind
 }
 
-trait Context {
+trait Context extends UniquelyIdentifiable {
   
   // The Kernel object that this Context was created by.
   def kernel : Kernel

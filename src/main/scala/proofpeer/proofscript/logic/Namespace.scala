@@ -2,6 +2,7 @@ package proofpeer.proofscript.logic
 
 import proofpeer.general.StringUtils._
 import proofpeer.general._
+import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
 object Namespace {
   def apply(namespace : String) : Namespace = {
@@ -14,7 +15,7 @@ object Namespace {
   }
 }
 
-sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String]) {
+sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String]) extends UniquelyIdentifiable {
   private val namespace = computeString 
   private def computeString : String = {
     var ns = if (isAbsolute) "\\" else ""
