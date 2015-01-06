@@ -6,6 +6,27 @@ import proofpeer.general._
 import proofpeer.indent.Span
 import proofpeer.proofscript.logic._
 
+class CustomizableSourceSerializer(store : UniquelyIdentifiableStore) extends UniquelyIdentifiableSerializer(store,
+  new TransformSerializer(StringSerializer, (s : Source) => s.toString, (s : String) => new Source { override def toString = s }),
+  UISTypeCodes.SOURCE)
+
+object SpanSerializer extends TransformSerializer(VectorSerializer(IntSerializer),
+  (s : Span) => Vector(s.firstRow, s.lastRow, s.leftMostInFirst, s.leftMost, s.leftMostFirst, s.leftMostRest, 
+    s.rightMostLast, s.firstTokenIndex, s.lastTokenIndex),
+  (s : Vector[Int]) => 
+    if (s.size == 9) Span(s(0), s(1), s(2), s(3), s(4), s(5), s(6), s(7), s(8))
+    else throw new RuntimeException("cannot deserialize span: " + s))
+
+class BasicSourcePositionSerializer(SourceSerializer : Serializer[Source]) 
+extends TransformSerializer(OptionSerializer(PairSerializer(SourceSerializer, OptionSerializer(SpanSerializer))),
+  (p : SourcePosition) => if (p == null) None else Some((p.source, p.span)),
+  (p : Option[(Source, Option[Span])]) => {
+    p match {
+      case None => null
+      case Some((_source, _span)) => new SourcePosition { val source = _source; val span = _span }
+    }
+  })
+
 class CustomizableParseTreeSerializer(
   SourcePositionSerializer : Serializer[SourcePosition], 
   IndexedNameSerializer : Serializer[IndexedName],

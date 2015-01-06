@@ -19,6 +19,8 @@ trait UniquelyIdentifiableStore {
 
   def add(item : Item) : Id
 
+  def addNull() : Id
+
 }
 
 class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : UniquelyIdentifiableStore, 
@@ -26,6 +28,7 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Uniquel
 {
 
   def serialize(t : T) : UniquelyIdentifiableStore.Id = {
+    if (t == null) return store.addNull()
     t.optionalUniqueIdentifier match {
       case Some(id) => id
       case None => 
@@ -60,5 +63,6 @@ object UISTypeCodes {
   val TERM = 5
   val ALIAS = 6
   val ALIASES = 7
+  val SOURCE = 8
 
 }

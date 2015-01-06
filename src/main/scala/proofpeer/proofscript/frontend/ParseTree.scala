@@ -2,8 +2,9 @@ package proofpeer.proofscript.frontend
 
 import proofpeer.indent.Span
 import proofpeer.proofscript.logic.{Preterm, Namespace, Name}
+import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
-trait Source {}
+trait Source extends UniquelyIdentifiable {}
 
 trait SourcePosition {
   def source : Source
