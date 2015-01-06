@@ -2,18 +2,18 @@ package proofpeer.proofscript.serialization
 
 import proofpeer.general._
 
-object Store {
+object UniquelyIdentifiableStore {
   type Id = Vector[Any]
   type Item = Any
 }
 
 trait UniquelyIdentifiable {
-  var optionalUniqueIdentifier : Option[Store.Id] = None
+  var optionalUniqueIdentifier : Option[UniquelyIdentifiableStore.Id] = None
 }
 
-trait Store {
+trait UniquelyIdentifiableStore {
   
-  import Store._
+  import UniquelyIdentifiableStore._
 
   def lookup[T](id : Id, deserialize : Item => T) : T
 
@@ -21,11 +21,11 @@ trait Store {
 
 }
 
-class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Store, 
+class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : UniquelyIdentifiableStore, 
   serializer : Serializer[T], typeCode : Int) extends Serializer[T]
 {
 
-  def serialize(t : T) : Store.Id = {
+  def serialize(t : T) : UniquelyIdentifiableStore.Id = {
     t.optionalUniqueIdentifier match {
       case Some(id) => id
       case None => 
@@ -36,7 +36,7 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Store,
     }   
   }
 
-  private def decode(item : Store.Item) : T = {
+  private def decode(item : UniquelyIdentifiableStore.Item) : T = {
     item match {
       case Vector(tCode : Long, serialized) =>
         if (tCode != typeCode) throw new RuntimeException("wrong typeCode " + tCode + " found, expected code is " + typeCode)
@@ -46,7 +46,7 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Store,
   }
 
   def deserialize(id : Any) : T = {
-    store.lookup(id.asInstanceOf[Store.Id], decode _)
+    store.lookup(id.asInstanceOf[UniquelyIdentifiableStore.Id], decode _)
   }
 
 } 

@@ -48,7 +48,7 @@ class BasicNameSerializer(IndexedNameSerializer : Serializer[IndexedName], Names
 
 }
 
-class NameSerializers(store : Store) {
+class NameSerializers(store : UniquelyIdentifiableStore) {
 
   object IndexedNameSerializer extends UniquelyIdentifiableSerializer(store, BasicIndexedNameSerializer, UISTypeCodes.INDEXEDNAME)
 

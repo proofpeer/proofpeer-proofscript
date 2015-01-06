@@ -3,7 +3,7 @@ package proofpeer.proofscript.serialization
 import proofpeer.proofscript.logic._
 import proofpeer.general._
 
-class CustomizableTermSerializer(store : Store, 
+class CustomizableTermSerializer(store : UniquelyIdentifiableStore, 
   IndexedNameSerializer : Serializer[IndexedName], 
   NameSerializer : Serializer[Name]) 
 extends Serializer[Term] 

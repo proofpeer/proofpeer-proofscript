@@ -3,7 +3,7 @@ package proofpeer.proofscript.serialization
 import proofpeer.proofscript.logic._
 import proofpeer.general._
 
-class CustomizableTypeSerializer(store : Store) extends Serializer[Type] {
+class CustomizableTypeSerializer(store : UniquelyIdentifiableStore) extends Serializer[Type] {
 
   import Type._
 
