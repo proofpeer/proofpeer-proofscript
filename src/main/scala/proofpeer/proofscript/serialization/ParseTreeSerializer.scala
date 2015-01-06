@@ -7,11 +7,11 @@ import proofpeer.indent.Span
 import proofpeer.proofscript.logic._
 
 class CustomizableParseTreeSerializer(
-  SourcePositionSerializer : CompoundSerializer[SourcePosition], 
-  IndexedNameSerializer : CompoundSerializer[IndexedName],
-  NamespaceSerializer : CompoundSerializer[Namespace],
-  NameSerializer : CompoundSerializer[Name]) 
-extends CompoundSerializer[ParseTree] 
+  SourcePositionSerializer : Serializer[SourcePosition], 
+  IndexedNameSerializer : Serializer[IndexedName],
+  NamespaceSerializer : Serializer[Namespace],
+  NameSerializer : Serializer[Name]) 
+extends Serializer[ParseTree] 
 {
 
   private val ParseTreeSerializer = this
@@ -19,9 +19,9 @@ extends CompoundSerializer[ParseTree]
   val PretermSerializer = new CustomizablePretermSerializer(SourcePositionSerializer, IndexedNameSerializer, 
     NamespaceSerializer, NameSerializer, this)
 
-  private class PTSerializer[Special <: TracksSourcePosition] extends CompoundSerializer[Special] {
+  private class PTSerializer[Special <: TracksSourcePosition] extends Serializer[Special] {
 
-    def serialize(special : Special) : Vector[Any] = ParseTreeSerializerBase.serialize(special)
+    def serialize(special : Special) = ParseTreeSerializerBase.serialize(special)
 
     def deserialize(serialized : Any) : Special = {
       ParseTreeSerializerBase.deserialize(serialized).asInstanceOf[Special]
@@ -175,330 +175,335 @@ extends CompoundSerializer[ParseTree]
       val BLOCK = VectorSerializer(StatementSerializer)
     }
 
-    def decomposeAndSerialize(obj : TracksSourcePosition) : (Int, Vector[Any]) = {
+    def decomposeAndSerialize(obj : TracksSourcePosition) : (Int, Option[Any]) = {
       obj match {
         case NilExpr =>
-          (Kind.NILEXPR, Vector())
+          (Kind.NILEXPR, None)
         case Bool(x) =>
-          (Kind.BOOL, Vector(Serializers.BOOL.serialize(x)))
+          (Kind.BOOL, Some(Serializers.BOOL.serialize(x)))
         case Integer(x) =>
-          (Kind.INTEGER, Vector(Serializers.INTEGER.serialize(x)))
+          (Kind.INTEGER, Some(Serializers.INTEGER.serialize(x)))
         case StringLiteral(x) =>
-          (Kind.STRINGLITERAL, Serializers.STRINGLITERAL.serialize(x))
+          (Kind.STRINGLITERAL, Some(Serializers.STRINGLITERAL.serialize(x)))
         case t : QualifiedId =>
-          (Kind.QUALIFIEDID, Serializers.QUALIFIEDID.serialize(QualifiedId.unapply(t).get))
+          (Kind.QUALIFIEDID, Some(Serializers.QUALIFIEDID.serialize(QualifiedId.unapply(t).get)))
         case Id(x) =>
-          (Kind.ID, Vector(Serializers.ID.serialize(x)))
+          (Kind.ID, Some(Serializers.ID.serialize(x)))
         case t : UnaryOperation =>
-          (Kind.UNARYOPERATION, Serializers.UNARYOPERATION.serialize(UnaryOperation.unapply(t).get))
+          (Kind.UNARYOPERATION, Some(Serializers.UNARYOPERATION.serialize(UnaryOperation.unapply(t).get)))
         case t : BinaryOperation =>
-          (Kind.BINARYOPERATION, Serializers.BINARYOPERATION.serialize(BinaryOperation.unapply(t).get))
+          (Kind.BINARYOPERATION, Some(Serializers.BINARYOPERATION.serialize(BinaryOperation.unapply(t).get)))
         case t : CmpOperation =>
-          (Kind.CMPOPERATION, Serializers.CMPOPERATION.serialize(CmpOperation.unapply(t).get))
+          (Kind.CMPOPERATION, Some(Serializers.CMPOPERATION.serialize(CmpOperation.unapply(t).get)))
         case Tuple(x) =>
-          (Kind.TUPLE, Serializers.TUPLE.serialize(x))
+          (Kind.TUPLE, Some(Serializers.TUPLE.serialize(x)))
         case t : App =>
-          (Kind.APP, Serializers.APP.serialize(App.unapply(t).get))
+          (Kind.APP, Some(Serializers.APP.serialize(App.unapply(t).get)))
         case t : Fun =>
-          (Kind.FUN, Serializers.FUN.serialize(Fun.unapply(t).get))
+          (Kind.FUN, Some(Serializers.FUN.serialize(Fun.unapply(t).get)))
         case Lazy(x) =>
-          (Kind.LAZY, Serializers.LAZY.serialize(x))
+          (Kind.LAZY, Some(Serializers.LAZY.serialize(x)))
         case LogicTerm(x) =>
-          (Kind.LOGICTERM, Serializers.LOGICTERM.serialize(x))
+          (Kind.LOGICTERM, Some(Serializers.LOGICTERM.serialize(x)))
         case ControlFlowExpr(x) =>
-          (Kind.CONTROLFLOWEXPR, Serializers.CONTROLFLOWEXPR.serialize(x))
+          (Kind.CONTROLFLOWEXPR, Some(Serializers.CONTROLFLOWEXPR.serialize(x)))
         case t : Do =>
-          (Kind.DO, Serializers.DO.serialize(Do.unapply(t).get))
+          (Kind.DO, Some(Serializers.DO.serialize(Do.unapply(t).get)))
         case t : If =>
-          (Kind.IF, Serializers.IF.serialize(If.unapply(t).get))
+          (Kind.IF, Some(Serializers.IF.serialize(If.unapply(t).get)))
         case t : While =>
-          (Kind.WHILE, Serializers.WHILE.serialize(While.unapply(t).get))
+          (Kind.WHILE, Some(Serializers.WHILE.serialize(While.unapply(t).get)))
         case t : For =>
-          (Kind.FOR, Serializers.FOR.serialize(For.unapply(t).get))
+          (Kind.FOR, Some(Serializers.FOR.serialize(For.unapply(t).get)))
         case t : MatchCase =>
-          (Kind.MATCHCASE, Serializers.MATCHCASE.serialize(MatchCase.unapply(t).get))
+          (Kind.MATCHCASE, Some(Serializers.MATCHCASE.serialize(MatchCase.unapply(t).get)))
         case t : Match =>
-          (Kind.MATCH, Serializers.MATCH.serialize(Match.unapply(t).get))
+          (Kind.MATCH, Some(Serializers.MATCH.serialize(Match.unapply(t).get)))
         case t : ContextControl =>
-          (Kind.CONTEXTCONTROL, Serializers.CONTEXTCONTROL.serialize(ContextControl.unapply(t).get))
+          (Kind.CONTEXTCONTROL, Some(Serializers.CONTEXTCONTROL.serialize(ContextControl.unapply(t).get)))
         case Neg =>
-          (Kind.NEG, Vector())
+          (Kind.NEG, None)
         case Not =>
-          (Kind.NOT, Vector())
+          (Kind.NOT, None)
         case RangeTo =>
-          (Kind.RANGETO, Vector())
+          (Kind.RANGETO, None)
         case RangeDownto =>
-          (Kind.RANGEDOWNTO, Vector())
+          (Kind.RANGEDOWNTO, None)
         case Add =>
-          (Kind.ADD, Vector())
+          (Kind.ADD, None)
         case Sub =>
-          (Kind.SUB, Vector())
+          (Kind.SUB, None)
         case Mul =>
-          (Kind.MUL, Vector())
+          (Kind.MUL, None)
         case Div =>
-          (Kind.DIV, Vector())
+          (Kind.DIV, None)
         case Mod =>
-          (Kind.MOD, Vector())
+          (Kind.MOD, None)
         case And =>
-          (Kind.AND, Vector())
+          (Kind.AND, None)
         case Or =>
-          (Kind.OR, Vector())
+          (Kind.OR, None)
         case Prepend =>
-          (Kind.PREPEND, Vector())
+          (Kind.PREPEND, None)
         case Append =>
-          (Kind.APPEND, Vector())
+          (Kind.APPEND, None)
         case Concat =>
-          (Kind.CONCAT, Vector())
+          (Kind.CONCAT, None)
         case Eq =>
-          (Kind.EQ, Vector())
+          (Kind.EQ, None)
         case NEq =>
-          (Kind.NEQ, Vector())
+          (Kind.NEQ, None)
         case Le =>
-          (Kind.LE, Vector())
+          (Kind.LE, None)
         case Leq =>
-          (Kind.LEQ, Vector())
+          (Kind.LEQ, None)
         case Gr =>
-          (Kind.GR, Vector())
+          (Kind.GR, None)
         case Geq =>
-          (Kind.GEQ, Vector())
+          (Kind.GEQ, None)
         case PAny =>
-          (Kind.PANY, Vector())
+          (Kind.PANY, None)
         case PId(x) =>
-          (Kind.PID, Vector(Serializers.PID.serialize(x)))
+          (Kind.PID, Some(Serializers.PID.serialize(x)))
         case PInt(x) =>
-          (Kind.PINT, Vector(Serializers.PINT.serialize(x)))
+          (Kind.PINT, Some(Serializers.PINT.serialize(x)))
         case PBool(x) =>
-          (Kind.PBOOL, Vector(Serializers.PBOOL.serialize(x)))
+          (Kind.PBOOL, Some(Serializers.PBOOL.serialize(x)))
         case PString(x) =>
-          (Kind.PSTRING, Serializers.PSTRING.serialize(x))
+          (Kind.PSTRING, Some(Serializers.PSTRING.serialize(x)))
         case PLogic(x) =>
-          (Kind.PLOGIC, Serializers.PLOGIC.serialize(x))
+          (Kind.PLOGIC, Some(Serializers.PLOGIC.serialize(x)))
         case PTuple(x) =>
-          (Kind.PTUPLE, Serializers.PTUPLE.serialize(x))
+          (Kind.PTUPLE, Some(Serializers.PTUPLE.serialize(x)))
         case t : PPrepend =>
-          (Kind.PPREPEND, Serializers.PPREPEND.serialize(PPrepend.unapply(t).get))
+          (Kind.PPREPEND, Some(Serializers.PPREPEND.serialize(PPrepend.unapply(t).get)))
         case t : PAppend =>
-          (Kind.PAPPEND, Serializers.PAPPEND.serialize(PAppend.unapply(t).get))
+          (Kind.PAPPEND, Some(Serializers.PAPPEND.serialize(PAppend.unapply(t).get)))
         case t : PIf =>
-          (Kind.PIF, Serializers.PIF.serialize(PIf.unapply(t).get))
+          (Kind.PIF, Some(Serializers.PIF.serialize(PIf.unapply(t).get)))
         case t : PAs =>
-          (Kind.PAS, Serializers.PAS.serialize(PAs.unapply(t).get))
+          (Kind.PAS, Some(Serializers.PAS.serialize(PAs.unapply(t).get)))
         case PNil =>
-          (Kind.PNIL, Vector())
+          (Kind.PNIL, None)
         case Comment(x) =>
-          (Kind.COMMENT, Vector(Serializers.COMMENT.serialize(x)))
+          (Kind.COMMENT, Some(Serializers.COMMENT.serialize(x)))
         case STComment(x) =>
-          (Kind.STCOMMENT, Serializers.STCOMMENT.serialize(x))
+          (Kind.STCOMMENT, Some(Serializers.STCOMMENT.serialize(x)))
         case STExpr(x) =>
-          (Kind.STEXPR, Serializers.STEXPR.serialize(x))
+          (Kind.STEXPR, Some(Serializers.STEXPR.serialize(x)))
         case STControlFlow(x) =>
-          (Kind.STCONTROLFLOW, Serializers.STCONTROLFLOW.serialize(x))
+          (Kind.STCONTROLFLOW, Some(Serializers.STCONTROLFLOW.serialize(x)))
         case STShow(x) =>
-          (Kind.STSHOW, Serializers.STSHOW.serialize(x))
+          (Kind.STSHOW, Some(Serializers.STSHOW.serialize(x)))
         case STFail(x) =>
-          (Kind.STFAIL, Serializers.STFAIL.serialize(x))
+          (Kind.STFAIL, Some(Serializers.STFAIL.serialize(x)))
         case STAssert(x) =>
-          (Kind.STASSERT, Serializers.STASSERT.serialize(x))
+          (Kind.STASSERT, Some(Serializers.STASSERT.serialize(x)))
         case STFailure(x) =>
-          (Kind.STFAILURE, Serializers.STFAILURE.serialize(x))
+          (Kind.STFAILURE, Some(Serializers.STFAILURE.serialize(x)))
         case t : STVal =>
-          (Kind.STVAL, Serializers.STVAL.serialize(STVal.unapply(t).get))
+          (Kind.STVAL, Some(Serializers.STVAL.serialize(STVal.unapply(t).get)))
         case STValIntro(x) =>
-          (Kind.STVALINTRO, Serializers.STVALINTRO.serialize(x))
+          (Kind.STVALINTRO, Some(Serializers.STVALINTRO.serialize(x)))
         case t : STAssign =>
-          (Kind.STASSIGN, Serializers.STASSIGN.serialize(STAssign.unapply(t).get))
+          (Kind.STASSIGN, Some(Serializers.STASSIGN.serialize(STAssign.unapply(t).get)))
         case STDef(x) =>
-          (Kind.STDEF, Serializers.STDEF.serialize(x))
+          (Kind.STDEF, Some(Serializers.STDEF.serialize(x)))
         case t : DefCase =>
-          (Kind.DEFCASE, Serializers.DEFCASE.serialize(DefCase.unapply(t).get))
+          (Kind.DEFCASE, Some(Serializers.DEFCASE.serialize(DefCase.unapply(t).get)))
         case STReturn(x) =>
-          (Kind.STRETURN, Serializers.STRETURN.serialize(x))
+          (Kind.STRETURN, Some(Serializers.STRETURN.serialize(x)))
         case t : STAssume =>
-          (Kind.STASSUME, Serializers.STASSUME.serialize(STAssume.unapply(t).get))
+          (Kind.STASSUME, Some(Serializers.STASSUME.serialize(STAssume.unapply(t).get)))
         case t : STLet =>
-          (Kind.STLET, Serializers.STLET.serialize(STLet.unapply(t).get))
+          (Kind.STLET, Some(Serializers.STLET.serialize(STLet.unapply(t).get)))
         case t : STChoose =>
-          (Kind.STCHOOSE, Serializers.STCHOOSE.serialize(STChoose.unapply(t).get))
+          (Kind.STCHOOSE, Some(Serializers.STCHOOSE.serialize(STChoose.unapply(t).get)))
         case t : STTheorem =>
-          (Kind.STTHEOREM, Serializers.STTHEOREM.serialize(STTheorem.unapply(t).get))
+          (Kind.STTHEOREM, Some(Serializers.STTHEOREM.serialize(STTheorem.unapply(t).get)))
         case t : STTheory =>
-          (Kind.STTHEORY, Serializers.STTHEORY.serialize(STTheory.unapply(t).get))
+          (Kind.STTHEORY, Some(Serializers.STTHEORY.serialize(STTheory.unapply(t).get)))
         case Block(x) =>
-          (Kind.BLOCK, Serializers.BLOCK.serialize(x))
+          (Kind.BLOCK, Some(Serializers.BLOCK.serialize(x)))
         case _ => throw new RuntimeException("ParseTreeSerializerBase: cannot serialize " + obj)
       }
     }
 
-    def deserializeAndCompose(kind : Int, args : Vector[Any]) : TracksSourcePosition = {
+    def deserializeAndCompose(kind : Int, args : Option[Any]) : TracksSourcePosition = {
       kind match {
-        case Kind.NILEXPR if args.size == 0 => 
+        case Kind.NILEXPR if args.isEmpty => 
           NilExpr
-        case Kind.BOOL if args.size == 1 => 
-          Bool(Serializers.BOOL.deserialize(args(0)))
-        case Kind.INTEGER if args.size == 1 => 
-          Integer(Serializers.INTEGER.deserialize(args(0)))
-        case Kind.STRINGLITERAL => 
-          StringLiteral(Serializers.STRINGLITERAL.deserialize(args))
-        case Kind.QUALIFIEDID => 
-          QualifiedId.tupled(Serializers.QUALIFIEDID.deserialize(args))
-        case Kind.ID if args.size == 1 => 
-          Id(Serializers.ID.deserialize(args(0)))
-        case Kind.UNARYOPERATION => 
-          UnaryOperation.tupled(Serializers.UNARYOPERATION.deserialize(args))
-        case Kind.BINARYOPERATION => 
-          BinaryOperation.tupled(Serializers.BINARYOPERATION.deserialize(args))
-        case Kind.CMPOPERATION => 
-          CmpOperation.tupled(Serializers.CMPOPERATION.deserialize(args))
-        case Kind.TUPLE => 
-          Tuple(Serializers.TUPLE.deserialize(args))
-        case Kind.APP => 
-          App.tupled(Serializers.APP.deserialize(args))
-        case Kind.FUN => 
-          Fun.tupled(Serializers.FUN.deserialize(args))
-        case Kind.LAZY => 
-          Lazy(Serializers.LAZY.deserialize(args))
-        case Kind.LOGICTERM => 
-          LogicTerm(Serializers.LOGICTERM.deserialize(args))
-        case Kind.CONTROLFLOWEXPR => 
-          ControlFlowExpr(Serializers.CONTROLFLOWEXPR.deserialize(args))
-        case Kind.DO => 
-          Do.tupled(Serializers.DO.deserialize(args))
-        case Kind.IF => 
-          If.tupled(Serializers.IF.deserialize(args))
-        case Kind.WHILE => 
-          While.tupled(Serializers.WHILE.deserialize(args))
-        case Kind.FOR => 
-          For.tupled(Serializers.FOR.deserialize(args))
-        case Kind.MATCHCASE => 
-          MatchCase.tupled(Serializers.MATCHCASE.deserialize(args))
-        case Kind.MATCH => 
-          Match.tupled(Serializers.MATCH.deserialize(args))
-        case Kind.CONTEXTCONTROL => 
-          ContextControl.tupled(Serializers.CONTEXTCONTROL.deserialize(args))
-        case Kind.NEG if args.size == 0 => 
+        case Kind.BOOL if args.isDefined => 
+          Bool(Serializers.BOOL.deserialize(args.get))
+        case Kind.INTEGER if args.isDefined => 
+          Integer(Serializers.INTEGER.deserialize(args.get))
+        case Kind.STRINGLITERAL if args.isDefined => 
+          StringLiteral(Serializers.STRINGLITERAL.deserialize(args.get))
+        case Kind.QUALIFIEDID if args.isDefined => 
+          QualifiedId.tupled(Serializers.QUALIFIEDID.deserialize(args.get))
+        case Kind.ID if args.isDefined => 
+          Id(Serializers.ID.deserialize(args.get))
+        case Kind.UNARYOPERATION if args.isDefined => 
+          UnaryOperation.tupled(Serializers.UNARYOPERATION.deserialize(args.get))
+        case Kind.BINARYOPERATION if args.isDefined => 
+          BinaryOperation.tupled(Serializers.BINARYOPERATION.deserialize(args.get))
+        case Kind.CMPOPERATION if args.isDefined => 
+          CmpOperation.tupled(Serializers.CMPOPERATION.deserialize(args.get))
+        case Kind.TUPLE if args.isDefined => 
+          Tuple(Serializers.TUPLE.deserialize(args.get))
+        case Kind.APP if args.isDefined => 
+          App.tupled(Serializers.APP.deserialize(args.get))
+        case Kind.FUN if args.isDefined => 
+          Fun.tupled(Serializers.FUN.deserialize(args.get))
+        case Kind.LAZY if args.isDefined => 
+          Lazy(Serializers.LAZY.deserialize(args.get))
+        case Kind.LOGICTERM if args.isDefined => 
+          LogicTerm(Serializers.LOGICTERM.deserialize(args.get))
+        case Kind.CONTROLFLOWEXPR if args.isDefined => 
+          ControlFlowExpr(Serializers.CONTROLFLOWEXPR.deserialize(args.get))
+        case Kind.DO if args.isDefined => 
+          Do.tupled(Serializers.DO.deserialize(args.get))
+        case Kind.IF if args.isDefined => 
+          If.tupled(Serializers.IF.deserialize(args.get))
+        case Kind.WHILE if args.isDefined => 
+          While.tupled(Serializers.WHILE.deserialize(args.get))
+        case Kind.FOR if args.isDefined => 
+          For.tupled(Serializers.FOR.deserialize(args.get))
+        case Kind.MATCHCASE if args.isDefined => 
+          MatchCase.tupled(Serializers.MATCHCASE.deserialize(args.get))
+        case Kind.MATCH if args.isDefined => 
+          Match.tupled(Serializers.MATCH.deserialize(args.get))
+        case Kind.CONTEXTCONTROL if args.isDefined => 
+          ContextControl.tupled(Serializers.CONTEXTCONTROL.deserialize(args.get))
+        case Kind.NEG if args.isEmpty => 
           Neg
-        case Kind.NOT if args.size == 0 => 
+        case Kind.NOT if args.isEmpty => 
           Not
-        case Kind.RANGETO if args.size == 0 => 
+        case Kind.RANGETO if args.isEmpty => 
           RangeTo
-        case Kind.RANGEDOWNTO if args.size == 0 => 
+        case Kind.RANGEDOWNTO if args.isEmpty => 
           RangeDownto
-        case Kind.ADD if args.size == 0 => 
+        case Kind.ADD if args.isEmpty => 
           Add
-        case Kind.SUB if args.size == 0 => 
+        case Kind.SUB if args.isEmpty => 
           Sub
-        case Kind.MUL if args.size == 0 => 
+        case Kind.MUL if args.isEmpty => 
           Mul
-        case Kind.DIV if args.size == 0 => 
+        case Kind.DIV if args.isEmpty => 
           Div
-        case Kind.MOD if args.size == 0 => 
+        case Kind.MOD if args.isEmpty => 
           Mod
-        case Kind.AND if args.size == 0 => 
+        case Kind.AND if args.isEmpty => 
           And
-        case Kind.OR if args.size == 0 => 
+        case Kind.OR if args.isEmpty => 
           Or
-        case Kind.PREPEND if args.size == 0 => 
+        case Kind.PREPEND if args.isEmpty => 
           Prepend
-        case Kind.APPEND if args.size == 0 => 
+        case Kind.APPEND if args.isEmpty => 
           Append
-        case Kind.CONCAT if args.size == 0 => 
+        case Kind.CONCAT if args.isEmpty => 
           Concat
-        case Kind.EQ if args.size == 0 => 
+        case Kind.EQ if args.isEmpty => 
           Eq
-        case Kind.NEQ if args.size == 0 => 
+        case Kind.NEQ if args.isEmpty => 
           NEq
-        case Kind.LE if args.size == 0 => 
+        case Kind.LE if args.isEmpty => 
           Le
-        case Kind.LEQ if args.size == 0 => 
+        case Kind.LEQ if args.isEmpty => 
           Leq
-        case Kind.GR if args.size == 0 => 
+        case Kind.GR if args.isEmpty => 
           Gr
-        case Kind.GEQ if args.size == 0 => 
+        case Kind.GEQ if args.isEmpty => 
           Geq
-        case Kind.PANY if args.size == 0 => 
+        case Kind.PANY if args.isEmpty => 
           PAny
-        case Kind.PID if args.size == 1 => 
-          PId(Serializers.PID.deserialize(args(0)))
-        case Kind.PINT if args.size == 1 => 
-          PInt(Serializers.PINT.deserialize(args(0)))
-        case Kind.PBOOL if args.size == 1 => 
-          PBool(Serializers.PBOOL.deserialize(args(0)))
-        case Kind.PSTRING => 
-          PString(Serializers.PSTRING.deserialize(args))
-        case Kind.PLOGIC => 
-          PLogic(Serializers.PLOGIC.deserialize(args))
-        case Kind.PTUPLE => 
-          PTuple(Serializers.PTUPLE.deserialize(args))
-        case Kind.PPREPEND => 
-          PPrepend.tupled(Serializers.PPREPEND.deserialize(args))
-        case Kind.PAPPEND => 
-          PAppend.tupled(Serializers.PAPPEND.deserialize(args))
-        case Kind.PIF => 
-          PIf.tupled(Serializers.PIF.deserialize(args))
-        case Kind.PAS => 
-          PAs.tupled(Serializers.PAS.deserialize(args))
-        case Kind.PNIL if args.size == 0 => 
+        case Kind.PID if args.isDefined => 
+          PId(Serializers.PID.deserialize(args.get))
+        case Kind.PINT if args.isDefined => 
+          PInt(Serializers.PINT.deserialize(args.get))
+        case Kind.PBOOL if args.isDefined => 
+          PBool(Serializers.PBOOL.deserialize(args.get))
+        case Kind.PSTRING if args.isDefined => 
+          PString(Serializers.PSTRING.deserialize(args.get))
+        case Kind.PLOGIC if args.isDefined => 
+          PLogic(Serializers.PLOGIC.deserialize(args.get))
+        case Kind.PTUPLE if args.isDefined => 
+          PTuple(Serializers.PTUPLE.deserialize(args.get))
+        case Kind.PPREPEND if args.isDefined => 
+          PPrepend.tupled(Serializers.PPREPEND.deserialize(args.get))
+        case Kind.PAPPEND if args.isDefined => 
+          PAppend.tupled(Serializers.PAPPEND.deserialize(args.get))
+        case Kind.PIF if args.isDefined => 
+          PIf.tupled(Serializers.PIF.deserialize(args.get))
+        case Kind.PAS if args.isDefined => 
+          PAs.tupled(Serializers.PAS.deserialize(args.get))
+        case Kind.PNIL if args.isEmpty => 
           PNil
-        case Kind.COMMENT if args.size == 1 => 
-          Comment(Serializers.COMMENT.deserialize(args(0)))
-        case Kind.STCOMMENT => 
-          STComment(Serializers.STCOMMENT.deserialize(args))
-        case Kind.STEXPR => 
-          STExpr(Serializers.STEXPR.deserialize(args))
-        case Kind.STCONTROLFLOW => 
-          STControlFlow(Serializers.STCONTROLFLOW.deserialize(args))
-        case Kind.STSHOW => 
-          STShow(Serializers.STSHOW.deserialize(args))
-        case Kind.STFAIL => 
-          STFail(Serializers.STFAIL.deserialize(args))
-        case Kind.STASSERT => 
-          STAssert(Serializers.STASSERT.deserialize(args))
-        case Kind.STFAILURE => 
-          STFailure(Serializers.STFAILURE.deserialize(args))
-        case Kind.STVAL => 
-          STVal.tupled(Serializers.STVAL.deserialize(args))
-        case Kind.STVALINTRO => 
-          STValIntro(Serializers.STVALINTRO.deserialize(args))
-        case Kind.STASSIGN => 
-          STAssign.tupled(Serializers.STASSIGN.deserialize(args))
-        case Kind.STDEF => 
-          STDef(Serializers.STDEF.deserialize(args))
-        case Kind.DEFCASE => 
-          DefCase.tupled(Serializers.DEFCASE.deserialize(args))
-        case Kind.STRETURN => 
-          STReturn(Serializers.STRETURN.deserialize(args))
-        case Kind.STASSUME => 
-          STAssume.tupled(Serializers.STASSUME.deserialize(args))
-        case Kind.STLET => 
-          STLet.tupled(Serializers.STLET.deserialize(args))
-        case Kind.STCHOOSE => 
-          STChoose.tupled(Serializers.STCHOOSE.deserialize(args))
-        case Kind.STTHEOREM => 
-          STTheorem.tupled(Serializers.STTHEOREM.deserialize(args))
-        case Kind.STTHEORY => 
-          STTheory.tupled(Serializers.STTHEORY.deserialize(args))
-        case Kind.BLOCK => 
-          Block(Serializers.BLOCK.deserialize(args))
+        case Kind.COMMENT if args.isDefined => 
+          Comment(Serializers.COMMENT.deserialize(args.get))
+        case Kind.STCOMMENT if args.isDefined => 
+          STComment(Serializers.STCOMMENT.deserialize(args.get))
+        case Kind.STEXPR if args.isDefined => 
+          STExpr(Serializers.STEXPR.deserialize(args.get))
+        case Kind.STCONTROLFLOW if args.isDefined => 
+          STControlFlow(Serializers.STCONTROLFLOW.deserialize(args.get))
+        case Kind.STSHOW if args.isDefined => 
+          STShow(Serializers.STSHOW.deserialize(args.get))
+        case Kind.STFAIL if args.isDefined => 
+          STFail(Serializers.STFAIL.deserialize(args.get))
+        case Kind.STASSERT if args.isDefined => 
+          STAssert(Serializers.STASSERT.deserialize(args.get))
+        case Kind.STFAILURE if args.isDefined => 
+          STFailure(Serializers.STFAILURE.deserialize(args.get))
+        case Kind.STVAL if args.isDefined => 
+          STVal.tupled(Serializers.STVAL.deserialize(args.get))
+        case Kind.STVALINTRO if args.isDefined => 
+          STValIntro(Serializers.STVALINTRO.deserialize(args.get))
+        case Kind.STASSIGN if args.isDefined => 
+          STAssign.tupled(Serializers.STASSIGN.deserialize(args.get))
+        case Kind.STDEF if args.isDefined => 
+          STDef(Serializers.STDEF.deserialize(args.get))
+        case Kind.DEFCASE if args.isDefined => 
+          DefCase.tupled(Serializers.DEFCASE.deserialize(args.get))
+        case Kind.STRETURN if args.isDefined => 
+          STReturn(Serializers.STRETURN.deserialize(args.get))
+        case Kind.STASSUME if args.isDefined => 
+          STAssume.tupled(Serializers.STASSUME.deserialize(args.get))
+        case Kind.STLET if args.isDefined => 
+          STLet.tupled(Serializers.STLET.deserialize(args.get))
+        case Kind.STCHOOSE if args.isDefined => 
+          STChoose.tupled(Serializers.STCHOOSE.deserialize(args.get))
+        case Kind.STTHEOREM if args.isDefined => 
+          STTheorem.tupled(Serializers.STTHEOREM.deserialize(args.get))
+        case Kind.STTHEORY if args.isDefined => 
+          STTheory.tupled(Serializers.STTHEORY.deserialize(args.get))
+        case Kind.BLOCK if args.isDefined => 
+          Block(Serializers.BLOCK.deserialize(args.get))
         case _ => throw new RuntimeException("ParseTreeSerializerBase: cannot deserialize " + (kind, args))
       }
     }
 
   }
 
-  def serialize(parsetree : ParseTree) : Vector[Any] = {
-    val (kind, args) : (Int, Vector[Any]) =
-      ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
+  def serialize(parsetree : ParseTree)  = {
+    val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
     val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
-    kind +: (serializedSourcePosition +: args)
+    args match {
+      case None => Vector(kind, serializedSourcePosition)
+      case Some(args) => Vector(kind, serializedSourcePosition, args)
+    }
   }
 
   def deserialize(serialized : Any) : ParseTree = {
     serialized match {
-      case v : Vector[Any] if v.size >= 2 =>
-        val kind = v(0).asInstanceOf[Long].toInt
-        val sourcePosition = SourcePositionSerializer.deserialize(v(1))
-        val args : Vector[Any] = v.drop(2)
-        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind, args).asInstanceOf[ParseTree]
+      case Vector(kind : Long, serializedSourcePosition) =>
+        val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None).asInstanceOf[ParseTree]
+        tree.sourcePosition = sourcePosition
+        tree
+      case Vector(kind : Long, serializedSourcePosition, args) =>
+        val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args)).asInstanceOf[ParseTree]
         tree.sourcePosition = sourcePosition
         tree
       case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)

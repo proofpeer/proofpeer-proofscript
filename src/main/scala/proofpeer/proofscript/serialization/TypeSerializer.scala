@@ -3,7 +3,7 @@ package proofpeer.proofscript.serialization
 import proofpeer.proofscript.logic._
 import proofpeer.general._
 
-class CustomizableTypeSerializer(store : Store) extends CompoundSerializer[Type] {
+class CustomizableTypeSerializer(store : Store) extends Serializer[Type] {
 
   import Type._
 
@@ -21,33 +21,32 @@ class CustomizableTypeSerializer(store : Store) extends CompoundSerializer[Type]
       val FUN = PairSerializer(TypeSerializer,TypeSerializer)
     }
 
-    def decomposeAndSerialize(obj : Type) : (Int, Vector[Any]) = {
+    def decomposeAndSerialize(obj : Type) : (Int, Option[Any]) = {
       obj match {
         case Universe =>
-          (Kind.UNIVERSE, Vector())
+          (Kind.UNIVERSE, None)
         case Prop =>
-          (Kind.PROP, Vector())
+          (Kind.PROP, None)
         case t : Fun =>
-          (Kind.FUN, Serializers.FUN.serialize(Fun.unapply(t).get))
+          (Kind.FUN, Some(Serializers.FUN.serialize(Fun.unapply(t).get)))
         case _ => throw new RuntimeException("TypeSerializerBase: cannot serialize " + obj)
       }
     }
 
-    def deserializeAndCompose(kind : Int, args : Vector[Any]) : Type = {
+    def deserializeAndCompose(kind : Int, args : Option[Any]) : Type = {
       kind match {
-        case Kind.UNIVERSE if args.size == 0 => 
+        case Kind.UNIVERSE if args.isEmpty => 
           Universe
-        case Kind.PROP if args.size == 0 => 
+        case Kind.PROP if args.isEmpty => 
           Prop
-        case Kind.FUN => 
-          Fun.tupled(Serializers.FUN.deserialize(args))
+        case Kind.FUN if args.isDefined => 
+          Fun.tupled(Serializers.FUN.deserialize(args.get))
         case _ => throw new RuntimeException("TypeSerializerBase: cannot deserialize " + (kind, args))
       }
     }
 
   }
-
-  def serialize(ty : Type) : Vector[Any] = TypeSerializerBase.serialize(ty)
+  def serialize(ty : Type) = TypeSerializerBase.serialize(ty)
 
   def deserialize(b : Any) : Type = TypeSerializerBase.deserialize(b)
 

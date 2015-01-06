@@ -4,9 +4,9 @@ import proofpeer.proofscript.logic._
 import proofpeer.general._
 
 class CustomizableTermSerializer(store : Store, 
-  IndexedNameSerializer : CompoundSerializer[IndexedName], 
-  NameSerializer : CompoundSerializer[Name]) 
-extends CompoundSerializer[Term] 
+  IndexedNameSerializer : Serializer[IndexedName], 
+  NameSerializer : Serializer[Name]) 
+extends Serializer[Term] 
 {
 
   import Term._
@@ -33,41 +33,41 @@ extends CompoundSerializer[Term]
       val VAR = IndexedNameSerializer
     }
 
-    def decomposeAndSerialize(obj : Term) : (Int, Vector[Any]) = {
+    def decomposeAndSerialize(obj : Term) : (Int, Option[Any]) = {
       obj match {
         case t : PolyConst =>
-          (Kind.POLYCONST, Serializers.POLYCONST.serialize(PolyConst.unapply(t).get))
+          (Kind.POLYCONST, Some(Serializers.POLYCONST.serialize(PolyConst.unapply(t).get)))
         case Const(x) =>
-          (Kind.CONST, Serializers.CONST.serialize(x))
+          (Kind.CONST, Some(Serializers.CONST.serialize(x)))
         case t : Comb =>
-          (Kind.COMB, Serializers.COMB.serialize(Comb.unapply(t).get))
+          (Kind.COMB, Some(Serializers.COMB.serialize(Comb.unapply(t).get)))
         case t : Abs =>
-          (Kind.ABS, Serializers.ABS.serialize(Abs.unapply(t).get))
+          (Kind.ABS, Some(Serializers.ABS.serialize(Abs.unapply(t).get)))
         case Var(x) =>
-          (Kind.VAR, Serializers.VAR.serialize(x))
+          (Kind.VAR, Some(Serializers.VAR.serialize(x)))
         case _ => throw new RuntimeException("TermSerializerBase: cannot serialize " + obj)
       }
     }
 
-    def deserializeAndCompose(kind : Int, args : Vector[Any]) : Term = {
+    def deserializeAndCompose(kind : Int, args : Option[Any]) : Term = {
       kind match {
-        case Kind.POLYCONST => 
-          PolyConst.tupled(Serializers.POLYCONST.deserialize(args))
-        case Kind.CONST => 
-          Const(Serializers.CONST.deserialize(args))
-        case Kind.COMB => 
-          Comb.tupled(Serializers.COMB.deserialize(args))
-        case Kind.ABS => 
-          Abs.tupled(Serializers.ABS.deserialize(args))
-        case Kind.VAR => 
-          Var(Serializers.VAR.deserialize(args))
+        case Kind.POLYCONST if args.isDefined => 
+          PolyConst.tupled(Serializers.POLYCONST.deserialize(args.get))
+        case Kind.CONST if args.isDefined => 
+          Const(Serializers.CONST.deserialize(args.get))
+        case Kind.COMB if args.isDefined => 
+          Comb.tupled(Serializers.COMB.deserialize(args.get))
+        case Kind.ABS if args.isDefined => 
+          Abs.tupled(Serializers.ABS.deserialize(args.get))
+        case Kind.VAR if args.isDefined => 
+          Var(Serializers.VAR.deserialize(args.get))
         case _ => throw new RuntimeException("TermSerializerBase: cannot deserialize " + (kind, args))
       }
     }
 
   }
 
-  def serialize(tm : Term) : Vector[Any] = TermSerializerBase.serialize(tm)
+  def serialize(tm : Term) = TermSerializerBase.serialize(tm)
 
   def deserialize(b : Any) : Term = TermSerializerBase.deserialize(b)
 

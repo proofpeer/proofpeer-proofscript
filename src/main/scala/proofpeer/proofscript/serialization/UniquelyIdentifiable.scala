@@ -22,7 +22,7 @@ trait Store {
 }
 
 class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Store, 
-  serializer : Serializer[T, _], typeCode : Int) extends CompoundSerializer[T]
+  serializer : Serializer[T], typeCode : Int) extends Serializer[T]
 {
 
   def serialize(t : T) : Store.Id = {

@@ -3,11 +3,11 @@ package proofpeer.proofscript.serialization
 import proofpeer.general._
 import proofpeer.proofscript.logic._
 
-object BasicIndexedNameSerializer extends CompoundSerializer[IndexedName] {
+object BasicIndexedNameSerializer extends Serializer[IndexedName] {
 
   private val serializer = PairSerializer(StringSerializer, OptionSerializer(BigIntSerializer))
 
-  def serialize(indexedName : IndexedName) : Vector[Any] = {
+  def serialize(indexedName : IndexedName) = {
     serializer.serialize(indexedName.name, indexedName.index)
   }
 
@@ -17,11 +17,11 @@ object BasicIndexedNameSerializer extends CompoundSerializer[IndexedName] {
 
 }
 
-object BasicNamespaceSerializer extends CompoundSerializer[Namespace] {
+object BasicNamespaceSerializer extends Serializer[Namespace] {
 
   private val serializer = PairSerializer(BooleanSerializer, VectorSerializer(StringSerializer))
 
-  def serialize(namespace : Namespace) : Vector[Any] = {
+  def serialize(namespace : Namespace) = {
     serializer.serialize((namespace.isAbsolute, namespace.components))
   }
 
@@ -32,13 +32,13 @@ object BasicNamespaceSerializer extends CompoundSerializer[Namespace] {
 
 }
 
-class BasicNameSerializer(IndexedNameSerializer : CompoundSerializer[IndexedName], 
-  NamespaceSerializer : CompoundSerializer[Namespace]) extends CompoundSerializer[Name] 
+class BasicNameSerializer(IndexedNameSerializer : Serializer[IndexedName], NamespaceSerializer : Serializer[Namespace]) 
+  extends Serializer[Name] 
 {
 
   private val serializer = PairSerializer(OptionSerializer(NamespaceSerializer), IndexedNameSerializer)
 
-  def serialize(name : Name) : Vector[Any] = {
+  def serialize(name : Name) = {
     serializer.serialize((name.namespace, name.name))
   }
 

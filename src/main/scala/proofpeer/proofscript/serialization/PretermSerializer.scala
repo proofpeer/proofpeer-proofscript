@@ -8,19 +8,19 @@ import Preterm._
 import proofpeer.indent.Span
 
 class CustomizablePretermSerializer(
-  SourcePositionSerializer : CompoundSerializer[SourcePosition], 
-  IndexedNameSerializer : CompoundSerializer[IndexedName],
-  NamespaceSerializer : CompoundSerializer[Namespace],
-  NameSerializer : CompoundSerializer[Name],
-  ParseTreeSerializer : CompoundSerializer[ParseTree]) 
-extends CompoundSerializer[Preterm]
+  SourcePositionSerializer : Serializer[SourcePosition], 
+  IndexedNameSerializer : Serializer[IndexedName],
+  NamespaceSerializer : Serializer[Namespace],
+  NameSerializer : Serializer[Name],
+  ParseTreeSerializer : Serializer[ParseTree]) 
+extends Serializer[Preterm]
 {
 
   val PretermSerializer = this 
 
-  object PretypeSerializer extends DummySerializer[Pretype, Vector[Any]]
+  object PretypeSerializer extends DummySerializer[Pretype]
 
-  object QuotedSerializer extends TypecastSerializer[ParseTree, Any, Vector[Any]](ParseTreeSerializer)
+  object QuotedSerializer extends TypecastSerializer[ParseTree, Any](ParseTreeSerializer)
 
   object PretermSerializerBase extends CaseClassSerializerBase[Any] {
 
@@ -49,65 +49,65 @@ extends CompoundSerializer[Preterm]
       val PTMERROR = StringSerializer
     }
 
-    def decomposeAndSerialize(obj : Any) : (Int, Vector[Any]) = {
+    def decomposeAndSerialize(obj : Any) : (Int, Option[Any]) = {
       obj match {
         case PTyUniverse =>
-          (Kind.PTYUNIVERSE, Vector())
+          (Kind.PTYUNIVERSE, None)
         case PTyProp =>
-          (Kind.PTYPROP, Vector())
+          (Kind.PTYPROP, None)
         case t : PTyFun =>
-          (Kind.PTYFUN, Serializers.PTYFUN.serialize(PTyFun.unapply(t).get))
+          (Kind.PTYFUN, Some(Serializers.PTYFUN.serialize(PTyFun.unapply(t).get)))
         case PTyAny =>
-          (Kind.PTYANY, Vector())
+          (Kind.PTYANY, None)
         case PTyVar(x) =>
-          (Kind.PTYVAR, Vector(Serializers.PTYVAR.serialize(x)))
+          (Kind.PTYVAR, Some(Serializers.PTYVAR.serialize(x)))
         case t : PTmTyping =>
-          (Kind.PTMTYPING, Serializers.PTMTYPING.serialize(PTmTyping.unapply(t).get))
+          (Kind.PTMTYPING, Some(Serializers.PTMTYPING.serialize(PTmTyping.unapply(t).get)))
         case t : PTmName =>
-          (Kind.PTMNAME, Serializers.PTMNAME.serialize(PTmName.unapply(t).get))
+          (Kind.PTMNAME, Some(Serializers.PTMNAME.serialize(PTmName.unapply(t).get)))
         case t : PTmAbs =>
-          (Kind.PTMABS, Serializers.PTMABS.serialize(PTmAbs.unapply(t).get))
+          (Kind.PTMABS, Some(Serializers.PTMABS.serialize(PTmAbs.unapply(t).get)))
         case t : PTmComb =>
-          (Kind.PTMCOMB, Serializers.PTMCOMB.serialize(PTmComb.unapply(t).get))
+          (Kind.PTMCOMB, Some(Serializers.PTMCOMB.serialize(PTmComb.unapply(t).get)))
         case t : PTmQuote =>
-          (Kind.PTMQUOTE, Serializers.PTMQUOTE.serialize(PTmQuote.unapply(t).get))
+          (Kind.PTMQUOTE, Some(Serializers.PTMQUOTE.serialize(PTmQuote.unapply(t).get)))
         case PTmError(x) =>
-          (Kind.PTMERROR, Vector(Serializers.PTMERROR.serialize(x)))
+          (Kind.PTMERROR, Some(Serializers.PTMERROR.serialize(x)))
         case _ => throw new RuntimeException("PretermSerializerBase: cannot serialize " + obj)
       }
     }
 
-    def deserializeAndCompose(kind : Int, args : Vector[Any]) : Any = {
+    def deserializeAndCompose(kind : Int, args : Option[Any]) : Any = {
       kind match {
-        case Kind.PTYUNIVERSE if args.size == 0 => 
+        case Kind.PTYUNIVERSE if args.isEmpty => 
           PTyUniverse
-        case Kind.PTYPROP if args.size == 0 => 
+        case Kind.PTYPROP if args.isEmpty => 
           PTyProp
-        case Kind.PTYFUN => 
-          PTyFun.tupled(Serializers.PTYFUN.deserialize(args))
-        case Kind.PTYANY if args.size == 0 => 
+        case Kind.PTYFUN if args.isDefined => 
+          PTyFun.tupled(Serializers.PTYFUN.deserialize(args.get))
+        case Kind.PTYANY if args.isEmpty => 
           PTyAny
-        case Kind.PTYVAR if args.size == 1 => 
-          PTyVar(Serializers.PTYVAR.deserialize(args(0)))
-        case Kind.PTMTYPING => 
-          PTmTyping.tupled(Serializers.PTMTYPING.deserialize(args))
-        case Kind.PTMNAME => 
-          PTmName.tupled(Serializers.PTMNAME.deserialize(args))
-        case Kind.PTMABS => 
-          PTmAbs.tupled(Serializers.PTMABS.deserialize(args))
-        case Kind.PTMCOMB => 
-          PTmComb.tupled(Serializers.PTMCOMB.deserialize(args))
-        case Kind.PTMQUOTE => 
-          PTmQuote.tupled(Serializers.PTMQUOTE.deserialize(args))
-        case Kind.PTMERROR if args.size == 1 => 
-          PTmError(Serializers.PTMERROR.deserialize(args(0)))
+        case Kind.PTYVAR if args.isDefined => 
+          PTyVar(Serializers.PTYVAR.deserialize(args.get))
+        case Kind.PTMTYPING if args.isDefined => 
+          PTmTyping.tupled(Serializers.PTMTYPING.deserialize(args.get))
+        case Kind.PTMNAME if args.isDefined => 
+          PTmName.tupled(Serializers.PTMNAME.deserialize(args.get))
+        case Kind.PTMABS if args.isDefined => 
+          PTmAbs.tupled(Serializers.PTMABS.deserialize(args.get))
+        case Kind.PTMCOMB if args.isDefined => 
+          PTmComb.tupled(Serializers.PTMCOMB.deserialize(args.get))
+        case Kind.PTMQUOTE if args.isDefined => 
+          PTmQuote.tupled(Serializers.PTMQUOTE.deserialize(args.get))
+        case Kind.PTMERROR if args.isDefined => 
+          PTmError(Serializers.PTMERROR.deserialize(args.get))
         case _ => throw new RuntimeException("PretermSerializerBase: cannot deserialize " + (kind, args))
       }
     }
 
-  }
+  }  
 
-  def serialize(x : Preterm) : Vector[Any] = PretermSerializerBase.serialize(x)
+  def serialize(x : Preterm) = PretermSerializerBase.serialize(x)
 
   def deserialize(b : Any) : Preterm = PretermSerializerBase.deserialize(b).asInstanceOf[Preterm]
 
@@ -115,14 +115,6 @@ extends CompoundSerializer[Preterm]
 
 /** This is code used to create most of the above code. It is not needed during runtime, just during programming. */
 object PretermSerializerGenerator {
-
-  val typeCases : Vector[Any] = Vector(
-    "PTyUniverse",
-    "PTyProp",
-    ("PTyFun", "PretypeSerializer", "PretypeSerializer"),
-    "PTyAny",
-    ("PTyVar", "BigIntSerializer")
-  )
 
   val cases : Vector[Any] = Vector(
     "PTyUniverse",
