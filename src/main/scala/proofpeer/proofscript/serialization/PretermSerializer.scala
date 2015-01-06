@@ -139,7 +139,7 @@ object PretermSerializerGenerator {
   )
 
   /** Rename _main to main to generate the code. */
-  def main(args : Array[String]) {
+  def _main(args : Array[String]) {
     val tool = new CaseClassSerializerTool("PretermSerializerBase", cases)
     tool.output()
   }
