@@ -1,8 +1,10 @@
 package proofpeer.proofscript.logic
 
-case class Alias(alias : String, namespace : Namespace) 
+import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
-class Aliases(base : Namespace, aliases : List[Alias]) {
+case class Alias(alias : String, namespace : Namespace) extends UniquelyIdentifiable
+
+class Aliases(val base : Namespace, val aliases : List[Alias]) extends UniquelyIdentifiable {
   if (!base.isAbsolute) throw new RuntimeException("base of aliases must be absolute")
 
   private type Renaming = Map[String, Namespace]

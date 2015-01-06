@@ -3,50 +3,23 @@ package proofpeer.proofscript.serialization
 import proofpeer.general._
 import proofpeer.proofscript.logic._
 
-object BasicIndexedNameSerializer extends Serializer[IndexedName] {
+object BasicIndexedNameSerializer extends TransformSerializer(PairSerializer(StringSerializer, OptionSerializer(BigIntSerializer)),
+  (indexedName : IndexedName) => (indexedName.name, indexedName.index), IndexedName.tupled)
 
-  private val serializer = PairSerializer(StringSerializer, OptionSerializer(BigIntSerializer))
+object BasicNamespaceSerializer extends TransformSerializer(PairSerializer(BooleanSerializer, VectorSerializer(StringSerializer)),
+  (namespace : Namespace) => (namespace.isAbsolute, namespace.components), 
+  (n : (Boolean, Vector[String])) => Namespace(n._1, n._2))
 
-  def serialize(indexedName : IndexedName) = {
-    serializer.serialize(indexedName.name, indexedName.index)
-  }
+class BasicNameSerializer(NamespaceSerializer : Serializer[Namespace], IndexedNameSerializer : Serializer[IndexedName]) 
+extends TransformSerializer(PairSerializer(OptionSerializer(NamespaceSerializer), IndexedNameSerializer),
+  (name : Name) => (name.namespace, name.name), Name.tupled)
 
-  def deserialize(b : Any) : IndexedName = {
-    IndexedName.tupled(serializer.deserialize(b))
-  }
-
-}
-
-object BasicNamespaceSerializer extends Serializer[Namespace] {
-
-  private val serializer = PairSerializer(BooleanSerializer, VectorSerializer(StringSerializer))
-
-  def serialize(namespace : Namespace) = {
-    serializer.serialize((namespace.isAbsolute, namespace.components))
-  }
-
-  def deserialize(b : Any) : Namespace = {
-    val n = serializer.deserialize(b)
-    Namespace(n._1, n._2)
-  }
-
-}
-
-class BasicNameSerializer(IndexedNameSerializer : Serializer[IndexedName], NamespaceSerializer : Serializer[Namespace]) 
-  extends Serializer[Name] 
-{
-
-  private val serializer = PairSerializer(OptionSerializer(NamespaceSerializer), IndexedNameSerializer)
-
-  def serialize(name : Name) = {
-    serializer.serialize((name.namespace, name.name))
-  }
-
-  def deserialize(b : Any) : Name = {
-    Name.tupled(serializer.deserialize(b))
-  }
-
-}
+class BasicAliasSerializer(NamespaceSerializer : Serializer[Namespace]) extends TransformSerializer(
+  PairSerializer(StringSerializer, NamespaceSerializer), (alias : Alias) => (alias.alias, alias.namespace), Alias.tupled)
+  
+class BasicAliasesSerializer(NamespaceSerializer : Serializer[Namespace], AliasSerializer : Serializer[Alias]) extends TransformSerializer(
+  PairSerializer(NamespaceSerializer, ListSerializer(AliasSerializer)),
+  (aliases : Aliases) => (aliases.base, aliases.aliases), (x : (Namespace, List[Alias])) => new Aliases(x._1, x._2))
 
 class NameSerializers(store : UniquelyIdentifiableStore) {
 
@@ -55,6 +28,11 @@ class NameSerializers(store : UniquelyIdentifiableStore) {
   object NamespaceSerializer extends UniquelyIdentifiableSerializer(store, BasicNamespaceSerializer, UISTypeCodes.NAMESPACE)
 
   object NameSerializer extends UniquelyIdentifiableSerializer(store, 
-    new BasicNameSerializer(IndexedNameSerializer, NamespaceSerializer), UISTypeCodes.NAME)
+    new BasicNameSerializer(NamespaceSerializer, IndexedNameSerializer), UISTypeCodes.NAME)
+
+  object AliasSerializer extends UniquelyIdentifiableSerializer(store, new BasicAliasSerializer(NamespaceSerializer), UISTypeCodes.ALIAS)
+
+  object AliasesSerializer extends UniquelyIdentifiableSerializer(store, 
+    new BasicAliasesSerializer(NamespaceSerializer, AliasSerializer), UISTypeCodes.ALIASES)
 
 }

@@ -3,7 +3,7 @@ package proofpeer.proofscript.serialization
 import proofpeer.general._
 
 object UniquelyIdentifiableStore {
-  type Id = Vector[Any]
+  type Id = Any
   type Item = Any
 }
 
@@ -58,5 +58,7 @@ object UISTypeCodes {
   val NAME = 3
   val TYPE = 4
   val TERM = 5
+  val ALIAS = 6
+  val ALIASES = 7
 
 }
