@@ -535,6 +535,61 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     }
     context1
   }
-   
+
+  import proofpeer.proofscript.serialization.UniquelyIdentifiableStore
+
+  private class Serializers(store : UniquelyIdentifiableStore) extends KernelSerializers {
+    import proofpeer.general._
+    import proofpeer.proofscript.serialization._
+
+    private val N = new NameSerializers(store)
+
+    val IndexedNameSerializer : Serializer[IndexedName] = N.IndexedNameSerializer
+    
+    val NamespaceSerializer : Serializer[Namespace] = N.NamespaceSerializer
+    
+    val NameSerializer : Serializer[Name] = N.NameSerializer
+
+    val AliasSerializer : Serializer[Alias] = N.AliasSerializer
+
+    val AliasesSerializer : Serializer[Aliases] = N.AliasesSerializer
+
+    private val T = new CustomizableTermSerializer(store, IndexedNameSerializer, NameSerializer)
+
+    val TypeSerializer : Serializer[Type] = T.TypeSerializer
+
+    val TermSerializer : Serializer[Term] = T
+
+    val ContextKindSerializer = new CustomizableContextKindSerializer(store, TermSerializer, TypeSerializer, 
+      NamespaceSerializer, NameSerializer)
+ 
+    private class ContextImplSerializer extends Serializer[ContextImpl] {
+
+      val cis = new UniquelyIdentifiableSerializer(store, this, UISTypeCodes.CONTEXT)
+
+      val serializer = QuintupleSerializer(ContextKindSerializer, BigIntSerializer, 
+        new TypecastSerializer[ContextKind, ContextKind.Created](ContextKindSerializer),
+        OptionSerializer(cis), MapSerializer(NameSerializer, TypeSerializer))
+
+      def serialize(c : ContextImpl) : Any = serializer.serialize((c.kind, c.depth, c.created, c.parentContext, c.constants))
+
+      def deserialize(b : Any) : ContextImpl = {
+        val t = serializer.deserialize(b)
+        new ContextImpl(t._1, t._2, t._3, t._4, t._5)
+      }
+
+    }
+
+    val ContextSerializer : Serializer[Context] = new TypecastSerializer[ContextImpl, Context](
+      new UniquelyIdentifiableSerializer(store, new ContextImplSerializer, UISTypeCodes.CONTEXT))
+
+    val TheoremSerializer = null
+  }
+
+  def serializers(store : UniquelyIdentifiableStore) : KernelSerializers = {
+    new Serializers(store)
+  }
+
+
 }
 

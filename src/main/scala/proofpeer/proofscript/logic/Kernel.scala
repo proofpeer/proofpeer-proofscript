@@ -1,6 +1,8 @@
 package proofpeer.proofscript.logic
 
+import proofpeer.general.Serializer
 import proofpeer.proofscript.serialization.UniquelyIdentifiable
+import proofpeer.proofscript.serialization.UniquelyIdentifiableStore
 
 object Utils {
 
@@ -156,6 +158,30 @@ trait Context extends UniquelyIdentifiable {
   def localConstants : Set[Name]  
 }
 
+trait KernelSerializers {
+
+  def IndexedNameSerializer : Serializer[IndexedName]
+
+  def NamespaceSerializer : Serializer[Namespace]
+
+  def NameSerializer : Serializer[Name]
+
+  def AliasSerializer : Serializer[Alias]
+
+  def AliasesSerializer : Serializer[Aliases]
+
+  def TypeSerializer : Serializer[Type]
+
+  def TermSerializer : Serializer[Term]
+
+  def ContextKindSerializer : Serializer[ContextKind]
+
+  def ContextSerializer : Serializer[Context]
+
+  def TheoremSerializer : Serializer[Theorem] 
+
+}
+
 trait Kernel {
   
   def completedNamespaces : Set[Namespace]
@@ -169,7 +195,13 @@ trait Kernel {
   def createNewNamespace(namespace : Namespace, parents : Set[Namespace], aliases : Aliases) : Context
   
   def completeNamespace(context : Context) : Context
-  
+
+  /** This is a back door into the kernel for serialisation purposes. 
+    * Only use this if you know what you are doing as this violates the encapsulation of the kernel and makes
+    * the creation of arbitrary contexts and theorems possible !!!
+    */
+  def serializers(store : UniquelyIdentifiableStore) : KernelSerializers
+
 }
 
 object Kernel {

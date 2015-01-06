@@ -64,5 +64,7 @@ object UISTypeCodes {
   val ALIAS = 6
   val ALIASES = 7
   val SOURCE = 8
+  val CONTEXTKIND = 9
+  val CONTEXT = 10
 
 }
