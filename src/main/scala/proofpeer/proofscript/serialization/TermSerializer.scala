@@ -13,7 +13,7 @@ extends CompoundSerializer[Term]
 
   val TypeSerializer = new CustomizableTypeSerializer(store)
 
-  private object TermSerializer extends UniquelyIdentifiableSerializer(store, TermSerializerBase)
+  private object TermSerializer extends UniquelyIdentifiableSerializer(store, TermSerializerBase, UISTypeCodes.TERM)
 
   private object TermSerializerBase extends CaseClassSerializerBase[Term] {
 

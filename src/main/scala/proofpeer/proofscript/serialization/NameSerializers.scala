@@ -50,11 +50,11 @@ class BasicNameSerializer(IndexedNameSerializer : CompoundSerializer[IndexedName
 
 class NameSerializers(store : Store) {
 
-  object IndexedNameSerializer extends UniquelyIdentifiableSerializer(store, BasicIndexedNameSerializer)
+  object IndexedNameSerializer extends UniquelyIdentifiableSerializer(store, BasicIndexedNameSerializer, UISTypeCodes.INDEXEDNAME)
 
-  object NamespaceSerializer extends UniquelyIdentifiableSerializer(store, BasicNamespaceSerializer)
+  object NamespaceSerializer extends UniquelyIdentifiableSerializer(store, BasicNamespaceSerializer, UISTypeCodes.NAMESPACE)
 
   object NameSerializer extends UniquelyIdentifiableSerializer(store, 
-    new BasicNameSerializer(IndexedNameSerializer, NamespaceSerializer))
+    new BasicNameSerializer(IndexedNameSerializer, NamespaceSerializer), UISTypeCodes.NAME)
 
 }

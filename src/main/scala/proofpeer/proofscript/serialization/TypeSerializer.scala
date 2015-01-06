@@ -7,7 +7,7 @@ class CustomizableTypeSerializer(store : Store) extends CompoundSerializer[Type]
 
   import Type._
 
-  private object TypeSerializer extends UniquelyIdentifiableSerializer(store, TypeSerializerBase)
+  private object TypeSerializer extends UniquelyIdentifiableSerializer(store, TypeSerializerBase, UISTypeCodes.TYPE)
 
   private object TypeSerializerBase extends CaseClassSerializerBase[Type] {
 
