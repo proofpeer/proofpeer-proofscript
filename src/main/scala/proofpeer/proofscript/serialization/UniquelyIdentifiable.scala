@@ -66,5 +66,6 @@ object UISTypeCodes {
   val SOURCE = 8
   val CONTEXTKIND = 9
   val CONTEXT = 10
+  val THEOREM = 11
 
 }

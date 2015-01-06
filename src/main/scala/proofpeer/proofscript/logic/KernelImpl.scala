@@ -583,7 +583,11 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     val ContextSerializer : Serializer[Context] = new TypecastSerializer[ContextImpl, Context](
       new UniquelyIdentifiableSerializer(store, new ContextImplSerializer, UISTypeCodes.CONTEXT))
 
-    val TheoremSerializer = null
+    private object BasicTheoremSerializer extends TransformSerializer[Theorem, (Context, Term)](
+      PairSerializer(ContextSerializer, TermSerializer), (th : Theorem) => (th.context, th.proposition), mk_theorem.tupled)
+
+    object TheoremSerializer extends UniquelyIdentifiableSerializer(store, BasicTheoremSerializer, UISTypeCodes.THEOREM)
+
   }
 
   def serializers(store : UniquelyIdentifiableStore) : KernelSerializers = {
