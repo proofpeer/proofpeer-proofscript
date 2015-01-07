@@ -136,7 +136,7 @@ object Interpreter {
 
 	def rootState : State = {
 		val environment : Map[String, StateValue] =
-			NativeFunctions.environment.mapValues(v => NativeFunctionValue(v))
+			NativeFunctions.environment.mapValues(f => NativeFunctionValue(f))
 		new State(Root.context, State.Env(environment, Map()), Collect.Zero, false)
 	}
 
@@ -219,9 +219,7 @@ object Interpreter {
 		}
 	}
 
-
 	def main(args : Array[String]) {
-
 		for (arg <- args) {
 			val f = new File(arg)
 			if (f.isDirectory) findTheoriesInDirectory(f)

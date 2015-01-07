@@ -568,7 +568,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       val cis = new UniquelyIdentifiableSerializer(store, this, UISTypeCodes.CONTEXT)
 
       val serializer = QuintupleSerializer(ContextKindSerializer, BigIntSerializer, 
-        new TypecastSerializer[ContextKind, ContextKind.Created](ContextKindSerializer),
+        new TypecastSerializer[ContextKind.Created, ContextKind](ContextKindSerializer),
         OptionSerializer(cis), MapSerializer(NameSerializer, TypeSerializer))
 
       def serialize(c : ContextImpl) : Any = serializer.serialize((c.kind, c.depth, c.created, c.parentContext, c.constants))
@@ -580,7 +580,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
 
     }
 
-    val ContextSerializer : Serializer[Context] = new TypecastSerializer[ContextImpl, Context](
+    val ContextSerializer : Serializer[Context] = new TypecastSerializer[Context, ContextImpl](
       new UniquelyIdentifiableSerializer(store, new ContextImplSerializer, UISTypeCodes.CONTEXT))
 
     private object BasicTheoremSerializer extends TransformSerializer[Theorem, (Context, Term)](

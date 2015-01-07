@@ -5,28 +5,33 @@ import proofpeer.proofscript.logic._
 object NativeFunctions {
 
   type Result = Either[StateValue, String]
-  type F = (Eval, State, StateValue) => Result
 
-  def environment : Map[String, F] = 
-    Map(
-      "reflexive" -> wrap(reflexive),
-      "transitive" -> wrap(transitive),
-      "combine" -> wrap(combine),
-      "normalize" -> wrap(normalize),
-      "instantiate" -> wrap(instantiate),
-      "modusponens" -> wrap(modusponens),
-      "equivalence" -> wrap(equivalence),
-      "abstract" -> wrap(abs),
-      "term" -> wrap(convert_to_term),
-      "string" -> wrap(convert_to_string),
-      "size" -> wrap(compute_size),
-      "fresh" -> wrap(fresh),
-      "destcomb" -> wrap(destcomb),
-      "destabs" -> wrap(destabs),
-      "lift" -> wrap(lift)
+  final class F(val name : String, f : (Eval, State, StateValue) => Result) {
+    def apply(eval : Eval, state : State, stateValue : StateValue) : Result = f(eval, state, stateValue)
+  }
+
+  private def nativeFunctions : Vector[F] = 
+    Vector(
+      wrap("reflexive", reflexive),
+      wrap("transitive", transitive),
+      wrap("combine", combine),
+      wrap("normalize", normalize),
+      wrap("instantiate", instantiate),
+      wrap("modusponens", modusponens),
+      wrap("equivalence", equivalence),
+      wrap("abstract", abs),
+      wrap("term", convert_to_term),
+      wrap("string", convert_to_string),
+      wrap("size", compute_size),
+      wrap("fresh", fresh),
+      wrap("destcomb", destcomb),
+      wrap("destabs", destabs),
+      wrap("lift", lift)
     )
 
-  private def wrap(f : F) : F = {
+  lazy val environment : Map[String, F] = nativeFunctions.map(f => (f.name, f)).toMap
+
+  private def wrap(name : String, f : (Eval, State, StateValue) => Result) : F = {
     def g(eval : Eval, state : State, value : StateValue) : Result = {
       try {
         f(eval, state, value)
@@ -34,7 +39,7 @@ object NativeFunctions {
         case ex: Utils.KernelException => Right(ex.reason)
       }
     }
-    g
+    new F(name, g)
   }
 
   private def reflexive(eval : Eval, state : State, tm : StateValue) : Result = {
@@ -233,6 +238,5 @@ object NativeFunctions {
       case _ => Right("theorem or pair of theorem and boolean expected")
     }
   }
-
 
 }

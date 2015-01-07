@@ -20,7 +20,7 @@ extends Serializer[Preterm]
 
   object PretypeSerializer extends DummySerializer[Pretype]
 
-  object QuotedSerializer extends TypecastSerializer[ParseTree, Any](ParseTreeSerializer)
+  object QuotedSerializer extends TypecastSerializer[Any, ParseTree](ParseTreeSerializer)
 
   object PretermSerializerBase extends CaseClassSerializerBase[Any] {
 

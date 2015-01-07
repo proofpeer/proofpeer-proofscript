@@ -6,18 +6,18 @@ import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
 trait StateValue extends UniquelyIdentifiable
 
-trait Collect {}
+sealed trait Collect {}
 object Collect {
 	case object Zero extends Collect
 	case class One(collected : Option[StateValue]) extends Collect
 	case class Multiple(collector : Collector) extends Collect 
 
-	trait Collector {
+	sealed trait Collector {
 		def add(value : StateValue) : Collector 
 		def reap : StateValue
 	}
 
-	private class TupleCollector(collected : List[StateValue]) extends Collector {
+	private class TupleCollector(val collected : List[StateValue]) extends Collector {
 		def add(value : StateValue) = new TupleCollector(value :: collected)
 		def reap : StateValue = TupleValue(collected.reverse.toVector)
 	}
@@ -27,6 +27,16 @@ object Collect {
 	def emptyMultiple : Multiple = Multiple(emptyTupleCollector)
 
 	def emptyOne : One = One(None)
+
+	import proofpeer.general._
+
+	final class CollectorSerializer(StateValueSerializer : Serializer[StateValue]) 
+	extends TransformSerializer[Collector, List[StateValue]](
+		ListSerializer(StateValueSerializer),
+		(collector : Collector) => collector.asInstanceOf[TupleCollector].collected,
+		(stateValues : List[StateValue]) => new TupleCollector(stateValues)
+	)
+	
 }
 
 case object NilValue extends StateValue
