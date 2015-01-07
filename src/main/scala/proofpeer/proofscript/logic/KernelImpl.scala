@@ -594,6 +594,5 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     new Serializers(store)
   }
 
-
 }
 

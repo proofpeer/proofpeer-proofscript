@@ -3,6 +3,7 @@ package proofpeer.proofscript.naiveinterpreter
 import java.io.File
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
+import proofpeer.proofscript.serialization.{Storage, UniquelyIdentifiableStore}
 
 object Interpreter {
 
@@ -152,7 +153,7 @@ object Interpreter {
 	var executionSkipped = 0
 	var failures : List[String] = List()
 
-	def evalTheory(states : States, thy : Theory, nr : NamespaceResolution[String]) {
+	def evalTheory(storage : Storage, states : States, thy : Theory, nr : NamespaceResolution[String]) {
 		val evaluator = new Eval(states, Root.kernel, nr, Root.nr, thy.aliases, thy.namespace)
 		val state : State = 
 			if (thy.namespace == Kernel.root_namespace) 
@@ -212,6 +213,7 @@ object Interpreter {
 					states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
 					println("successfully executed theory "+thy.namespace)
 					executionSucceeded = executionSucceeded + 1
+					storage.storeContext(state.context)
 				}
 			}
 		}
@@ -236,7 +238,8 @@ object Interpreter {
 		}
 		val nr = new NamespaceResolution[String](Root.parentsOfNamespace _, localNames _)
 		println("\n------------------------------------------------------------\n")
-		for (thy <- sorted_theories) evalTheory(states, thy, nr)
+		val storage = new Storage(Root.kernel)
+		for (thy <- sorted_theories) evalTheory(storage, states, thy, nr)
 		println("\n------------------------------------------------------------\n")
 		println("Processed "+numTheories+" theories:")
 		val numExecution = executionSucceeded + executionFailed + executionSkipped
@@ -248,6 +251,7 @@ object Interpreter {
 		}
 		println("  "+executionSkipped+" theories were skipped because of failed/skipped parent theories")
 		println("")
+		println("number of items in store: " + storage.store.size)
 	}
 
 }

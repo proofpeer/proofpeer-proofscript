@@ -15,7 +15,7 @@ trait UniquelyIdentifiableStore {
   
   import UniquelyIdentifiableStore._
 
-  def lookup[T](id : Id, deserialize : Item => T) : T
+  def lookup[T <: AnyRef](id : Id, deserialize : Item => T) : T
 
   def add(item : Item) : Id
 
@@ -54,8 +54,53 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Uniquel
 
 } 
 
-object UISTypeCodes {
+class StoreItem(val item : UniquelyIdentifiableStore.Item) {
+  var deserialized : Any = null
+}
 
+/** In memory store implementation which doesn't distinguish by namespace. */
+class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
+
+  import UniquelyIdentifiableStore._
+
+  private var items : Vector[StoreItem] = Vector()
+  private var itemsIndex : Map[Item, Id] = Map()
+
+  def size : Int = items.size
+
+  private def decodeId(id : Id) : Int = {
+    id match {
+      case i : Int => i
+      case l : Long => l.toInt
+      case _ => throw new RuntimeException("Cannot decode id: " + id)
+    }
+  }
+
+  def lookup[T <: AnyRef](id : Id, deserialize : Item => T) : T = {
+    if (id == -1) return null.asInstanceOf[T]
+    val storeItem = items(decodeId(id))
+    if (storeItem.deserialized != null) return storeItem.deserialized.asInstanceOf[T]
+    val t = deserialize(storeItem.item)
+    storeItem.deserialized = t
+    t
+  }
+
+  def add(item : Item) : Id = { 
+    itemsIndex.get(item) match {
+      case Some(id) => id
+      case None =>
+        items = items :+ new StoreItem(item)
+        val id = items.size - 1
+        if (sharing) itemsIndex = itemsIndex + (item -> id)
+        id
+    }
+  }
+
+  def addNull() : Id = -1
+
+}
+
+object UISTypeCodes {
   val INDEXEDNAME = 1
   val NAMESPACE = 2
   val NAME = 3
@@ -67,5 +112,4 @@ object UISTypeCodes {
   val CONTEXTKIND = 9
   val CONTEXT = 10
   val THEOREM = 11
-
 }

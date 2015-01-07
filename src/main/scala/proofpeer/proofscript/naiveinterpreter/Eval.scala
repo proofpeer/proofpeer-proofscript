@@ -481,7 +481,6 @@ class Eval(states : States, kernel : Kernel,
 					case Some((n, tys)) => Some((n, tys, right))
 				}	
 			case _ => None		
-
 		}
 	}
 
