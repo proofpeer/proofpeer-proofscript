@@ -7,15 +7,23 @@ object UniquelyIdentifiableStore {
   type Item = Any
 }
 
-trait UniquelyIdentifiable {
+trait UniquelyIdentifiable extends AnyRef {
   var optionalUniqueIdentifier : Option[UniquelyIdentifiableStore.Id] = None
+}
+
+trait CyclicSerializer[T] extends Serializer[T] {
+
+  def create(b : Any) : T
+
+  def assign(dest : T, src : T) : T
+
 }
 
 trait UniquelyIdentifiableStore {
   
   import UniquelyIdentifiableStore._
 
-  def lookup[T <: UniquelyIdentifiable](id : Id, deserialize : Item => T) : T
+  def lookup[T <: UniquelyIdentifiable](id : Id, create : Item => T, deserialize : Item => T, assign : (T, T) => T) : T
 
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id
 
@@ -27,21 +35,33 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Uniquel
 
   private def encode(t : T) : UniquelyIdentifiableStore.Item = Vector(typeCode, serializer.serialize(t))
 
-  private def decode(item : UniquelyIdentifiableStore.Item) : T = {
+  private def decompose(item : UniquelyIdentifiableStore.Item) : Any = {
     item match {
-      case Vector(tCode : Long, serialized) =>
+      case Vector(tCode, serialized) =>
         if (tCode != typeCode) throw new RuntimeException("wrong typeCode " + tCode + " found, expected code is " + typeCode)
-        serializer.deserialize(serialized)
+        serialized
       case _ => throw new RuntimeException("Invalid Store.Item: " + item)
     }
   }
+
+  private def decode(item : UniquelyIdentifiableStore.Item) : T = 
+    serializer.deserialize(decompose(item))
+  
+  private def create(item : UniquelyIdentifiableStore.Item) : T = 
+    serializer.asInstanceOf[CyclicSerializer[T]].create(decompose(item))
+
+  private def assign(dest : T, src : T) : T = 
+    serializer.asInstanceOf[CyclicSerializer[T]].assign(dest, src)
 
   def serialize(t : T) : UniquelyIdentifiableStore.Id = {
     store.add(t, encode _)
   }
 
   def deserialize(id : Any) : T = {
-    store.lookup(id.asInstanceOf[UniquelyIdentifiableStore.Id], decode _)
+    if (serializer.isInstanceOf[CyclicSerializer[_]]) {
+      store.lookup[T](id.asInstanceOf[UniquelyIdentifiableStore.Id], create _, decode _, assign _)
+    } else
+      store.lookup[T](id.asInstanceOf[UniquelyIdentifiableStore.Id], _ => null.asInstanceOf[T], decode _, (dest : T, src : T) => src)
   }
 
 } 
@@ -69,22 +89,22 @@ class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
     }
   }
 
-  def lookup[T <: UniquelyIdentifiable](id : Id, deserialize : Item => T) : T = {
+  def lookup[T <: UniquelyIdentifiable](id : Id, create : Item => T, deserialize : Item => T, assign : (T, T) => T) : T = {
     if (id == -1) return null.asInstanceOf[T]
     val storeItem = items(decodeId(id))
     if (storeItem.deserialized != null) return storeItem.deserialized.asInstanceOf[T]
+    val fresh_t = create(storeItem.item)
+    storeItem.deserialized = fresh_t
     val t = deserialize(storeItem.item)
-    storeItem.deserialized = t
-    t
+    val result = assign(fresh_t, t)
+    storeItem.deserialized = result
+    result
   }
 
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
     if (t == null) return -1 
     t.optionalUniqueIdentifier match {
-      case Some(id) => 
-        //val item = items(decodeId(id))
-        //if (item.item == null) throw new RuntimeException("Cycle during serialization detected: " + t)
-        id
+      case Some(id) => id
       case None =>
         val storeItem = new StoreItem()
         val id = items.size

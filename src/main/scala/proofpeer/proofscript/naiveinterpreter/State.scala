@@ -46,7 +46,7 @@ case class TermValue(value : Term) extends StateValue
 case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
 case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
-case class RecursiveFunctionValue(var state : State, val cases : Vector[ParseTree.DefCase]) extends StateValue
+case class RecursiveFunctionValue(var state : State, var cases : Vector[ParseTree.DefCase]) extends StateValue
 case class NativeFunctionValue(nativeFunction : NativeFunctions.F) extends StateValue
 case class StringValue(value : Vector[Int]) extends StateValue {
 	override def toString : String = {
@@ -146,6 +146,7 @@ object State {
 	case class StateValueRef(var value : StateValue)
 
 	case class Env(nonlinear : Map[String, StateValue], linear : Map[String, StateValueRef]) extends UniquelyIdentifiable {
+		def size = nonlinear.size + linear.size
 		def lookup(id : String) : Option[StateValue] = {
 			nonlinear.get(id) match {
 				case None => 

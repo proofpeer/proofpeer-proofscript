@@ -507,6 +507,14 @@ extends Serializer[ParseTree]
 
   }
 
+  private def decodeInt(b : Any) : Int = {
+    b match {
+      case i : Int => i
+      case l : Long => l.toInt
+      case _ => throw new RuntimeException("ParseTreeSerializer.decodeInt " + b + " failed")
+    }
+  }
+
   def serialize(parsetree : ParseTree)  = {
     val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
     val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
@@ -518,12 +526,14 @@ extends Serializer[ParseTree]
 
   def deserialize(serialized : Any) : ParseTree = {
     serialized match {
-      case Vector(kind : Long, serializedSourcePosition) =>
+      case Vector(_kind, serializedSourcePosition) =>
+        val kind = decodeInt(_kind)
         val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
         val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None).asInstanceOf[ParseTree]
         tree.sourcePosition = sourcePosition
         tree
-      case Vector(kind : Long, serializedSourcePosition, args) =>
+      case Vector(_kind, serializedSourcePosition, args) =>
+        val kind = decodeInt(_kind)
         val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
         val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args)).asInstanceOf[ParseTree]
         tree.sourcePosition = sourcePosition

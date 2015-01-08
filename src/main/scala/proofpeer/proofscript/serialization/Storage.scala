@@ -10,8 +10,12 @@ class Storage(kernel : Kernel) {
   val kernelSerializers = kernel.serializers(store)
   val stateSerializer = new CustomizableStateSerializer(store, kernelSerializers)
   
-  def store(namespace : Namespace, state : State) {
+  def store(namespace : Namespace, state : State) : Any = {
     stateSerializer.serialize(state)
+  }
+
+  def restore(storedStateId : Any) : State = {
+    stateSerializer.deserialize(storedStateId).asInstanceOf[State]
   }
 
 }

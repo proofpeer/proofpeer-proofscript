@@ -57,7 +57,8 @@ object NativeFunctionSerializer extends TransformSerializer[NativeFunctions.F, S
   NativeFunctions.environment(_))
 
 final class BasicStateValueSerializer(StateValueSerializer : Serializer[StateValue], StateSerializer : Serializer[State],
-  kernelSerializers : KernelSerializers, ParseTreeSerializer : Serializer[ParseTree]) extends NestedSerializer[StateValue]
+  kernelSerializers : KernelSerializers, ParseTreeSerializer : Serializer[ParseTree]) 
+extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
 {
 
   private val ContextSerializer = kernelSerializers.ContextSerializer
@@ -149,6 +150,26 @@ final class BasicStateValueSerializer(StateValueSerializer : Serializer[StateVal
           TupleValue(Serializers.TUPLEVALUE.deserialize(args.get))
         case _ => throw new RuntimeException("StateValueSerializerBase: cannot deserialize " + (kind, args))
       }
+    }
+  }
+
+  def create(b : Any) : StateValue = {
+    StateValueSerializerBase.determineKind(b) match {
+      case StateValueSerializerBase.Kind.RECURSIVEFUNCTIONVALUE =>
+        RecursiveFunctionValue(null, null)
+      case _ => null
+    }
+  }
+
+  def assign(dest : StateValue, src : StateValue) : StateValue = {
+    src match {
+      case v : RecursiveFunctionValue =>
+        val w = dest.asInstanceOf[RecursiveFunctionValue]
+        w.state = v.state
+        w.cases = v.cases
+        dest
+      case _ =>
+        src
     }
   }
 

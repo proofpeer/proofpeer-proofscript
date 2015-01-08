@@ -214,7 +214,10 @@ object Interpreter {
 					states.register(thy.namespace, completedState)
 					println("successfully executed theory "+thy.namespace)
 					executionSucceeded = executionSucceeded + 1
-					storage.store(thy.namespace, completedState)
+					val storedStateId = storage.store(thy.namespace, completedState)
+					println("successfully stored state, id = " + storedStateId)
+					val restoredState = storage.restore(storedStateId)
+					println("successfully restored state: " + (restoredState.env.size == completedState.env.size))
 				}
 			}
 		}
