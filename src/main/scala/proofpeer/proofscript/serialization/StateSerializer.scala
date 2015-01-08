@@ -1,11 +1,11 @@
 package proofpeer.proofscript.serialization
 
 import proofpeer.general._
-import proofpeer.proofscript.logic.KernelSerializers
-import proofpeer.proofscript.frontend.ParseTree
+import proofpeer.proofscript.logic.{Context, KernelSerializers}
+import proofpeer.proofscript.frontend.{SourcePosition, ParseTree}
 import proofpeer.proofscript.naiveinterpreter._
 
-class CustomizableCollectSerializer(StateValueSerializer : Serializer[StateValue]) extends Serializer[Collect] {
+final class CustomizableCollectSerializer(StateValueSerializer : Serializer[StateValue]) extends NestedSerializer[Collect] {
 
   import Collect._
 
@@ -49,17 +49,15 @@ class CustomizableCollectSerializer(StateValueSerializer : Serializer[StateValue
     }
   }
 
-  def serialize(x : Collect) = CollectSerializerBase.serialize(x)
-
-  def deserialize(b : Any) : Collect = CollectSerializerBase.deserialize(b)
+  protected val innerSerializer : Serializer[Collect] = CollectSerializerBase
 
 }
 
-object NativeFunctionSerializer extends TransformSerializer[NativeFunctions.F, String](StringSerializer,
-  (f : NativeFunctions.F) => f.name, (name : String) => NativeFunctions.environment(name))
+object NativeFunctionSerializer extends TransformSerializer[NativeFunctions.F, String](StringSerializer, _.name, 
+  NativeFunctions.environment(_))
 
-class BasicStateValueSerializer(StateValueSerializer : Serializer[StateValue], StateSerializer : Serializer[State],
-  kernelSerializers : KernelSerializers, ParseTreeSerializer : Serializer[ParseTree])
+final class BasicStateValueSerializer(StateValueSerializer : Serializer[StateValue], StateSerializer : Serializer[State],
+  kernelSerializers : KernelSerializers, ParseTreeSerializer : Serializer[ParseTree]) extends NestedSerializer[StateValue]
 {
 
   private val ContextSerializer = kernelSerializers.ContextSerializer
@@ -154,6 +152,49 @@ class BasicStateValueSerializer(StateValueSerializer : Serializer[StateValue], S
     }
   }
 
+  protected val innerSerializer : Serializer[StateValue] = StateValueSerializerBase
+
+}
+
+final class CustomizableStateValueSerializer(store : UniquelyIdentifiableStore, StateSerializer : Serializer[State], 
+  kernelSerializers : KernelSerializers, ParseTreeSerializer : Serializer[ParseTree]) extends NestedSerializer[StateValue]
+{
+
+  private object StateValueSerializer extends UniquelyIdentifiableSerializer(store, 
+    new BasicStateValueSerializer(this, StateSerializer, kernelSerializers, ParseTreeSerializer), UISTypeCodes.STATEVALUE)
+
+  protected val innerSerializer : Serializer[StateValue] = StateValueSerializer
+
+}
+
+final class StateValueRefSerializer(StateValueSerializer : Serializer[StateValue]) extends TransformSerializer(
+  StateValueSerializer, (r : State.StateValueRef) => r.value, (v : StateValue) => State.StateValueRef(v))
+
+final class BasicEnvSerializer(StateValueSerializer : Serializer[StateValue]) extends TransformSerializer(
+  PairSerializer(MapSerializer(StringSerializer, StateValueSerializer), MapSerializer(StringSerializer, 
+    new StateValueRefSerializer(StateValueSerializer))),
+  (env : State.Env) => (env.nonlinear, env.linear), State.Env.tupled)
+
+final class BasicStateSerializer(ContextSerializer : Serializer[Context], EnvSerializer : Serializer[State.Env],
+  CollectSerializer : Serializer[Collect]) extends TransformSerializer(
+  QuadrupleSerializer(ContextSerializer, EnvSerializer, CollectSerializer, BooleanSerializer),
+  (s : State) => (s.context, s.env, s.collect, s.canReturn),
+  (s : (Context, State.Env, Collect, Boolean)) => new State(s._1, s._2, s._3, s._4))
+
+final class CustomizableStateSerializer(store : UniquelyIdentifiableStore, val kernelSerializers : KernelSerializers) 
+extends NestedSerializer[State] 
+{
+
+  val SourcePositionSerializer : Serializer[SourcePosition] = new BasicSourcePositionSerializer(new CustomizableSourceSerializer(store))
+  val ParseTreeSerializer = new CustomizableParseTreeSerializer(SourcePositionSerializer, 
+    kernelSerializers.IndexedNameSerializer, kernelSerializers.NamespaceSerializer, kernelSerializers.NameSerializer)
+  val StateValueSerializer = new CustomizableStateValueSerializer(store, this, kernelSerializers, ParseTreeSerializer)
+  val EnvSerializer = new UniquelyIdentifiableSerializer(store, new BasicEnvSerializer(StateValueSerializer), UISTypeCodes.ENV)
+  val CollectSerializer = new CustomizableCollectSerializer(StateValueSerializer)
+
+  protected val innerSerializer : Serializer[State] = new UniquelyIdentifiableSerializer(store, new BasicStateSerializer(
+    kernelSerializers.ContextSerializer, EnvSerializer, CollectSerializer), UISTypeCodes.STATE)
+
 }
 
 object StateSerializerGenerator {
@@ -174,11 +215,11 @@ object StateSerializerGenerator {
     ("TupleValue", "VectorSerializer(StateValueSerializer)")
   )
 
-  def main(args : Array[String]) {
+  def _main(args : Array[String]) {
     val collectTool = new CaseClassSerializerTool("CollectSerializerBase", collectCases, "Collect")
     // collectTool.output()
     val stateValueTool = new CaseClassSerializerTool("StateValueSerializerBase", stateValueCases, "StateValue")
-    stateValueTool.output()
+    //stateValueTool.output()
   }
 
 }

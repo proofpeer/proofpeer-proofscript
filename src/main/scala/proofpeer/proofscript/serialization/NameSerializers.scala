@@ -10,18 +10,18 @@ object BasicNamespaceSerializer extends TransformSerializer(PairSerializer(Boole
   (namespace : Namespace) => (namespace.isAbsolute, namespace.components), 
   (n : (Boolean, Vector[String])) => Namespace(n._1, n._2))
 
-class BasicNameSerializer(NamespaceSerializer : Serializer[Namespace], IndexedNameSerializer : Serializer[IndexedName]) 
+final class BasicNameSerializer(NamespaceSerializer : Serializer[Namespace], IndexedNameSerializer : Serializer[IndexedName]) 
 extends TransformSerializer(PairSerializer(OptionSerializer(NamespaceSerializer), IndexedNameSerializer),
   (name : Name) => (name.namespace, name.name), Name.tupled)
 
-class BasicAliasSerializer(NamespaceSerializer : Serializer[Namespace]) extends TransformSerializer(
+final class BasicAliasSerializer(NamespaceSerializer : Serializer[Namespace]) extends TransformSerializer(
   PairSerializer(StringSerializer, NamespaceSerializer), (alias : Alias) => (alias.alias, alias.namespace), Alias.tupled)
   
-class BasicAliasesSerializer(NamespaceSerializer : Serializer[Namespace], AliasSerializer : Serializer[Alias]) extends TransformSerializer(
+final class BasicAliasesSerializer(NamespaceSerializer : Serializer[Namespace], AliasSerializer : Serializer[Alias]) extends TransformSerializer(
   PairSerializer(NamespaceSerializer, ListSerializer(AliasSerializer)),
   (aliases : Aliases) => (aliases.base, aliases.aliases), (x : (Namespace, List[Alias])) => new Aliases(x._1, x._2))
 
-class NameSerializers(store : UniquelyIdentifiableStore) {
+final class NameSerializers(store : UniquelyIdentifiableStore) {
 
   object IndexedNameSerializer extends UniquelyIdentifiableSerializer(store, BasicIndexedNameSerializer, UISTypeCodes.INDEXEDNAME)
 

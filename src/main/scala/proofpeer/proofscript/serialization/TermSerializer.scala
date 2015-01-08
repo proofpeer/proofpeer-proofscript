@@ -3,10 +3,10 @@ package proofpeer.proofscript.serialization
 import proofpeer.proofscript.logic._
 import proofpeer.general._
 
-class CustomizableTermSerializer(store : UniquelyIdentifiableStore, 
+final class CustomizableTermSerializer(store : UniquelyIdentifiableStore, 
   IndexedNameSerializer : Serializer[IndexedName], 
   NameSerializer : Serializer[Name]) 
-extends Serializer[Term] 
+extends NestedSerializer[Term] 
 {
 
   import Term._
@@ -67,9 +67,7 @@ extends Serializer[Term]
 
   }
 
-  def serialize(tm : Term) = TermSerializerBase.serialize(tm)
-
-  def deserialize(b : Any) : Term = TermSerializerBase.deserialize(b)
+  protected val innerSerializer : Serializer[Term] = TermSerializerBase
 
 }
 

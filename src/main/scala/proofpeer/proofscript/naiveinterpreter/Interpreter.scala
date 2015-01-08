@@ -213,7 +213,7 @@ object Interpreter {
 					states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
 					println("successfully executed theory "+thy.namespace)
 					executionSucceeded = executionSucceeded + 1
-					storage.storeContext(state.context)
+					storage.store(thy.namespace, state)
 				}
 			}
 		}
@@ -237,7 +237,12 @@ object Interpreter {
 		val nr = new NamespaceResolution[String](Root.parentsOfNamespace _, localNames _)
 		println("\n------------------------------------------------------------\n")
 		val storage = new Storage(Root.kernel)
-		for (thy <- sorted_theories) evalTheory(storage, states, thy, nr)
+		try {
+			for (thy <- sorted_theories) evalTheory(storage, states, thy, nr)
+		} catch {
+			case _ : StackOverflowError => 
+				println("Stack overflow occurred.")
+		}
 		println("\n------------------------------------------------------------\n")
 		println("Processed "+numTheories+" theories:")
 		val numExecution = executionSucceeded + executionFailed + executionSkipped

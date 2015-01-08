@@ -1,15 +1,17 @@
 package proofpeer.proofscript.serialization
 
 import proofpeer.proofscript.logic._
+import proofpeer.proofscript.naiveinterpreter.State
 
 class Storage(kernel : Kernel) {
 
-  val store = new InMemoryFlatStore(true)
+  val store = new InMemoryFlatStore(false)
   
-  val serializers = kernel.serializers(store)
+  val kernelSerializers = kernel.serializers(store)
+  val stateSerializer = new CustomizableStateSerializer(store, kernelSerializers)
   
-  def storeContext(context : Context) {
-    serializers.ContextSerializer.serialize(context)
+  def store(namespace : Namespace, state : State) {
+    stateSerializer.serialize(state)
   }
 
 }

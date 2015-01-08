@@ -3,7 +3,7 @@ package proofpeer.proofscript.serialization
 import proofpeer.proofscript.logic._
 import proofpeer.general._
 
-class CustomizableTypeSerializer(store : UniquelyIdentifiableStore) extends Serializer[Type] {
+final class CustomizableTypeSerializer(store : UniquelyIdentifiableStore) extends NestedSerializer[Type] {
 
   import Type._
 
@@ -46,9 +46,8 @@ class CustomizableTypeSerializer(store : UniquelyIdentifiableStore) extends Seri
     }
 
   }
-  def serialize(ty : Type) = TypeSerializerBase.serialize(ty)
 
-  def deserialize(b : Any) : Type = TypeSerializerBase.deserialize(b)
+  protected val innerSerializer : Serializer[Type] = TypeSerializerBase
 
 }
 

@@ -9,6 +9,7 @@ object UniquelyIdentifiableStore {
 
 trait UniquelyIdentifiable {
   var optionalUniqueIdentifier : Option[UniquelyIdentifiableStore.Id] = None
+  var visited : Boolean = false
 }
 
 trait UniquelyIdentifiableStore {
@@ -31,11 +32,14 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Uniquel
     if (t == null) return store.addNull()
     t.optionalUniqueIdentifier match {
       case Some(id) => id
-      case None => 
+      case None if !t.visited => 
+        t.visited = true
         val serialized = Vector(typeCode, serializer.serialize(t))
         val uniqueIdentifier = store.add(serialized)
         t.optionalUniqueIdentifier = Some(uniqueIdentifier)
         uniqueIdentifier
+      case None =>
+        throw new RuntimeException("cannot serialize cyclic structures")
     }   
   }
 
@@ -112,4 +116,7 @@ object UISTypeCodes {
   val CONTEXTKIND = 9
   val CONTEXT = 10
   val THEOREM = 11
+  val STATEVALUE = 12
+  val ENV = 13
+  val STATE = 14
 }

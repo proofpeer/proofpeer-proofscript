@@ -186,7 +186,7 @@ object State {
 	}
 }
 
-class State(val context : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) {
+class State(val context : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) extends UniquelyIdentifiable {
 
 	def lookup(id : String) : Option[StateValue] = env.lookup(id)
 

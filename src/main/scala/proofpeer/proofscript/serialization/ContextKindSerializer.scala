@@ -4,7 +4,7 @@ import proofpeer.general._
 import proofpeer.proofscript.logic._
 
 class BasicContextKindSerializer(TermSerializer : Serializer[Term], TypeSerializer : Serializer[Type],
-  NamespaceSerializer : Serializer[Namespace], NameSerializer : Serializer[Name]) extends Serializer[ContextKind]
+  NamespaceSerializer : Serializer[Namespace], NameSerializer : Serializer[Name]) extends NestedSerializer[ContextKind]
 {
 
   import ContextKind._ 
@@ -66,9 +66,7 @@ class BasicContextKindSerializer(TermSerializer : Serializer[Term], TypeSerializ
 
   }
 
-  def serialize(contextKind : ContextKind) = ContextKindSerializerBase.serialize(contextKind)
-
-  def deserialize(b : Any) : ContextKind = ContextKindSerializerBase.deserialize(b)
+  protected val innerSerializer : Serializer[ContextKind] = ContextKindSerializerBase
 
 }
 

@@ -7,16 +7,16 @@ import Pretype._
 import Preterm._
 import proofpeer.indent.Span
 
-class CustomizablePretermSerializer(
+final class CustomizablePretermSerializer(
   SourcePositionSerializer : Serializer[SourcePosition], 
   IndexedNameSerializer : Serializer[IndexedName],
   NamespaceSerializer : Serializer[Namespace],
   NameSerializer : Serializer[Name],
   ParseTreeSerializer : Serializer[ParseTree]) 
-extends Serializer[Preterm]
+extends NestedSerializer[Preterm]
 {
 
-  val PretermSerializer = this 
+  val PretermSerializer = this
 
   object PretypeSerializer extends DummySerializer[Pretype]
 
@@ -107,9 +107,7 @@ extends Serializer[Preterm]
 
   }  
 
-  def serialize(x : Preterm) = PretermSerializerBase.serialize(x)
-
-  def deserialize(b : Any) : Preterm = PretermSerializerBase.deserialize(b).asInstanceOf[Preterm]
+  protected lazy val innerSerializer : Serializer[Preterm] = new TypecastSerializer(PretermSerializerBase)
 
 }
 
