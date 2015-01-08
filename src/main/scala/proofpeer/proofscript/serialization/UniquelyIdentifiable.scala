@@ -9,7 +9,6 @@ object UniquelyIdentifiableStore {
 
 trait UniquelyIdentifiable {
   var optionalUniqueIdentifier : Option[UniquelyIdentifiableStore.Id] = None
-  var visited : Boolean = false
 }
 
 trait UniquelyIdentifiableStore {
@@ -82,7 +81,10 @@ class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
     if (t == null) return -1 
     t.optionalUniqueIdentifier match {
-      case Some(id) => id
+      case Some(id) => 
+        //val item = items(decodeId(id))
+        //if (item.item == null) throw new RuntimeException("Cycle during serialization detected: " + t)
+        id
       case None =>
         val storeItem = new StoreItem()
         val id = items.size
@@ -91,7 +93,9 @@ class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
         val item = serialize(t)
         if (sharing && id == items.size - 1 && itemsIndex.get(item).isDefined) {
           items = items.dropRight(1)
-          itemsIndex(item)
+          val id = itemsIndex(item)
+          t.optionalUniqueIdentifier = Some(id)
+          id
         } else {
           storeItem.item = item
           if (sharing) itemsIndex = itemsIndex + (item -> id)

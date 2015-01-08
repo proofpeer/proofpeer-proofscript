@@ -210,10 +210,11 @@ object Interpreter {
 					executionFailed = executionFailed + 1
 				} else {
 					val completed = Root.kernel.completeNamespace(state.context)
-					states.register(thy.namespace, new State(completed, state.env.freeze, Collect.Zero, false))
+					val completedState = new State(completed, state.env.freeze, Collect.Zero, false)
+					states.register(thy.namespace, completedState)
 					println("successfully executed theory "+thy.namespace)
 					executionSucceeded = executionSucceeded + 1
-					storage.store(thy.namespace, state)
+					storage.store(thy.namespace, completedState)
 				}
 			}
 		}
