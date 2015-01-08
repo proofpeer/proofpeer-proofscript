@@ -5,7 +5,7 @@ import proofpeer.proofscript.naiveinterpreter.State
 
 class Storage(kernel : Kernel) {
 
-  val store = new InMemoryFlatStore(false)
+  val store = new InMemoryFlatStore(true)
   
   val kernelSerializers = kernel.serializers(store)
   val stateSerializer = new CustomizableStateSerializer(store, kernelSerializers)

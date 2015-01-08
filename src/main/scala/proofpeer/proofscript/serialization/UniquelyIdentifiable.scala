@@ -16,11 +16,9 @@ trait UniquelyIdentifiableStore {
   
   import UniquelyIdentifiableStore._
 
-  def lookup[T <: AnyRef](id : Id, deserialize : Item => T) : T
+  def lookup[T <: UniquelyIdentifiable](id : Id, deserialize : Item => T) : T
 
-  def add(item : Item) : Id
-
-  def addNull() : Id
+  def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id
 
 }
 
@@ -28,20 +26,7 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Uniquel
   serializer : Serializer[T], typeCode : Int) extends Serializer[T]
 {
 
-  def serialize(t : T) : UniquelyIdentifiableStore.Id = {
-    if (t == null) return store.addNull()
-    t.optionalUniqueIdentifier match {
-      case Some(id) => id
-      case None if !t.visited => 
-        t.visited = true
-        val serialized = Vector(typeCode, serializer.serialize(t))
-        val uniqueIdentifier = store.add(serialized)
-        t.optionalUniqueIdentifier = Some(uniqueIdentifier)
-        uniqueIdentifier
-      case None =>
-        throw new RuntimeException("cannot serialize cyclic structures")
-    }   
-  }
+  private def encode(t : T) : UniquelyIdentifiableStore.Item = Vector(typeCode, serializer.serialize(t))
 
   private def decode(item : UniquelyIdentifiableStore.Item) : T = {
     item match {
@@ -52,13 +37,18 @@ class UniquelyIdentifiableSerializer[T <: UniquelyIdentifiable] (store : Uniquel
     }
   }
 
+  def serialize(t : T) : UniquelyIdentifiableStore.Id = {
+    store.add(t, encode _)
+  }
+
   def deserialize(id : Any) : T = {
     store.lookup(id.asInstanceOf[UniquelyIdentifiableStore.Id], decode _)
   }
 
 } 
 
-class StoreItem(val item : UniquelyIdentifiableStore.Item) {
+final class StoreItem {
+  var item : UniquelyIdentifiableStore.Item = null
   var deserialized : Any = null
 }
 
@@ -80,7 +70,7 @@ class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
     }
   }
 
-  def lookup[T <: AnyRef](id : Id, deserialize : Item => T) : T = {
+  def lookup[T <: UniquelyIdentifiable](id : Id, deserialize : Item => T) : T = {
     if (id == -1) return null.asInstanceOf[T]
     val storeItem = items(decodeId(id))
     if (storeItem.deserialized != null) return storeItem.deserialized.asInstanceOf[T]
@@ -89,18 +79,26 @@ class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
     t
   }
 
-  def add(item : Item) : Id = { 
-    itemsIndex.get(item) match {
+  def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
+    if (t == null) return -1 
+    t.optionalUniqueIdentifier match {
       case Some(id) => id
       case None =>
-        items = items :+ new StoreItem(item)
-        val id = items.size - 1
-        if (sharing) itemsIndex = itemsIndex + (item -> id)
-        id
+        val storeItem = new StoreItem()
+        val id = items.size
+        items = items :+ storeItem
+        t.optionalUniqueIdentifier = Some(id)
+        val item = serialize(t)
+        if (sharing && id == items.size - 1 && itemsIndex.get(item).isDefined) {
+          items = items.dropRight(1)
+          itemsIndex(item)
+        } else {
+          storeItem.item = item
+          if (sharing) itemsIndex = itemsIndex + (item -> id)
+          id
+        }
     }
   }
-
-  def addNull() : Id = -1
 
 }
 

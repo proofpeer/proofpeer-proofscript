@@ -7,6 +7,55 @@ import Pretype._
 import Preterm._
 import proofpeer.indent.Span
 
+final object PretypeSerializer extends CaseClassSerializerBase[Pretype] {
+
+  object Kind {
+    val PTYUNIVERSE = 0
+    val PTYPROP = 1
+    val PTYFUN = -1
+    val PTYANY = 2
+    val PTYVAR = -2
+  }
+
+  object Serializers {
+    val PTYFUN = PairSerializer(PretypeSerializer,PretypeSerializer)
+    val PTYVAR = BigIntSerializer
+  }
+
+  def decomposeAndSerialize(obj : Pretype) : (Int, Option[Any]) = {
+    obj match {
+      case PTyUniverse =>
+        (Kind.PTYUNIVERSE, None)
+      case PTyProp =>
+        (Kind.PTYPROP, None)
+      case t : PTyFun =>
+        (Kind.PTYFUN, Some(Serializers.PTYFUN.serialize(PTyFun.unapply(t).get)))
+      case PTyAny =>
+        (Kind.PTYANY, None)
+      case PTyVar(x) =>
+        (Kind.PTYVAR, Some(Serializers.PTYVAR.serialize(x)))
+      case _ => throw new RuntimeException("PretypeSerializer: cannot serialize " + obj)
+    }
+  }
+
+  def deserializeAndCompose(kind : Int, args : Option[Any]) : Pretype = {
+    kind match {
+      case Kind.PTYUNIVERSE if args.isEmpty => 
+        PTyUniverse
+      case Kind.PTYPROP if args.isEmpty => 
+        PTyProp
+      case Kind.PTYFUN if args.isDefined => 
+        PTyFun.tupled(Serializers.PTYFUN.deserialize(args.get))
+      case Kind.PTYANY if args.isEmpty => 
+        PTyAny
+      case Kind.PTYVAR if args.isDefined => 
+        PTyVar(Serializers.PTYVAR.deserialize(args.get))
+      case _ => throw new RuntimeException("PretypeSerializer: cannot deserialize " + (kind, args))
+    }
+  }
+
+}
+
 final class CustomizablePretermSerializer(
   SourcePositionSerializer : Serializer[SourcePosition], 
   IndexedNameSerializer : Serializer[IndexedName],
@@ -18,29 +67,20 @@ extends NestedSerializer[Preterm]
 
   val PretermSerializer = this
 
-  object PretypeSerializer extends DummySerializer[Pretype]
-
   object QuotedSerializer extends TypecastSerializer[Any, ParseTree](ParseTreeSerializer)
 
-  object PretermSerializerBase extends CaseClassSerializerBase[Any] {
+  object PretermSerializerBase extends CaseClassSerializerBase[Preterm] {
 
     object Kind {
-      val PTYUNIVERSE = 0
-      val PTYPROP = 1
-      val PTYFUN = -1
-      val PTYANY = 2
-      val PTYVAR = -2
-      val PTMTYPING = 3
-      val PTMNAME = -3
-      val PTMABS = 4
-      val PTMCOMB = -4
-      val PTMQUOTE = 5
-      val PTMERROR = -5
+      val PTMTYPING = 0
+      val PTMNAME = 1
+      val PTMABS = -1
+      val PTMCOMB = 2
+      val PTMQUOTE = -2
+      val PTMERROR = 3
     }
 
     object Serializers {
-      val PTYFUN = PairSerializer(PretypeSerializer,PretypeSerializer)
-      val PTYVAR = BigIntSerializer
       val PTMTYPING = PairSerializer(PretermSerializer,PretypeSerializer)
       val PTMNAME = PairSerializer(NameSerializer,PretypeSerializer)
       val PTMABS = QuadrupleSerializer(IndexedNameSerializer,PretypeSerializer,PretermSerializer,PretypeSerializer)
@@ -49,18 +89,8 @@ extends NestedSerializer[Preterm]
       val PTMERROR = StringSerializer
     }
 
-    def decomposeAndSerialize(obj : Any) : (Int, Option[Any]) = {
+    def decomposeAndSerialize(obj : Preterm) : (Int, Option[Any]) = {
       obj match {
-        case PTyUniverse =>
-          (Kind.PTYUNIVERSE, None)
-        case PTyProp =>
-          (Kind.PTYPROP, None)
-        case t : PTyFun =>
-          (Kind.PTYFUN, Some(Serializers.PTYFUN.serialize(PTyFun.unapply(t).get)))
-        case PTyAny =>
-          (Kind.PTYANY, None)
-        case PTyVar(x) =>
-          (Kind.PTYVAR, Some(Serializers.PTYVAR.serialize(x)))
         case t : PTmTyping =>
           (Kind.PTMTYPING, Some(Serializers.PTMTYPING.serialize(PTmTyping.unapply(t).get)))
         case t : PTmName =>
@@ -77,18 +107,8 @@ extends NestedSerializer[Preterm]
       }
     }
 
-    def deserializeAndCompose(kind : Int, args : Option[Any]) : Any = {
+    def deserializeAndCompose(kind : Int, args : Option[Any]) : Preterm = {
       kind match {
-        case Kind.PTYUNIVERSE if args.isEmpty => 
-          PTyUniverse
-        case Kind.PTYPROP if args.isEmpty => 
-          PTyProp
-        case Kind.PTYFUN if args.isDefined => 
-          PTyFun.tupled(Serializers.PTYFUN.deserialize(args.get))
-        case Kind.PTYANY if args.isEmpty => 
-          PTyAny
-        case Kind.PTYVAR if args.isDefined => 
-          PTyVar(Serializers.PTYVAR.deserialize(args.get))
         case Kind.PTMTYPING if args.isDefined => 
           PTmTyping.tupled(Serializers.PTMTYPING.deserialize(args.get))
         case Kind.PTMNAME if args.isDefined => 
@@ -104,22 +124,24 @@ extends NestedSerializer[Preterm]
         case _ => throw new RuntimeException("PretermSerializerBase: cannot deserialize " + (kind, args))
       }
     }
+  }
 
-  }  
-
-  protected lazy val innerSerializer : Serializer[Preterm] = new TypecastSerializer(PretermSerializerBase)
+  protected lazy val innerSerializer : Serializer[Preterm] = PretermSerializerBase
 
 }
 
 /** This is code used to create most of the above code. It is not needed during runtime, just during programming. */
 object PretermSerializerGenerator {
 
-  val cases : Vector[Any] = Vector(
+  val typeCases : Vector[Any] = Vector(
     "PTyUniverse",
     "PTyProp",
     ("PTyFun", "PretypeSerializer", "PretypeSerializer"),
     "PTyAny",
-    ("PTyVar", "BigIntSerializer"),
+    ("PTyVar", "BigIntSerializer")
+  )
+
+  val termCases : Vector[Any] = Vector(
     ("PTmTyping", "PretermSerializer", "PretypeSerializer"),
     ("PTmName", "NameSerializer", "PretypeSerializer"),
     ("PTmAbs", "IndexedNameSerializer", "PretypeSerializer", "PretermSerializer", "PretypeSerializer"),
@@ -130,8 +152,10 @@ object PretermSerializerGenerator {
 
   /** Rename _main to main to generate the code. */
   def _main(args : Array[String]) {
-    val tool = new CaseClassSerializerTool("PretermSerializerBase", cases)
-    tool.output()
+    val typeTool = new CaseClassSerializerTool("PretypeSerializer", typeCases, "Pretype")
+    typeTool.output()
+    val termTool = new CaseClassSerializerTool("PretermSerializerBase", termCases, "Preterm")
+    termTool.output()
   }
 
 }
