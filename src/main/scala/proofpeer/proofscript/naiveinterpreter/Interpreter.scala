@@ -258,7 +258,7 @@ object Interpreter {
 		}
 		println("  "+executionSkipped+" theories were skipped because of failed/skipped parent theories")
 		println("")
-		println("number of items in store: " + storage.store.size)
+		storage.printStats()
 	}
 
 }
