@@ -6,7 +6,7 @@ theorem trivImp:'∀ p. p → p'
   assume 'p:ℙ'
 
 theorem notFalse:'¬⊥'
-  modusponens [instantiate [trivImp,'⊥'],sym (apThm [root\notDef,'⊥'])]
+  modusponens [instantiate [trivImp,'⊥'],sym (apThm [\root\notDef,'⊥'])]
 
 val orIntroL =
   theorem orIntroL:'∀ p q. p → p ∨ q'

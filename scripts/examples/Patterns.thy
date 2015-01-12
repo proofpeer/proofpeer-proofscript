@@ -1,4 +1,4 @@
-theory \examples\Patterns extends \root
+theory Patterns extends \root
 
 def 
   f 0 = true

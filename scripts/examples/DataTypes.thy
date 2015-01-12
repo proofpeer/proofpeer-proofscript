@@ -1,4 +1,4 @@
-theory \examples\DataTypes extends \root
+theory DataTypes extends \root
 
 # This is the nil literal:
 show nil

@@ -1,4 +1,4 @@
-theory \examples\LogicStatements extends \root
+theory LogicStatements extends \root
 
 
 # let introduction

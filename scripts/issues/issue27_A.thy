@@ -1,4 +1,4 @@
-theory \issue27_A extends \root
+theory issue27_A extends \root
 
 val f = (g, i) =>
   if i > 0 then 

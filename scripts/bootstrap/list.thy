@@ -1,5 +1,5 @@
 theory List
-extends root
+extends \root
 
 # Basic list functions
 

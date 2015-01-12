@@ -51,6 +51,7 @@ sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String
     if (components.size == 0) return None
     Some(Namespace(isAbsolute, components.toList.tail.toVector))
   }
+  def lastComponent : String = components(components.size - 1)
 }
 
 object NamespaceResolution {

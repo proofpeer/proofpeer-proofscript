@@ -1,5 +1,5 @@
 theory issue42
-extends root
+extends \root
 
 theorem '∀x. x = x'
   val (ctx,x,_) = destabs 'x ↦ x'

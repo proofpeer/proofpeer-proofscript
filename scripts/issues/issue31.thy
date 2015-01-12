@@ -1,4 +1,4 @@
-theory \issue31 extends \root
+theory issue31 extends \root
 
 # Temporarily removed feature from language which allows introduction of variables via quotes
 

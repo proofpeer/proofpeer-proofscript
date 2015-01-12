@@ -1,4 +1,4 @@
-theory \examples\FunctionsAndContexts extends \root
+theory FunctionsAndContexts extends \root
 
 # Block A
 def 

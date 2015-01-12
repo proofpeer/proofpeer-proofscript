@@ -1,5 +1,5 @@
 theory Equal
-extends root
+extends \root
 
 # Very basic derived theorems and rules concerning equality
 

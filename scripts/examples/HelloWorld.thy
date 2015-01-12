@@ -1,4 +1,4 @@
-theory \examples\HelloWorld
+theory HelloWorld
 extends \root
 
 show "Hello World!"

@@ -1,4 +1,4 @@
-theory \examples\Blocks extends \root
+theory Blocks extends \root
 
 # do and do*
 

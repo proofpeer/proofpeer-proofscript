@@ -1,4 +1,4 @@
-theory \examples\Statements extends \root
+theory Statements extends \root
 
 
 # do

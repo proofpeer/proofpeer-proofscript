@@ -1,4 +1,4 @@
-theory \examples\Logic extends \root
+theory Logic extends \root
 
 
 # term

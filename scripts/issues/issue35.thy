@@ -1,4 +1,4 @@
-theory \issue35 extends \root
+theory issue35 extends \root
 
 def
   assoc [_,[]] = nil

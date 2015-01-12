@@ -1,4 +1,4 @@
-theory \issue29 extends \root
+theory issue29 extends \root
 
 theorem '∀ p. p → (true = ((p : ℙ ↦ p) = (p ↦ p)))'
   let 'p:ℙ'

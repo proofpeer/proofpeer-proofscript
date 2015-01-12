@@ -1,4 +1,4 @@
-theory \issue27_B extends \issue27_A
+theory issue27_B extends issue27_A
 
 def g(i) = 
   if i > 0 then  

@@ -19,7 +19,7 @@ object Interpreter {
 
 	var processed : Set[String] = Set()
 
-	def addTheory(f : File) {
+	def addTheory(namespace : Namespace, f : File) {
 		if (f.exists) {
 			val fileid = f.getAbsolutePath()
 			if (processed.contains(fileid)) return
@@ -35,7 +35,7 @@ object Interpreter {
 			println("  parsed in " + (t2 - t1) + "ms")
 			result match {
 				case Parser.SuccessfulParse(tree) =>
-					addTheory(f, tree)
+					addTheory(namespace, f, tree)
 				case Parser.AmbiguousParse(pos) =>
 					println("  cannot add theory, ambiguous parse tree")
 				case Parser.FailedParse(pos) =>
@@ -52,12 +52,14 @@ object Interpreter {
 		}
 	}
 
-	def findTheoriesInDirectory(dir : File) {
+	def findTheoriesInDirectory(namespace : Namespace, dir : File) {
 		for (f <- dir.listFiles) {
 			if (f.isDirectory)
-				findTheoriesInDirectory(f)
-			else if (f.getName().endsWith(".thy")) 
-				addTheory(f)
+				findTheoriesInDirectory(Namespace(f.getName()).relativeTo(namespace), f)
+			else if (f.getName().endsWith(".thy")) {
+				val theoryName = f.getName().substring(0, f.getName().length - 4)
+				addTheory(Namespace(theoryName).relativeTo(namespace), f)
+			}
 		}
 	}
 
@@ -65,13 +67,24 @@ object Interpreter {
 
 	var theories : Map[Namespace, Theory] = Map()
 
-	def addTheory(f : File, thy : ParseTree.Block) {
+	def addTheory(namespace : Namespace, f : File, thy : ParseTree.Block) {
 		if (thy.statements.isEmpty) {
 			println("  theory is empty and will be ignored")
 		} else {
 			thy.statements.head match {
-				case ParseTree.STTheory(namespace, _aliases, parents) =>
-					val ns = namespace.absolute
+				case ParseTree.STTheory(declaredNamespace, _aliases, parents) =>
+					var ns : Namespace = null
+					if (declaredNamespace.isAbsolute || declaredNamespace.components.size != 1) {
+						println("  cannot add theory, invalid theory name declaration '" + declaredNamespace + "' should be '" + namespace.lastComponent + "'")
+						return
+					} else {
+						val declared = declaredNamespace.relativeTo(namespace.parent.get)
+						if (declared != namespace) {
+							println("  cannot add theory, declared namespace '" + declared + "' does not match expected namespace '" + namespace + "'")
+							return
+						}
+						ns = declared
+					}
 					val aliases = new Aliases(ns.parent.get, _aliases.map(a => Alias(a._1.name, a._2)))
 					val ps = parents.map (aliases.resolve(_))
 					val theory = Theory(new FileSource(f), ns, ps.toSet, aliases, thy.statements.tail)
@@ -226,8 +239,11 @@ object Interpreter {
 	def main(args : Array[String]) {
 		for (arg <- args) {
 			val f = new File(arg)
-			if (f.isDirectory) findTheoriesInDirectory(f)
-			else addTheory(f)
+			if (f.isDirectory) findTheoriesInDirectory(Namespace("\\"), f)
+			else {
+				println("All arguments must be existing directories, but '" + arg + "' isn't one.")
+				return
+			}
 		}
 		val sorted_theories = topsort(theories)	
 		if (sorted_theories.isEmpty) return

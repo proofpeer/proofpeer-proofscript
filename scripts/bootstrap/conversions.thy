@@ -118,3 +118,10 @@ def treeConv conv =
                          combConv (treeConv conv,treeConv conv),
                          absConv (treeConv conv)),
                 treeConv conv)) tm
+
+assert map (term,absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+
+assert map (term,absConv idConv 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+
+assert map (term,absConv (subsConv [reflexive '⊤']) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+                

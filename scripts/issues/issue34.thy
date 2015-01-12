@@ -1,4 +1,4 @@
-theory \issue34 extends \root
+theory issue34 extends \root
 
 val [ctx,x,bod]  = destabs 'x ↦ x'
 val [ctx2,y,bod] = destabs 'y ↦ y'

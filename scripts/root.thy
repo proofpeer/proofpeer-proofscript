@@ -1,4 +1,4 @@
-theory \root 
+theory root 
 
 val ProofScriptVersion = "0.2-SNAPSHOT"
 

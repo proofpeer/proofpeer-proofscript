@@ -1,4 +1,4 @@
-theory \issue24 extends \root
+theory issue24 extends \root
 
 assert (true or false) == true
 

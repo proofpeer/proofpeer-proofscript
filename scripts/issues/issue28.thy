@@ -1,4 +1,4 @@
-theory \issue28 extends \root
+theory issue28 extends \root
 
 context
   let 'x'

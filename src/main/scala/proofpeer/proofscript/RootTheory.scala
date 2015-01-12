@@ -2,7 +2,7 @@ package proofpeer.proofscript
 
 object RootTheory {
 
-  val thy = """theory \root 
+  val thy = """theory root 
 
 val ProofScriptVersion = "0.2-SNAPSHOT"
 

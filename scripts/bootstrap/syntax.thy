@@ -1,5 +1,5 @@
 theory Syntax
-extends root
+extends \root
 
 # Basic term tools
 

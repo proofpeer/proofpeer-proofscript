@@ -1,4 +1,4 @@
-theory \examples\Naming extends \root
+theory Naming extends \root
 
 val square = x => x * x
 val square_of_7 = square 7

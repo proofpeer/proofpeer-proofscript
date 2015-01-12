@@ -1,4 +1,4 @@
-theory \issue37 extends \root
+theory issue37 extends \root
 
 assert "hello   
   world" == "hello\n  world"
