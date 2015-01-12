@@ -56,7 +56,7 @@ extends UniquelyIdentifiableStore {
     var symbols : Map[String, Bytes] = Map()
     def intern(x : Any) : Any = {
       x match {
-        case s : String =>
+        case s : String => 
           symbols.get(s) match {
             case Some(id) => id
             case None =>
@@ -174,7 +174,6 @@ class MultiStore(sharing : Boolean) extends UniquelyIdentifiableStore {
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
     currentStore.add[T](t, serialize)
   }
-
 
   def lookup[T <: UniquelyIdentifiable](id : Id, create : Item => T, deserialize : Item => T, assign : (T, T) => T) : T = {
     id match {

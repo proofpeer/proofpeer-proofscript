@@ -1,40 +1,49 @@
 package proofpeer.proofscript.naiveinterpreter
 
-/*object ExecutionEnvironment{
+import proofpeer.proofscript.logic._
+import proofpeer.proofscript.frontend._
+import proofpeer.general.Bytes
 
-  trait File {
+object ExecutionEnvironment {
+
+  final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)])
+
+  sealed trait Theory {
     def namespace : Namespace
-    def isTheory : Boolean
-    def isDirectory : Boolean
-  } 
-
-  trait Theory extends File {
-    def parseResult : 
-    def parents : Set[Namespace] 
-    def aliases : Aliases 
-    def statements : Vector[ParseTree.Statement]    
+    def content : String
+    def contentKey : Bytes
+    def faults : Vector[Fault]
+    def isFaulty : Boolean = !faults.isEmpty
   }
 
-  trait Directory extends File {
-    def files : Vector[File]
+  sealed trait ScannedTheory extends Theory {
+    def parents : Vector[Namespace]
+  }
+
+  sealed trait ParsedTheory extends ScannedTheory {
+    def parseTree : ParseTree.Block
+    def proofScriptVersion : String
+  }
+
+  sealed trait CompiledTheory extends ParsedTheory {
+    def bytecode : Bytes
+    def compileKey : Bytes
   }
   
-  sealed trait Theory extends File {
-    def parseResult : 
-    def namespace : Namespace    
-  }
-
-  case class ParsedTheory()
-
 }
 
-trait ExecutionEnvironment {
+trait ExecutionEnvironment {  
 
-  def isDirectory(namespace : Namespace)
+  import ExecutionEnvironment._
 
-  def isTheory(namespace : Namespace)
+  def lookupTheory(namespace : Namespace) : Option[Theory]
 
+  def addFaults(theory : Theory, faults : Vector[Fault]) : Theory
 
+  def finishedScanning(theory : Theory, parents : Vector[Namespace]) : ScannedTheory
 
+  def finishedParsing(theory : ScannedTheory, parseTree : ParseTree.Block, proofScriptVersion : String) : ParsedTheory
 
-}*/
+  def finishedCompiling(theory : ParsedTheory, bytecode : Bytes) : CompiledTheory
+
+}
