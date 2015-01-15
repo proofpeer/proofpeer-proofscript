@@ -47,6 +47,10 @@ sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String
     val parent_components = components.toList.reverse.tail.reverse.toVector
     Some(Namespace(isAbsolute, parent_components))
   }
+  def isAncestorOf(namespace : Namespace) : Boolean = {
+    if (components.length > namespace.components.length) return false
+    this == Namespace(namespace.isAbsolute, namespace.components.take(components.length))
+  }
   def tail : Option[Namespace] = {
     if (components.size == 0) return None
     Some(Namespace(isAbsolute, components.toList.tail.toVector))

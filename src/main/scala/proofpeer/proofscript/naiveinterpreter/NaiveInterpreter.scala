@@ -5,7 +5,7 @@ import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import proofpeer.proofscript.serialization.{Storage, UniquelyIdentifiableStore}
 
-object Interpreter {
+object NaiveInterpreter {
 
 	val MAX_TRACE_LENGTH = 1000
 

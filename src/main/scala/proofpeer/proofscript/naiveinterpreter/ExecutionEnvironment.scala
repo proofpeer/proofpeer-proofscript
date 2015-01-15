@@ -8,26 +8,27 @@ object ExecutionEnvironment {
 
   final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)])
 
-  sealed trait Theory {
+  trait Theory {
     def namespace : Namespace
+    def source : Source
     def content : String
     def contentKey : Bytes
     def faults : Vector[Fault]
     def isFaulty : Boolean = !faults.isEmpty
   }
 
-  sealed trait ScannedTheory extends Theory {
+  /** For a rooted theory it is guaranteed that the theory and all of its ancestors are rooted, and
+    * form a DAG with \root as its only node without a parent. */
+  trait RootedTheory extends Theory {
     def parents : Vector[Namespace]
-  }
-
-  sealed trait ParsedTheory extends ScannedTheory {
-    def parseTree : ParseTree.Block
-    def proofScriptVersion : String
-  }
-
-  sealed trait CompiledTheory extends ParsedTheory {
-    def bytecode : Bytes
     def compileKey : Bytes
+    def proofscriptVersion : String
+  }
+
+  /** All parents of a compiled theory must be compiled. */
+  trait CompiledTheory extends RootedTheory {
+    def parseTree : ParseTree.Block
+    def bytecode : Bytes
   }
   
 }
@@ -38,12 +39,12 @@ trait ExecutionEnvironment {
 
   def lookupTheory(namespace : Namespace) : Option[Theory]
 
+  def allTheoriesIn(namespace : Namespace, recursive : Boolean) : Set[Namespace]
+
   def addFaults(theory : Theory, faults : Vector[Fault]) : Theory
 
-  def finishedScanning(theory : Theory, parents : Vector[Namespace]) : ScannedTheory
+  def finishedRooting(theory : Theory, parents : Vector[Namespace]) : RootedTheory
 
-  def finishedParsing(theory : ScannedTheory, parseTree : ParseTree.Block, proofScriptVersion : String) : ParsedTheory
-
-  def finishedCompiling(theory : ParsedTheory, bytecode : Bytes) : CompiledTheory
+  def finishedCompiling(theory : RootedTheory, bytecode : Bytes) : CompiledTheory
 
 }
