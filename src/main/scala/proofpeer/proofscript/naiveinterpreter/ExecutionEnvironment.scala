@@ -6,7 +6,7 @@ import proofpeer.general.Bytes
 
 object ExecutionEnvironment {
 
-  final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)])
+  final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)] = Vector())
 
   trait Theory {
     def namespace : Namespace
@@ -20,7 +20,7 @@ object ExecutionEnvironment {
   /** For a rooted theory it is guaranteed that the theory and all of its ancestors are rooted, and
     * form a DAG with \root as its only node without a parent. */
   trait RootedTheory extends Theory {
-    def parents : Vector[Namespace]
+    def parents : Set[Namespace]
     def compileKey : Bytes
     def proofscriptVersion : String
   }
@@ -41,10 +41,10 @@ trait ExecutionEnvironment {
 
   def allTheoriesIn(namespace : Namespace, recursive : Boolean) : Set[Namespace]
 
-  def addFaults(theory : Theory, faults : Vector[Fault]) : Theory
+  def addFaults(namespace : Namespace, faults : Vector[Fault]) : Theory
 
-  def finishedRooting(theory : Theory, parents : Vector[Namespace]) : RootedTheory
+  def finishedRooting(namespace : Namespace, parents : Set[Namespace], proofscriptVersion : Option[String]) : RootedTheory
 
-  def finishedCompiling(theory : RootedTheory, bytecode : Bytes) : CompiledTheory
+  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, bytecode : Bytes) : CompiledTheory
 
 }

@@ -1,18 +1,17 @@
 package proofpeer.proofscript.naiveinterpreter
 
-import java.io.File
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
-import proofpeer.proofscript.serialization.{Storage, UniquelyIdentifiableStore}
 import proofpeer.indent._
+import proofpeer.general.algorithms.TopologicalSort
 
 class Rooting(executionEnvironment : ExecutionEnvironment) {
 
   import ExecutionEnvironment._
 
-  val parser = new ProofScriptParser()
+  private val parser = new ProofScriptParser()
 
-  private def theoryIsRooted(namespace : Namespace) : Boolean = {
+  def theoryIsRooted(namespace : Namespace) : Boolean = {
     executionEnvironment.lookupTheory(namespace) match {
       case Some(_ : RootedTheory) => true
       case _ => false
@@ -103,20 +102,80 @@ class Rooting(executionEnvironment : ExecutionEnvironment) {
     }
   }
 
-  def rootTheories(theories : Set[Namespace]) { 
-    var waitingQueue : Set[Namespace] = theories.filter(n => !theoryIsRooted(n))
-    for (ns <- theories) {
-      println("rooting theory '" + ns + "'")
+  private def addFault(namespace : Namespace, pos : SourcePosition, error : String) {
+    val p =
+      if (pos == null) 
+        new SourcePosition { val source = executionEnvironment.lookupTheory(namespace).get.source; val span = None }
+      else
+        pos
+    executionEnvironment.addFaults(namespace, Vector(Fault(pos, error)))
+  }
+
+  private def addFault(namespace : Namespace, error : String) {
+    addFault(namespace, null, error)
+  }
+
+  private def computeRootingParticipants(theories : Set[Namespace]) : Map[Namespace, (TheoryHeader, Set[Namespace])] = {
+    var rootingCandidates = theories.toList
+    var processedCandidates = Set[Namespace]()
+    var rootingParticipants : Map[Namespace, (TheoryHeader, Set[Namespace])] = Map()
+    while (!rootingCandidates.isEmpty) {
+      val ns = rootingCandidates.head
+      rootingCandidates = rootingCandidates.tail
+      processedCandidates = processedCandidates + ns
       executionEnvironment.lookupTheory(ns) match {
-        case None =>
-          throw new RuntimeException("theory '" + ns + "' not found")
+        case None => throw new RuntimeException("theory '" + ns + "' not found")
         case Some(thy : RootedTheory) =>
-          println("theory is already rooted")
-        case Some(thy) =>
-          val header = parseTheoryHeader(thy)
-          println(header)          
+        case Some(thy) if !thy.isFaulty =>
+          parseTheoryHeader(thy) match {
+            case Left(header) =>
+              val participatingParents = header._3.filter(ns => !theoryIsRooted(ns))
+              var predecessors = participatingParents
+              for (parent <- participatingParents) {
+                if (!processedCandidates.contains(parent)) {
+                  if (!executionEnvironment.lookupTheory(parent).isDefined) {
+                    addFault(ns, "parent theory " + parent + " does not exist")
+                    predecessors = predecessors - parent
+                  } else
+                    rootingCandidates = parent :: rootingCandidates
+                }
+              }
+              rootingParticipants = rootingParticipants + (ns -> (header, predecessors))
+            case Right((pos, error)) =>
+              addFault(ns, pos, error)
+          }
+        case _ =>
       }
-      println("-------------------------------------------------")
+    }
+    rootingParticipants
+  }
+
+  def rootTheories(theories : Set[Namespace]) { 
+    val rootingParticipants = computeRootingParticipants(theories)
+    val rootingGraph = rootingParticipants.mapValues(_._2)
+    val (sorted, unsorted) = TopologicalSort.compute(rootingGraph)
+    val sortedSet = sorted.toSet
+    for ((namespace, parents) <- unsorted) {
+      val cyclicParents = parents -- sortedSet
+      if (cyclicParents.size == 1)
+        addFault(namespace, null, "cyclic dependency on parent theory " + cyclicParents.head)
+      else 
+        addFault(namespace, null, "cyclic dependency involving (one of) these parent theories: " + (cyclicParents.mkString(", ")))
+    }
+    for (namespace <- sorted) {
+      val (_, version, parents, _) = rootingParticipants(namespace)._1
+      if (namespace == Namespace.root) {
+        if (!parents.isEmpty) addFault(namespace, "theory \\root cannot have any parent theories")
+        else if (version.isEmpty) addFault(namespace, "theory \\root has no ProofScript version defined")
+        else executionEnvironment.finishedRooting(namespace, parents, version)
+      } else {
+        if (parents.isEmpty) addFault(namespace, "the theory doesn't extend any parent theories")
+        else {
+          val faultyParents = parents.filter(ns => !theoryIsRooted(ns))
+          if (!faultyParents.isEmpty) addFault(namespace, "cannot compile these parent theories: " + (faultyParents.mkString(", ")))
+          else executionEnvironment.finishedRooting(namespace, parents, None)
+        }
+      }
     }
   }
 

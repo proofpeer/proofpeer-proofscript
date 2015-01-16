@@ -13,6 +13,7 @@ object Namespace {
   def apply(isAbsolute : Boolean, components : Vector[String]) : Namespace = {
     new Namespace(isAbsolute, components)
   }
+  val root = Namespace("\\root")
 }
 
 sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String]) extends UniquelyIdentifiable {
