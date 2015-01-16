@@ -47,4 +47,6 @@ trait ExecutionEnvironment {
 
   def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, bytecode : Bytes) : CompiledTheory
 
+  //def lookupCompilation()
+
 }

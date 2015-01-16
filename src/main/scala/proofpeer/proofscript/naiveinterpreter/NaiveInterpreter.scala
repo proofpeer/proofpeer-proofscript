@@ -167,7 +167,7 @@ object NaiveInterpreter {
 	var failures : List[String] = List()
 
 	def evalTheory(storage : Storage, states : States, thy : Theory, nr : NamespaceResolution[String]) {
-		val evaluator = new Eval(states, Root.kernel, nr, Root.nr, thy.aliases, thy.namespace)
+		val evaluator = new Eval(states, Root.kernel, nr, Root.nr, thy.aliases, thy.namespace, DefaultOutput)
 		val state : State = 
 			if (thy.namespace == Kernel.root_namespace) 
 				rootState

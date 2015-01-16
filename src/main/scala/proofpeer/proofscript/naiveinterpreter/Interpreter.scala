@@ -5,7 +5,7 @@ import proofpeer.proofscript.logic._
 import proofpeer.indent._
 import proofpeer.general.algorithms.TopologicalSort
 
-class Rooting(executionEnvironment : ExecutionEnvironment) {
+class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   import ExecutionEnvironment._
 

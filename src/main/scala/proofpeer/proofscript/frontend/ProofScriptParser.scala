@@ -36,7 +36,7 @@ class ProofScriptParser {
       val errors = grammar.errors
       println("The ProofScript grammar contains " + errors.size + " errors: ")
       for (i <- 1 to errors.size) {
-        println ("" + i +") " + errors(i - 1))
+        println ("" + i + ") " + errors(i - 1))
       }
       println("")
       throw new RuntimeException("cannot create ProofScript grammar")

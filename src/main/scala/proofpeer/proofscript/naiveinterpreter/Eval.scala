@@ -2,6 +2,7 @@ package proofpeer.proofscript.naiveinterpreter
 
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
+import proofpeer.indent.Span
 import ParseTree._
 
 sealed trait SourceLabel
@@ -36,10 +37,44 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 	}
 }
 
+sealed trait OutputKind
+object OutputKind {
+	case object SHOW extends OutputKind
+	case object FAILURE extends OutputKind
+}
+
+trait Output {
+	def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) 
+}
+
+object DefaultOutput extends Output {
+
+	def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) {
+		val slocation : String = 
+			location match {
+				case None => ""
+				case Some(span) => ":" + (span.firstRow + 1)
+			}
+		val skind = 
+			kind match {
+				case OutputKind.SHOW => "show"
+				case OutputKind.FAILURE => "failure intercepted"
+			}
+		println("** " + skind + " ("+namespace+slocation+"): " + output)
+	}
+
+}
+
+object NullOutput extends Output {
+
+	def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) {}
+
+}
+
 class Eval(states : States, kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
 	val logicNameresolution : NamespaceResolution[IndexedName], 
-	val aliases : Aliases, namespace : Namespace) 
+	val aliases : Aliases, namespace : Namespace, output : Output) 
 {
 
 	def success[T](result : T) : Success[T] = Success(result, false)
@@ -237,7 +272,7 @@ class Eval(states : States, kernel : Kernel,
 										case None => ""
 										case Some(span) => ":" + (span.firstRow + 1)
 									}
-								println("** show ("+namespace+location+"): "+display(state, value))
+								output.add(namespace, st.sourcePosition.span, OutputKind.SHOW, display(state, value))
 						}
 					case STFail(None) => return fail(st, "fail")
 					case STFail(Some(expr)) =>
@@ -260,7 +295,7 @@ class Eval(states : States, kernel : Kernel,
 										case None => ""
 										case Some(span) => ":" + (span.firstRow + 1)
 									}						
-								println("** failure intercepted ("+namespace+location+"): "+f.error)
+								output.add(namespace, st.sourcePosition.span, OutputKind.FAILURE, f.error)
 							case Success(newState, _) =>
 								val value = newState.reapCollect 
 								return fail(st, "Failure expected, but evaluates successfully to: " + display(state, value))
@@ -1156,9 +1191,11 @@ class Eval(states : States, kernel : Kernel,
 					Preterm.inferPattern(tc, _preterm) match {
 						case Left(preterm) => preterm
 						case Right(errors) => 
-							for (err <- errors)
-								println("error: "+err)
-							return fail(pat, "ill-typed pattern")
+							var erroroutput = errors.mkString("\n")
+							if (errors.size <= 1)
+								return fail(pat, "ill-typed pattern: " + erroroutput)
+							else
+								return fail(pat, "ill-typed pattern:\n" + erroroutput)
 					}
 				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
 				if (!state.context.typeOfTerm(term).isDefined)

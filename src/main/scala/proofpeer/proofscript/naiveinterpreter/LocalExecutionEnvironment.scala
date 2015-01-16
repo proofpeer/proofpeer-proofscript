@@ -74,7 +74,11 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
   }
 
   def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, bytecode : Bytes) : CompiledTheory = {
-    throw new RuntimeException("not implemented yet")
+    lookupTheory(namespace) match {
+      case Some(thy : LocalRootedTheory) =>
+        null
+      case _ => throw new RuntimeException("cannot finish compiling of theory '" + namespace + "'")
+    }
   }
 
 }
@@ -110,39 +114,6 @@ object LocalExecutionEnvironment {
     }
     new LocalExecutionEnvironment(theoryFiles)
   }
-
-  /*private def addTheory(namespace : Namespace, f : File) {
-    if (f.exists) {
-      val fileid = f.getAbsolutePath()
-      if (processed.contains(fileid)) return
-      processed = processed + fileid
-      println("processing theory file: "+f)
-      numTheories = numTheories + 1
-      val source = scala.io.Source.fromFile(f)
-      val code = source.getLines.mkString("\n")
-      source.close()
-      val t1 = System.currentTimeMillis
-      val result = Parser.parseFromSource(new FileSource(f), code)
-      val t2 = System.currentTimeMillis
-      println("  parsed in " + (t2 - t1) + "ms")
-      result match {
-        case Parser.SuccessfulParse(tree) =>
-          addTheory(namespace, f, tree)
-        case Parser.AmbiguousParse(pos) =>
-          println("  cannot add theory, ambiguous parse tree")
-        case Parser.FailedParse(pos) =>
-          println("  cannot add theory, parse error at:")
-          if (pos.span.isDefined) {
-            val span = pos.span.get
-            println("  row = " + (span.firstRow + 1) + ", column = " + (span.leftMostFirst + 1))
-          } else {
-            println("  unknown position")
-          }
-      } 
-    } else {
-      println("theory file not found: "+f)
-    }
-  }*/
 
   private def findTheoriesInDirectory(namespace : Namespace, dir : File, files : List[Theory]) : List[Theory] = {
     var theoryFiles = files
