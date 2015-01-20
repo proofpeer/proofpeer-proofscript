@@ -6,7 +6,7 @@ import proofpeer.general._
 
 class Storage(kernel : Kernel) {
 
-  val theStore = new MultiStore(true)
+  val theStore = new MultiStore(true, _ => None)
   
   val kernelSerializers = kernel.serializers(theStore)
 
@@ -31,7 +31,6 @@ class Storage(kernel : Kernel) {
       println(namespace + " has " + b.length + " bytes")
     }
     println("total size in bytes: " + size)
-
   }
 
 }
@@ -41,7 +40,8 @@ import UniquelyIdentifiableStore.{Id => StoreId}
 /** In memory store implementation. */
 class FlatStore(sharing : Boolean, 
   exportId : StoreId => StoreId, 
-  importId : StoreId => Either[StoreId, UniquelyIdentifiableStore]) 
+  importId : StoreId => Either[StoreId, UniquelyIdentifiableStore],
+  storedBytes : Option[Bytes]) 
 extends UniquelyIdentifiableStore {
 
   private val nullId = exportId(-1)
@@ -69,15 +69,43 @@ extends UniquelyIdentifiableStore {
         case _ => x
       }
     }
+    val internedData = intern(data)
     var symbolTable : Array[String] = new Array(symbols.size)
     for ((s, id) <- symbols) {
-      val index = Bytes.decode(id, 0).asInstanceOf[Long].toInt
-      symbolTable(index) = s
+      val (index, _) = Bytes.decode(id, 0)
+      symbolTable(index.asInstanceOf[Long].toInt) = s
     }
-    val internedData = intern(data)
     val output = Vector(symbolTable.toVector, internedData)
     Bytes.encode(output)
   }
+
+  private def fromBytes(bytes : Bytes) {
+    val output = Bytes.decode(bytes, 0)._1
+    output match {
+      case Vector(symbolTableAny : Vector[Any], internedData) =>
+        val symbolTable = symbolTableAny.asInstanceOf[Vector[String]]
+        def unintern(x : Any) : Any = {
+          x match {
+            case b : Bytes =>
+              val index = Bytes.decode(b, 0)._1.asInstanceOf[Long].toInt
+              symbolTable(index)
+            case v : Vector[_] => v.map(unintern _)
+            case _ => x
+          }
+        }
+        def mkStoreItem(item : UniquelyIdentifiableStore.Item) : StoreItem = {
+          val si = new StoreItem()
+          si.item = item
+          si
+        }
+        val data = unintern(internedData).asInstanceOf[Vector[UniquelyIdentifiableStore.Item]]
+        items = data.map(mkStoreItem _)
+        itemsIndex = Map() // not needed for deserialization
+      case _ => throw new RuntimeException("cannot decode storedBytes")
+    }
+  }
+
+  if (storedBytes.isDefined) fromBytes(storedBytes.get)
 
   def size : Int = items.size
 
@@ -131,7 +159,7 @@ extends UniquelyIdentifiableStore {
 
 
 /** Store implementation which maintains separate stores for each namespace. */
-class MultiStore(sharing : Boolean) extends UniquelyIdentifiableStore {
+class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes]) extends UniquelyIdentifiableStore {
 
   import UniquelyIdentifiableStore._
 
@@ -160,7 +188,7 @@ class MultiStore(sharing : Boolean) extends UniquelyIdentifiableStore {
             case _ => throw new RuntimeException("Invalid id " + id)
           }
         }
-        val store = new FlatStore(sharing, exportId _, importId _)
+        val store = new FlatStore(sharing, exportId _, importId _, loadNamespace(namespace))
         stores = stores + (namespace -> store)
         store
     }

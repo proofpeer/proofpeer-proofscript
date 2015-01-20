@@ -74,7 +74,7 @@ final class StoreItem {
   var deserialized : Any = null
 }
 
-/** In memory store implementation which doesn't distinguish by namespace. */
+/** In memory store implementation which doesn't distinguish by namespace. 
 class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
 
   import UniquelyIdentifiableStore._
@@ -126,7 +126,7 @@ class InMemoryFlatStore(sharing : Boolean) extends UniquelyIdentifiableStore {
     }
   }
 
-}
+}*/
 
 object UISTypeCodes {
   val INDEXEDNAME = 1

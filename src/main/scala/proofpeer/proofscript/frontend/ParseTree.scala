@@ -4,7 +4,9 @@ import proofpeer.indent.Span
 import proofpeer.proofscript.logic.{Preterm, Namespace, Name}
 import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
-trait Source extends UniquelyIdentifiable {}
+final class Source(val namespace : Namespace, val src : String) extends UniquelyIdentifiable {
+  override def toString : String = src
+}
 
 trait SourcePosition {
   def source : Source

@@ -43,3 +43,17 @@ theorem excludedMiddle: '∀p. p ∨ ¬p'
          andIntro (matchmp (instantiate (choice,u), orIntroL (truth,'p:ℙ')),
                    matchmp (instantiate (choice,v), orIntroL (notFalse,'p:ℙ'))))
   matchmp (Connectives\orDef, factored, lemma2, lemma3)
+
+choose hilbertChoiceDef: 'epsilonU:(𝒰 → ℙ) → 𝒰'
+  let 'p:𝒰 → ℙ'
+  assume ex:'∃x. p x'
+  choose 'chosen' ex
+
+theorem hilbertChoice:'∀ p x. p x → p (epsilonU p)'
+  let p:'p:𝒰 → ℙ'
+  let 'x'
+  assume assum:'p x'
+  theorem pExists:'∃ x. p x'
+    let ydef:'y = x'
+    modusponens (assum,combine (reflexive p,sym ydef))
+  modusponens (pExists,instantiate (hilbertChoiceDef,'p'))

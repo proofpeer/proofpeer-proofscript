@@ -9,12 +9,6 @@ object NaiveInterpreter {
 
 	val MAX_TRACE_LENGTH = 1000
 
-	class FileSource(val f : File) extends Source {
-		override def toString : String = {
-			return f.toString
-		}
-	}
-
 	var numTheories = 0
 
 	var processed : Set[String] = Set()
@@ -30,7 +24,7 @@ object NaiveInterpreter {
 			val code = source.getLines.mkString("\n")
 			source.close()
 			val t1 = System.currentTimeMillis
-			val result = Parser.parseFromSource(new FileSource(f), code)
+			val result = Parser.parseFromSource(LocalExecutionEnvironment.sourceFromFile(f), code)
 			val t2 = System.currentTimeMillis
 			println("  parsed in " + (t2 - t1) + "ms")
 			result match {
@@ -87,7 +81,7 @@ object NaiveInterpreter {
 					}
 					val aliases = new Aliases(ns.parent.get, _aliases.map(a => Alias(a._1.name, a._2)))
 					val ps = parents.map (aliases.resolve(_))
-					val theory = Theory(new FileSource(f), ns, ps.toSet, aliases, thy.statements.tail)
+					val theory = Theory(LocalExecutionEnvironment.sourceFromFile(f), ns, ps.toSet, aliases, thy.statements.tail)
 					theories.get(ns) match {
 						case None =>
 							theories = theories + (ns -> theory)

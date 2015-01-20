@@ -76,7 +76,10 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
   def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, bytecode : Bytes) : CompiledTheory = {
     lookupTheory(namespace) match {
       case Some(thy : LocalRootedTheory) =>
-        null
+        val compiledTheory = LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults, thy.parents, 
+          thy.compileKey, thy.proofscriptVersion, parseTree, bytecode)
+        updateTheory(compiledTheory)
+        compiledTheory
       case _ => throw new RuntimeException("cannot finish compiling of theory '" + namespace + "'")
     }
   }
@@ -97,11 +100,7 @@ object LocalExecutionEnvironment {
   private case class LocalCompiledTheory(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault],
     parents : Set[Namespace], compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, bytecode : Bytes) extends CompiledTheory
 
-  private class FileSource(val f : File) extends Source {
-    override def toString : String = {
-      return f.toString
-    }
-  }
+  def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
 
   def create(directories : Seq[String]) : LocalExecutionEnvironment = {
     var theoryFiles : List[Theory] = List()
@@ -127,7 +126,7 @@ object LocalExecutionEnvironment {
         val code = source.getLines.mkString("\n")
         source.close()
         val key = Bytes.fromString(code).sha256
-        theoryFiles = LocalTheory(ns, new FileSource(f), code, key, Vector()) :: theoryFiles
+        theoryFiles = LocalTheory(ns, sourceFromFile(f), code, key, Vector()) :: theoryFiles
       }
     }
     theoryFiles

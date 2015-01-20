@@ -8,6 +8,8 @@ object ExecutionEnvironment {
 
   final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)] = Vector())
 
+  type OutputItem = (SourcePosition, OutputKind, String)
+
   trait Theory {
     def namespace : Namespace
     def source : Source
