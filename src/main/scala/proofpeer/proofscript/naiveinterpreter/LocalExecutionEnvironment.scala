@@ -38,16 +38,16 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
         updateTheory(LocalTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults ++ faults))
       case Some(thy : LocalRootedTheory) =>
         updateTheory(LocalRootedTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults ++ faults, thy.parents, 
-          thy.compileKey, thy.proofscriptVersion))
+          thy.aliases, thy.compileKey, thy.proofscriptVersion))
       case Some(thy : LocalCompiledTheory) =>
         updateTheory(LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults ++ faults, thy.parents,
-          thy.compileKey, thy.proofscriptVersion, thy.parseTree, thy.bytecode))
+          thy.aliases, thy.compileKey, thy.proofscriptVersion, thy.parseTree, thy.bytecode))
       case _ =>
         throw new RuntimeException("cannot add faults to theory '" + namespace + "'")
     }
   }
 
-  def finishedRooting(namespace : Namespace, parents : Set[Namespace], proofscriptVersion : Option[String]) : RootedTheory = {
+  def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory = {
     lookupTheory(namespace) match {
       case Some(thy : LocalTheory) =>
         var version = proofscriptVersion
@@ -65,7 +65,7 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
         if (parents.isEmpty && namespace != Namespace.root) throw new RuntimeException("theory '" + namespace + "' does not have any parent theories")
         if (version.isEmpty) throw new RuntimeException("theory '" + namespace + "' doesn't have a version of ProofScript associated with it")
         val compileKey = Bytes.encode((thy.contentKey, parentCompileKeys)).sha256
-        val rootedTheory = LocalRootedTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults, parents, compileKey, version.get)
+        val rootedTheory = LocalRootedTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults, parents, aliases, compileKey, version.get)
         updateTheory(rootedTheory)
         rootedTheory
       case _ => 
@@ -77,7 +77,7 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
     lookupTheory(namespace) match {
       case Some(thy : LocalRootedTheory) =>
         val compiledTheory = LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults, thy.parents, 
-          thy.compileKey, thy.proofscriptVersion, parseTree, bytecode)
+          thy.aliases, thy.compileKey, thy.proofscriptVersion, parseTree, bytecode)
         updateTheory(compiledTheory)
         compiledTheory
       case _ => throw new RuntimeException("cannot finish compiling of theory '" + namespace + "'")
@@ -95,10 +95,10 @@ object LocalExecutionEnvironment {
   private case class LocalTheory(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault]) extends Theory 
 
   private case class LocalRootedTheory(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault],
-    parents : Set[Namespace], compileKey : Bytes, proofscriptVersion : String) extends RootedTheory
+    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String) extends RootedTheory
 
   private case class LocalCompiledTheory(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault],
-    parents : Set[Namespace], compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, bytecode : Bytes) extends CompiledTheory
+    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, bytecode : Bytes) extends CompiledTheory
 
   def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
 

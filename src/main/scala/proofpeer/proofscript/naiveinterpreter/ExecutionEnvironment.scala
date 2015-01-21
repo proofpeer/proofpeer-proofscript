@@ -23,6 +23,7 @@ object ExecutionEnvironment {
     * form a DAG with \root as its only node without a parent. */
   trait RootedTheory extends Theory {
     def parents : Set[Namespace]
+    def aliases : Aliases
     def compileKey : Bytes
     def proofscriptVersion : String
   }
@@ -45,7 +46,7 @@ trait ExecutionEnvironment {
 
   def addFaults(namespace : Namespace, faults : Vector[Fault]) : Theory
 
-  def finishedRooting(namespace : Namespace, parents : Set[Namespace], proofscriptVersion : Option[String]) : RootedTheory
+  def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory
 
   def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, bytecode : Bytes) : CompiledTheory
 

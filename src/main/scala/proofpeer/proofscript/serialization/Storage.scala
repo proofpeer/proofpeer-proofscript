@@ -45,6 +45,7 @@ class FlatStore(sharing : Boolean,
 extends UniquelyIdentifiableStore {
 
   private val nullId = exportId(-1)
+  final val firstId = exportId(0)
 
   import UniquelyIdentifiableStore._
 
@@ -197,6 +198,17 @@ class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes]) ext
   /** Selects the namespace to which items are added. */
   def setCurrentNamespace(namespace : Namespace) {
     currentStore = getStore(namespace.toString.toLowerCase)
+  }
+
+  def toBytes(namespace : Namespace) : Option[Bytes] = {
+    stores.get(namespace.toString.toLowerCase) match {
+      case Some(store) => Some(store.toBytes)
+      case None => None
+    }
+  }
+
+  def firstIdOf(namespace : Namespace) : Id = {
+    getStore(namespace.toString.toLowerCase).firstId
   }
 
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {

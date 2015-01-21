@@ -14,17 +14,23 @@ object LocalInterpreter {
     val parser = new ProofScriptParser()
     val interpreter = new Interpreter(ee)
     interpreter.rootTheories(allTheories)
+    interpreter.compileTheories(allTheories)
+    var successful = 0
+    var failed = 0
     for (namespace <- allTheories) {
-      if (interpreter.theoryIsRooted(namespace))
-        println("Successfully rooted theory " + namespace + ".")
-      else {
-        println("Failure rooting theory " + namespace + ":")
+      if (interpreter.theoryIsCompiled(namespace)) {
+        successful = successful + 1
+        println("Successfully compiled theory " + namespace + ".")
+      } else {
+        failed = failed + 1
+        println("Failure compiling theory " + namespace + ":")
         for (fault <- ee.lookupTheory(namespace).get.faults) {
           println("  * " + fault.description)
         }
       }    
     }
- 
+    println("")
+    println("Compiling succeeded for " + successful + " theories and failed for " + failed + " theories.")
   }
 
 }

@@ -5,7 +5,7 @@ object Root {
 
 	def parentsOfNamespace(namespace : Namespace) : Set[Namespace] =
 		kernel.parentsOfNamespace(namespace) match {
-			case None => Utils.failwith("no such namespace: "+namespace)
+			case None => Utils.failwith("no such namespace: " + namespace)
 			case Some(namespaces) => namespaces
 		}
 
