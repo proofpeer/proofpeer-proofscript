@@ -71,7 +71,7 @@ object NullOutput extends Output {
 
 }
 
-class Eval(states : States, kernel : Kernel, 
+class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
 	val logicNameresolution : NamespaceResolution[IndexedName], 
 	val aliases : Aliases, namespace : Namespace, output : Output) 
@@ -662,7 +662,7 @@ class Eval(states : States, kernel : Kernel,
 					case 0 => fail(p, "unknown identifier: "+name)
 					case 1 => 
 						val ns = namespaces.head
-						success(states.lookup(ns).get.lookup(name).get)
+						success(completedStates(ns).get.lookup(name).get)
 					case n =>
 						var display = ""
 						for (ns <- namespaces) display = display + ns + " "

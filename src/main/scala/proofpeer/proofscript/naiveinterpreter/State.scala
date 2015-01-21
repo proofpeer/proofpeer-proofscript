@@ -245,7 +245,7 @@ class State(val context : Context, val env : State.Env, val collect : Collect, v
 
 }
 
-trait States {
+/*trait States {
 
 	def lookup(namespace : Namespace) : Option[State]
 
@@ -265,5 +265,5 @@ object States {
 
 	def empty : States = new SimpleStates()
 
-}
+}*/
 

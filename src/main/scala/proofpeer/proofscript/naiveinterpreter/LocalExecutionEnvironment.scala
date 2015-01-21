@@ -3,6 +3,7 @@ package proofpeer.proofscript.naiveinterpreter
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import proofpeer.general.Bytes
+import proofpeer.proofscript.serialization._
 import java.io.File
 
 class LocalExecutionEnvironment(compileDir : File, _theories : Seq[ExecutionEnvironment.Theory]) extends ExecutionEnvironment {
@@ -15,6 +16,29 @@ class LocalExecutionEnvironment(compileDir : File, _theories : Seq[ExecutionEnvi
   import LocalExecutionEnvironment._
 
   private var theories : Map[Namespace, Theory] = Map()
+
+  val kernel = Kernel.createDefaultKernel()
+
+  private def bytecodeOfTheory(namespace : String) : Option[Bytes] = {
+    lookupTheory(Namespace(namespace)) match {
+      case Some(theory : LocalCompiledTheory) => throw new RuntimeException("not implemented yet") // throw new // Some(theory.compiledBytes)
+      case _ => None
+    }
+  }
+
+  private val store = new MultiStore(true, bytecodeOfTheory _)
+  private val stateSerializer = new CustomizableStateSerializer(store, kernel.serializers(store))
+
+  /*private def loadTheory(theory : CompiledTheory) {
+    if (states.lookup(theory.namespace).isEmpty) {
+      for (parent <- theory.parents) 
+        loadTheory(lookupTheory(parent).get.asInstanceOf[CompiledTheory])
+      val stateId = store.firstIdOf(theory.namespace)
+      val state = stateSerializer.deserialize(stateId).asInstanceOf[State]
+      states.register(theory.namespace, state)
+      kernel.completeNamespace(state.context)
+    }
+  }*/
 
   for (thy <- _theories) theories = theories + (thy.namespace -> thy)
 
@@ -46,7 +70,7 @@ class LocalExecutionEnvironment(compileDir : File, _theories : Seq[ExecutionEnvi
           thy.aliases, thy.compileKey, thy.proofscriptVersion))
       case Some(thy : LocalCompiledTheory) =>
         updateTheory(LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults ++ faults, thy.parents,
-          thy.aliases, thy.compileKey, thy.proofscriptVersion, thy.parseTree, thy.compiledBytes))
+          thy.aliases, thy.compileKey, thy.proofscriptVersion, thy.parseTree, thy.state))
       case _ =>
         throw new RuntimeException("cannot add faults to theory '" + namespace + "'")
     }
@@ -78,11 +102,11 @@ class LocalExecutionEnvironment(compileDir : File, _theories : Seq[ExecutionEnvi
     }
   }
 
-  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, compiledBytes: Bytes) : CompiledTheory = {
+  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, state : State) : CompiledTheory = {
     lookupTheory(namespace) match {
       case Some(thy : LocalRootedTheory) =>
         val compiledTheory = LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults, thy.parents, 
-          thy.aliases, thy.compileKey, thy.proofscriptVersion, parseTree, compiledBytes)
+          thy.aliases, thy.compileKey, thy.proofscriptVersion, parseTree, state)
         updateTheory(compiledTheory)
         compiledTheory
       case _ => throw new RuntimeException("cannot finish compiling of theory '" + namespace + "'")
@@ -103,7 +127,7 @@ object LocalExecutionEnvironment {
     parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String) extends RootedTheory
 
   private case class LocalCompiledTheory(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault],
-    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, compiledBytes : Bytes) extends CompiledTheory
+    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, state : State) extends CompiledTheory
 
   def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
 

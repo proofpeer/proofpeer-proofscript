@@ -10,7 +10,6 @@ object LocalInterpreter {
     val ee = LocalExecutionEnvironment.create(compileDir, args)
     val allTheories = ee.allTheoriesIn(Namespace("\\"), true)
     val interpreter = new Interpreter(ee)
-    interpreter.rootTheories(allTheories)
     interpreter.compileTheories(allTheories)
     var successful = 0
     var failed = 0

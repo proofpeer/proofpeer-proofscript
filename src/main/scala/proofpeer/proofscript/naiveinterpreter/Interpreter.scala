@@ -11,19 +11,8 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   import ExecutionEnvironment._
 
-  private val parser = new ProofScriptParser()
-  private val kernel = Kernel.createDefaultKernel()
-  private val states = States.empty
-
-  private def bytecodeOfTheory(namespace : String) : Option[Bytes] = {
-    executionEnvironment.lookupTheory(Namespace(namespace)) match {
-      case Some(theory : CompiledTheory) => Some(theory.compiledBytes)
-      case _ => None
-    }
-  }
-
-  private val store = new MultiStore(true, bytecodeOfTheory _)
-  private val stateSerializer = new CustomizableStateSerializer(store, kernel.serializers(store))
+  private val parser = new ProofScriptParser()  
+  private val kernel = executionEnvironment.kernel
 
   def theoryIsRooted(namespace : Namespace) : Boolean = {
     executionEnvironment.lookupTheory(namespace) match {
@@ -175,7 +164,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     rootingParticipants
   }
 
-  def rootTheories(theories : Set[Namespace]) { 
+  private def rootTheories(theories : Set[Namespace]) { 
     val rootingParticipants = computeRootingParticipants(theories)
     val rootingGraph = rootingParticipants.mapValues(_._2)
     val (sorted, unsorted) = TopologicalSort.compute(rootingGraph)
@@ -204,17 +193,6 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     }
   }
 
-  private def loadTheory(theory : CompiledTheory) {
-    if (states.lookup(theory.namespace).isEmpty) {
-      for (parent <- theory.parents) 
-        loadTheory(executionEnvironment.lookupTheory(parent).get.asInstanceOf[CompiledTheory])
-      val stateId = store.firstIdOf(theory.namespace)
-      val state = stateSerializer.deserialize(stateId).asInstanceOf[State]
-      states.register(theory.namespace, state)
-      kernel.completeNamespace(state.context)
-    }
-  }
-
   private def parentsOfNamespace(namespace : Namespace) : Set[Namespace] =
     kernel.parentsOfNamespace(namespace) match {
       case None => Utils.failwith("no such namespace: " + namespace)
@@ -232,11 +210,15 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         locals
     }
 
-  private def programLocalNames(namespace : Namespace) : Set[String] = {
-    states.lookup(namespace) match {
-      case None => throw new RuntimeException("internal error: localNames of "+namespace)
-      case Some(state) => state.env.freeze.nonlinear.keySet
+  private def completedStates(namespace : Namespace) : Option[State] = {
+    executionEnvironment.lookupTheory(namespace) match {
+      case Some(theory : CompiledTheory) => Some(theory.state)
+      case _ => None 
     }
+  }
+
+  private def programLocalNames(namespace : Namespace) : Set[String] = {
+    completedStates(namespace).get.env.nonlinear.keySet
   }
 
   private val logicNamespaceResolution = new NamespaceResolution[IndexedName](parentsOfNamespace _, logicLocalNames _)
@@ -250,9 +232,9 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     new State(context, State.Env(environment, Map()), Collect.Zero, false)
   }  
 
-  private def makeState(states : States, namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : State = {
+  private def makeState(namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : State = {
     for (p <- parentNamespaces) {
-      if (!states.lookup(p).isDefined) throw new RuntimeException("makeState: parent " + p + " has not been compiled yet")
+      if (!completedStates(p).isDefined) throw new RuntimeException("makeState: parent " + p + " has not been compiled yet")
     }
     val context = kernel.createNewNamespace(namespace, parentNamespaces, aliases)
     new State(context, State.Env(Map(), Map()), Collect.Zero, false)
@@ -275,12 +257,12 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
   }
 
   private def evalTheory(thy: RootedTheory) : Boolean = {
-    val evaluator = new Eval(states, kernel, programNamespaceResolution, logicNamespaceResolution, thy.aliases, thy.namespace, DefaultOutput)
+    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, logicNamespaceResolution, thy.aliases, thy.namespace, DefaultOutput)
     val state : State = 
       if (thy.namespace == Kernel.root_namespace) 
         rootState
       else 
-        makeState(states, thy.namespace, thy.parents, thy.aliases) 
+        makeState(thy.namespace, thy.parents, thy.aliases) 
     val parsetree = 
       parseTheory(thy) match {
         case None => return false
@@ -302,11 +284,11 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         } else {
           val completed = kernel.completeNamespace(state.context)
           val completedState = new State(completed, state.env.freeze, Collect.Zero, false)
-          store.setCurrentNamespace(thy.namespace)
+          /*store.setCurrentNamespace(thy.namespace)
           stateSerializer.serialize(completedState)
-          val bytecode = store.toBytes(thy.namespace).get
-          executionEnvironment.finishedCompiling(thy.namespace, parsetree, bytecode)
-          states.register(thy.namespace, completedState)
+          val bytecode = store.toBytes(thy.namespace).get */
+          executionEnvironment.finishedCompiling(thy.namespace, parsetree, completedState)
+          //states.register(thy.namespace, completedState)
           true 
         }
     }
@@ -316,9 +298,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
   private def compileTheory(theory : Namespace) : Boolean = {
     executionEnvironment.lookupTheory(theory) match {
       case Some(theory : Theory) if theory.isFaulty => false
-      case Some(theory : CompiledTheory) => 
-        loadTheory(theory) 
-        true
+      case Some(theory : CompiledTheory) => true
       case Some(rootedTheory : RootedTheory) =>
         for (parent <- rootedTheory.parents) {
           if (!compileTheory(parent)) {
@@ -332,6 +312,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
   }
 
   def compileTheories(theories : Set[Namespace]) {
+    rootTheories(theories)
     for (theory <- theories) compileTheory(theory)
   }
 
