@@ -1,9 +1,6 @@
 package proofpeer.proofscript.naiveinterpreter
 
-//import proofpeer.proofscript.frontend._
-import proofpeer.proofscript.logic._
-import proofpeer.proofscript.frontend.ProofScriptParser
-
+import proofpeer.proofscript.logic.Namespace
 
 object LocalInterpreter {
 
@@ -11,7 +8,6 @@ object LocalInterpreter {
     println("ProofScript v0.2-SNAPSHOT (c) 2014, 2015 University of Edinburgh")
     val ee = LocalExecutionEnvironment.create(args)
     val allTheories = ee.allTheoriesIn(Namespace("\\"), true)
-    val parser = new ProofScriptParser()
     val interpreter = new Interpreter(ee)
     interpreter.rootTheories(allTheories)
     interpreter.compileTheories(allTheories)
