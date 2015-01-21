@@ -17,7 +17,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   private def bytecodeOfTheory(namespace : String) : Option[Bytes] = {
     executionEnvironment.lookupTheory(Namespace(namespace)) match {
-      case Some(theory : CompiledTheory) => Some(theory.bytecode)
+      case Some(theory : CompiledTheory) => Some(theory.compiledBytes)
       case _ => None
     }
   }

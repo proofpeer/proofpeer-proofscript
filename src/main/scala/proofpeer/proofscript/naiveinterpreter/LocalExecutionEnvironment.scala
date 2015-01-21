@@ -3,8 +3,13 @@ package proofpeer.proofscript.naiveinterpreter
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import proofpeer.general.Bytes
+import java.io.File
 
-class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) extends ExecutionEnvironment {
+class LocalExecutionEnvironment(compileDir : File, _theories : Seq[ExecutionEnvironment.Theory]) extends ExecutionEnvironment {
+
+  if (!compileDir.exists) {
+    if (!compileDir.mkdir()) throw new RuntimeException("cannot create compile directory '" + compileDir + "'")    
+  } else if (!compileDir.isDirectory) throw new RuntimeException("compile directory '" + compileDir + "' is not a directory")
 
   import ExecutionEnvironment._
   import LocalExecutionEnvironment._
@@ -41,7 +46,7 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
           thy.aliases, thy.compileKey, thy.proofscriptVersion))
       case Some(thy : LocalCompiledTheory) =>
         updateTheory(LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults ++ faults, thy.parents,
-          thy.aliases, thy.compileKey, thy.proofscriptVersion, thy.parseTree, thy.bytecode))
+          thy.aliases, thy.compileKey, thy.proofscriptVersion, thy.parseTree, thy.compiledBytes))
       case _ =>
         throw new RuntimeException("cannot add faults to theory '" + namespace + "'")
     }
@@ -73,11 +78,11 @@ class LocalExecutionEnvironment(_theories : Seq[ExecutionEnvironment.Theory]) ex
     }
   }
 
-  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, bytecode : Bytes) : CompiledTheory = {
+  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, compiledBytes: Bytes) : CompiledTheory = {
     lookupTheory(namespace) match {
       case Some(thy : LocalRootedTheory) =>
         val compiledTheory = LocalCompiledTheory(thy.namespace, thy.source, thy.content, thy.contentKey, thy.faults, thy.parents, 
-          thy.aliases, thy.compileKey, thy.proofscriptVersion, parseTree, bytecode)
+          thy.aliases, thy.compileKey, thy.proofscriptVersion, parseTree, compiledBytes)
         updateTheory(compiledTheory)
         compiledTheory
       case _ => throw new RuntimeException("cannot finish compiling of theory '" + namespace + "'")
@@ -98,11 +103,11 @@ object LocalExecutionEnvironment {
     parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String) extends RootedTheory
 
   private case class LocalCompiledTheory(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault],
-    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, bytecode : Bytes) extends CompiledTheory
+    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, parseTree : ParseTree.Block, compiledBytes : Bytes) extends CompiledTheory
 
   def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
 
-  def create(directories : Seq[String]) : LocalExecutionEnvironment = {
+  def create(compileDir : File, directories : Seq[String]) : LocalExecutionEnvironment = {
     var theoryFiles : List[Theory] = List()
     val rootNamespace = Namespace("\\")
     for (directory <- directories) {
@@ -111,7 +116,7 @@ object LocalExecutionEnvironment {
         theoryFiles = findTheoriesInDirectory(rootNamespace, f, theoryFiles)
       else throw new RuntimeException("'" + f + "' is not a directory")
     }
-    new LocalExecutionEnvironment(theoryFiles)
+    new LocalExecutionEnvironment(compileDir, theoryFiles)
   }
 
   private def findTheoriesInDirectory(namespace : Namespace, dir : File, files : List[Theory]) : List[Theory] = {

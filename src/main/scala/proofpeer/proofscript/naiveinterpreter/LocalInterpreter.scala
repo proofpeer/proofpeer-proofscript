@@ -6,7 +6,8 @@ object LocalInterpreter {
 
   def main(args : Array[String]) {
     println("ProofScript v0.2-SNAPSHOT (c) 2014, 2015 University of Edinburgh")
-    val ee = LocalExecutionEnvironment.create(args)
+    val compileDir = new java.io.File("/Users/stevenobua/proofscript.compiled")
+    val ee = LocalExecutionEnvironment.create(compileDir, args)
     val allTheories = ee.allTheoriesIn(Namespace("\\"), true)
     val interpreter = new Interpreter(ee)
     interpreter.rootTheories(allTheories)
