@@ -44,12 +44,10 @@ trait ExecutionEnvironment {
 
   def lookupTheory(namespace : Namespace) : Option[Theory]
 
-  def allTheoriesIn(namespace : Namespace, recursive : Boolean) : Set[Namespace]
-
   def addFaults(namespace : Namespace, faults : Vector[Fault]) : Theory
 
   def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory
 
-  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, state : State) : CompiledTheory
+  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, state : State, capturedOutput : Output.Captured) : CompiledTheory
 
 }

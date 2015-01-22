@@ -37,40 +37,6 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 	}
 }
 
-sealed trait OutputKind
-object OutputKind {
-	case object SHOW extends OutputKind
-	case object FAILURE extends OutputKind
-}
-
-trait Output {
-	def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) 
-}
-
-object DefaultOutput extends Output {
-
-	def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) {
-		val slocation : String = 
-			location match {
-				case None => ""
-				case Some(span) => ":" + (span.firstRow + 1)
-			}
-		val skind = 
-			kind match {
-				case OutputKind.SHOW => "show"
-				case OutputKind.FAILURE => "failure intercepted"
-			}
-		println("** " + skind + " ("+namespace+slocation+"): " + output)
-	}
-
-}
-
-object NullOutput extends Output {
-
-	def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) {}
-
-}
-
 class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
 	val logicNameresolution : NamespaceResolution[IndexedName], 
@@ -666,7 +632,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case n =>
 						var display = ""
 						for (ns <- namespaces) display = display + ns + " "
-						fail(p, "ambiguous identifier " + name + ", defined in "+n+" different namespaces: "+display)
+						fail(p, "ambiguous identifier " + name + ", defined in " + n + " different namespaces: " + display)
 				}
 		}
 	}

@@ -257,7 +257,8 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
   }
 
   private def evalTheory(thy: RootedTheory) : Boolean = {
-    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, logicNamespaceResolution, thy.aliases, thy.namespace, DefaultOutput)
+    val output = new DefaultOutputCapture()
+    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, logicNamespaceResolution, thy.aliases, thy.namespace, output)
     val state : State = 
       if (thy.namespace == Kernel.root_namespace) 
         rootState
@@ -287,7 +288,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
           /*store.setCurrentNamespace(thy.namespace)
           stateSerializer.serialize(completedState)
           val bytecode = store.toBytes(thy.namespace).get */
-          executionEnvironment.finishedCompiling(thy.namespace, parsetree, completedState)
+          executionEnvironment.finishedCompiling(thy.namespace, parsetree, completedState, output.export())
           //states.register(thy.namespace, completedState)
           true 
         }
