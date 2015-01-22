@@ -54,56 +54,19 @@ extends UniquelyIdentifiableStore {
 
   def toBytes : Bytes = {
     val data = items.map(_.item)
-    var symbols : Map[String, Bytes] = Map()
-    def intern(x : Any) : Any = {
-      x match {
-        case s : String => 
-          symbols.get(s) match {
-            case Some(id) => id
-            case None =>
-              val index = symbols.size
-              val id = Bytes.encode(index)
-              symbols = symbols + (s -> id)
-              id
-          }
-        case v : Vector[_] => v.map(intern _)
-        case _ => x
-      }
-    }
-    val internedData = intern(data)
-    var symbolTable : Array[String] = new Array(symbols.size)
-    for ((s, id) <- symbols) {
-      val (index, _) = Bytes.decode(id, 0)
-      symbolTable(index.asInstanceOf[Long].toInt) = s
-    }
-    val output = Vector(symbolTable.toVector, internedData)
-    Bytes.encode(output)
+    Bytes.encode(data)
+  }
+
+  private def mkStoreItem(item : UniquelyIdentifiableStore.Item) : StoreItem = {
+    val si = new StoreItem()
+    si.item = item
+    si
   }
 
   private def fromBytes(bytes : Bytes) {
-    val output = Bytes.decode(bytes, 0)._1
-    output match {
-      case Vector(symbolTableAny : Vector[Any], internedData) =>
-        val symbolTable = symbolTableAny.asInstanceOf[Vector[String]]
-        def unintern(x : Any) : Any = {
-          x match {
-            case b : Bytes =>
-              val index = Bytes.decode(b, 0)._1.asInstanceOf[Long].toInt
-              symbolTable(index)
-            case v : Vector[_] => v.map(unintern _)
-            case _ => x
-          }
-        }
-        def mkStoreItem(item : UniquelyIdentifiableStore.Item) : StoreItem = {
-          val si = new StoreItem()
-          si.item = item
-          si
-        }
-        val data = unintern(internedData).asInstanceOf[Vector[UniquelyIdentifiableStore.Item]]
-        items = data.map(mkStoreItem _)
-        itemsIndex = Map() // not needed for deserialization
-      case _ => throw new RuntimeException("cannot decode storedBytes")
-    }
+    val data = Bytes.decode(bytes, 0)._1.asInstanceOf[Vector[UniquelyIdentifiableStore.Item]]
+    items = data.map(mkStoreItem _)
+    itemsIndex = Map() // not needed for deserialization
   }
 
   if (storedBytes.isDefined) fromBytes(storedBytes.get)
