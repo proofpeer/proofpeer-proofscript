@@ -7,8 +7,7 @@ import proofpeer.proofscript.serialization._
 
 trait ExecutionEnvironmentAdapter {
 
-  /** Returns either None if no such theory exists in the system, or 
-    * Some(((source, content, contentKey), rootingData)). 
+  /** Returns either None if no such theory exists in the system, or Some(((source, content, contentKey), rootingData)). 
     * The rootingData might be None if no rooting data has been stored yet via storeRootingData. */
   def lookupTheory(namespace : Namespace) : Option[((Source, Bytes, String), Option[Bytes])]
 
@@ -31,7 +30,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
 
   private def bytecodeOfTheory(namespace : String) : Option[Bytes] = {
     lookupTheory(Namespace(namespace)) match {
-      case Some(theory : CompiledTheoryImpl) => throw new RuntimeException("not implemented yet") // throw new // Some(theory.compiledBytes)
+      case Some(theory : RootedTheory) => eeAdapter.loadCompiledData(theory.compileKey)
       case _ => None
     }
   }
