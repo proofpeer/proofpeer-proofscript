@@ -32,6 +32,7 @@ object ExecutionEnvironment {
   trait CompiledTheory extends RootedTheory {
     def parseTree : ParseTree.Block
     def state : State
+    def capturedOutput : Output.Captured
   }
   
 }
