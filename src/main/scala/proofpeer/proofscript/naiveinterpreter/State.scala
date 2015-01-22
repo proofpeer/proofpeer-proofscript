@@ -244,26 +244,3 @@ class State(val context : Context, val env : State.Env, val collect : Collect, v
 	}
 
 }
-
-/*trait States {
-
-	def lookup(namespace : Namespace) : Option[State]
-
-	def register(namespace : Namespace, state : State)
-
-}
-
-object States {
-
-	private class SimpleStates extends States {
-		var states : Map[Namespace, State] = Map()
-		def lookup(namespace : Namespace) = states.get(namespace)
-		def register(namespace : Namespace, state : State) {
-			states = states + (namespace -> state)
-		}
-	}
-
-	def empty : States = new SimpleStates()
-
-}*/
-
