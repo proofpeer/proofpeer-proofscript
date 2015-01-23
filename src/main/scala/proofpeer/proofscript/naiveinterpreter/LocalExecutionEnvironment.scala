@@ -153,3 +153,107 @@ object LocalExecutionEnvironment {
   }
 
 }
+
+class LocalExecutionEnvironmentAdapter(compileDir : File, theoryFiles : List[NewLocalExecutionEnvironment.TheoryFile]) extends ExecutionEnvironmentAdapter {
+
+  if (!compileDir.exists) compileDir.mkdir()
+  if (!(compileDir.exists && compileDir.isDirectory)) throw new RuntimeException("invalid compilation directory: " + compileDir)
+
+  println("compile directory: " + compileDir)
+
+  private var theories : Map[Namespace, NewLocalExecutionEnvironment.TheoryFile] = Map()
+
+  for (f <- theoryFiles) theories = theories + (f.namespace -> f)
+
+  def lookupTheory(namespace : Namespace) : Option[(Source, Bytes, String, Option[Bytes])] = {
+    theories.get(namespace) match {
+      case None => None
+      case Some(f) => Some((f.source, f.contentKey, f.content, None))
+    }
+  }
+
+  def storeTheoryData(namespace : Namespace, theoryData : Bytes) {
+    // do nothing, we don't store theory data as the theory files can change without notice
+  }
+
+  private def compileKeyFile(compileKey : Bytes) : File = {
+    new File(compileDir, compileKey.asHex)
+  }
+
+  def loadCompileKeyData(compileKey : Bytes) : Bytes = {
+    println("loading compiled data for: " + compileKey.asHex)
+    BytesInFiles.loadBytes(compileKeyFile(compileKey))
+  }
+
+  def storeCompileKeyData(compileKey : Bytes, data : Bytes) {
+    println("storing compiled data for: " + compileKey.asHex)
+    BytesInFiles.writeBytes(compileKeyFile(compileKey), data)
+  }
+
+}
+
+object BytesInFiles {
+
+  import java.io._
+
+  def writeBytes(f : File, b : Bytes) {
+    val out = new FileOutputStream(f)
+    val len = b.length
+    for (i <- 0 until len) {
+      out.write(b(i))
+    }
+    out.close()
+  }
+
+  def loadBytes(f : File) : Bytes = {
+    val source = scala.io.Source.fromFile(f)
+    val byteArray = source.map(_.toByte).toArray
+    source.close()    
+    Bytes(byteArray)
+  }
+
+}
+
+
+object NewLocalExecutionEnvironment {
+
+  import proofpeer.general.Bytes
+  import java.io.File
+
+  case class TheoryFile(namespace : Namespace, source : Source, content : String, contentKey : Bytes)
+
+  private def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
+
+  def create(compileDir : File, directories : Seq[String]) : (ExecutionEnvironment, Set[Namespace]) = {
+    var theoryFiles : List[TheoryFile] = List()
+    val rootNamespace = Namespace("\\")
+    for (directory <- directories) {
+      val f = new File(directory)
+      if (f.isDirectory)
+        theoryFiles = findTheoriesInDirectory(rootNamespace, f, theoryFiles)
+      else throw new RuntimeException("'" + f + "' is not a directory")
+    }
+    val adapter = new LocalExecutionEnvironmentAdapter(compileDir, theoryFiles)
+    (new ExecutionEnvironmentImpl(adapter), theoryFiles.map(_.namespace).toSet)
+  }
+
+  private def findTheoriesInDirectory(namespace : Namespace, dir : File, files : List[TheoryFile]) : List[TheoryFile] = {
+    var theoryFiles = files
+    for (f <- dir.listFiles) {
+      if (f.isDirectory)
+        theoryFiles = findTheoriesInDirectory(Namespace(f.getName()).relativeTo(namespace), f, theoryFiles)
+      else if (f.getName().endsWith(".thy")) {
+        val theoryName = f.getName().substring(0, f.getName().length - 4)
+        val ns = Namespace(theoryName).relativeTo(namespace)
+        val source = scala.io.Source.fromFile(f)
+        val code = source.getLines.mkString("\n")
+        source.close()
+        val key = Bytes.fromString(code).sha256
+        theoryFiles = TheoryFile(ns, sourceFromFile(f), code, key) :: theoryFiles
+      }
+    }
+    theoryFiles
+  }
+
+}
+

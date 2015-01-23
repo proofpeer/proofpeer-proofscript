@@ -6,11 +6,13 @@ import proofpeer.general._
 import proofpeer.indent.Span
 import proofpeer.proofscript.logic._
 
-final class CustomizableSourceSerializer(store : UniquelyIdentifiableStore) extends UniquelyIdentifiableSerializer(store,
-  new TransformSerializer(PairSerializer(StringSerializer, StringSerializer), 
-    (s : Source) => (s.namespace.toString, s.src.toString), 
-    (n : (String, String)) => new Source(Namespace(n._1), n._2)),
-  UISTypeCodes.SOURCE)
+object BasicSourceSerializer extends TransformSerializer[Source, (String, String)](
+  PairSerializer(StringSerializer, StringSerializer), 
+  (s : Source) => (s.namespace.toString, s.src.toString), 
+  (n : (String, String)) => new Source(Namespace(n._1), n._2))
+
+final class CustomizableSourceSerializer(store : UniquelyIdentifiableStore) extends UniquelyIdentifiableSerializer(
+  store, BasicSourceSerializer, UISTypeCodes.SOURCE)
 
 object SpanSerializer extends TransformSerializer(VectorSerializer(IntSerializer),
   (s : Span) => Vector(s.firstRow, s.lastRow, s.leftMostInFirst, s.leftMost, s.leftMostFirst, s.leftMostRest, 

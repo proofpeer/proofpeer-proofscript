@@ -7,13 +7,19 @@ import ParseTree._
 
 sealed trait SourceLabel
 case object NoSourceLabel extends SourceLabel
-case class AnonymousFunctionLabel(eval : Eval, state : State, value : StateValue) extends SourceLabel {
+case class AnonymousFunctionLabel(displayedValue : String) extends SourceLabel {
 	override def toString : String = 
-		"? applied to: " + eval.display(state, value)
+		"? applied to: " + displayedValue
 }
-case class DefFunctionLabel(name : String, eval : Eval, state : State, value : StateValue) extends SourceLabel {
+case class DefFunctionLabel(name : String, displayedValue : String) extends SourceLabel {
 	override def toString : String = 
-		name + " applied to: " + eval.display(state, value)
+		name + " applied to: " + displayedValue
+}
+object FunctionLabel {
+	def apply(eval : Eval, state : State, value : StateValue) : AnonymousFunctionLabel = 
+		AnonymousFunctionLabel(eval.display(state, value))
+	def apply(name : String, eval : Eval, state : State, value : StateValue) : DefFunctionLabel =
+		DefFunctionLabel(name, eval.display(state, value))
 }
 
 sealed trait Result[T]
@@ -870,14 +876,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	def evalApply(state : State, pat : Pattern, body : Block, argument : StateValue) : Result[StateValue] = {
 		matchPattern(state.freeze, pat, argument) match {
-			case failed : Failed[_] => fail(failed).addToTrace(pat, AnonymousFunctionLabel(this, state, argument))
+			case failed : Failed[_] => fail(failed).addToTrace(pat, FunctionLabel(this, state, argument))
 			case Success(None, _) => 
 				fail(null, "function argument does not match").addToTrace(pat, 
-					AnonymousFunctionLabel(this, state, argument))
+					FunctionLabel(this, state, argument))
 			case Success(Some(matchings), _) =>
 				evalBlock(state.bind(matchings), body) match {
 					case failed : Failed[_] => fail(failed).addToTrace(pat, 
-						AnonymousFunctionLabel(this, state, argument))
+						FunctionLabel(this, state, argument))
 					case Success(state, _) => success(state.reapCollect)
 				}
 		}
@@ -888,18 +894,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		for (c <- cases) {
 			matchPattern(matchState, c.param, argument) match {
 				case failed : Failed[_] => 
-					return fail(failed).addToTrace(c.param, DefFunctionLabel(c.name, this, state, argument))
+					return fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument))
 				case Success(None, _) =>
 				case Success(Some(matchings), _) =>
 					evalBlock(state.bind(matchings), c.body) match {
 						case failed : Failed[_] => 
-							return fail(failed).addToTrace(c.param, DefFunctionLabel(c.name, this, state, argument))
+							return fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument))
 						case Success(state, _) => return success(state.reapCollect)
 					}
 			}
 		}
 		val c = cases.head
-		fail(null, "function argument does not match").addToTrace(c.param, DefFunctionLabel(c.name, this, state, argument))
+		fail(null, "function argument does not match").addToTrace(c.param, FunctionLabel(c.name, this, state, argument))
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {
