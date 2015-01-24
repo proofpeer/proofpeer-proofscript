@@ -5,13 +5,6 @@ import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import proofpeer.proofscript.serialization._
 
-sealed trait CompileKeyDataCategory
-object CompileKeyDataCategory {
-  case object PARSETREE extends CompileKeyDataCategory
-  case object OUTPUT extends CompileKeyDataCategory
-  case object STATE extends CompileKeyDataCategory
-} 
-
 trait ExecutionEnvironmentAdapter {
 
   /** Returns either None if no such theory exists in the system, or Some((source, contentKey, content, optionalTheoryData)). */
@@ -20,10 +13,10 @@ trait ExecutionEnvironmentAdapter {
   /** Can be called multiple times to override previously stored data. */
   def storeTheoryData(namespace : Namespace, theoryData : Bytes)
 
-  def loadCompileKeyData(category : CompileKeyDataCategory, compileKey : Bytes) : Option[Bytes]
+  def loadCompileKeyData(compileKey : Bytes) : Option[Bytes]
 
   /** Can be called multiple times to override previously stored data. */
-  def storeCompileKeyData(category : CompileKeyDataCategory, compileKey : Bytes, data : Bytes)
+  def storeCompileKeyData(compileKey : Bytes, data : Bytes)
 
 }
 
@@ -61,7 +54,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
   private val TheoryDataSerializer : Serializer[TheoryData] = PairSerializer(OptionSerializer(RootingDataSerializer), 
     VectorSerializer(FaultSerializer()))
   private val StateSerializer = new CustomizableStateSerializer(store, kernelSerializers)
-  private val OutputSerializer = CapturedOutputSerializer(BasicNamespaceSerializer)
+  private val OutputSerializer = CapturedOutputSerializer(kernelSerializers.NamespaceSerializer)
   private val CompileKeyDataSerializer : Serializer[CompileKeyData] = 
     TripleSerializer(StateSerializer.ParseTreeSerializer, OutputSerializer, StateSerializer)
   private val CompileKeyDataBytesSerializer : Serializer[(Bytes, Bytes)] = PairSerializer(BytesSerializer, BytesSerializer)
