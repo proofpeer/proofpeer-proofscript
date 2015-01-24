@@ -27,17 +27,24 @@ class LocalExecutionEnvironmentAdapter(compileDir : File, theoryFiles : List[Loc
     dataOfTheories = dataOfTheories + (namespace -> theoryData)
   }
 
-  private def compileKeyFile(compileKey : Bytes) : File = {
-    new File(compileDir, compileKey.asHex)
+  private def compileKeyFile(category : CompileKeyDataCategory, compileKey : Bytes) : File = {
+    import CompileKeyDataCategory._
+    val suffix =
+      category match {
+        case PARSETREE => ".parsetree"
+        case OUTPUT => ".output"
+        case STATE => ".state"
+      }
+    new File(compileDir, compileKey.asHex + suffix)
   }
 
-  def loadCompileKeyData(compileKey : Bytes) : Option[Bytes] = {
-    val f = compileKeyFile(compileKey)
+  def loadCompileKeyData(category : CompileKeyDataCategory, compileKey : Bytes) : Option[Bytes] = {
+    val f = compileKeyFile(category, compileKey)
     if (f.exists) Some(BytesInFiles.loadBytes(f)) else None
   }
 
-  def storeCompileKeyData(compileKey : Bytes, data : Bytes) {
-    BytesInFiles.writeBytes(compileKeyFile(compileKey), data)
+  def storeCompileKeyData(category : CompileKeyDataCategory, compileKey : Bytes, data : Bytes) {
+    BytesInFiles.writeBytes(compileKeyFile(category, compileKey), data)
   }
 
 }
@@ -46,8 +53,8 @@ object BytesInFiles {
 
   import java.io._
 
-  def writeBytes(f : File, b : Bytes) {
-    val out = new BufferedOutputStream(new FileOutputStream(f), 10*1024)
+  def writeBytes(f : File, b : Bytes, bufferSize : Int = 10 * 1024) {
+    val out = new BufferedOutputStream(new FileOutputStream(f), bufferSize)
     val len = b.length
     for (i <- 0 until len) {
       out.write(b(i))
@@ -56,8 +63,8 @@ object BytesInFiles {
     out.close()
   }
 
-  def loadBytes(f : File) : Bytes = {
-    val in = new BufferedInputStream(new FileInputStream(f), 10*1024)
+  def loadBytes(f : File, bufferSize : Int = 10 * 1024) : Bytes = {
+    val in = new BufferedInputStream(new FileInputStream(f), bufferSize)
     var bytes : Vector[Byte] = Vector()
     do {
       val b = in.read()
