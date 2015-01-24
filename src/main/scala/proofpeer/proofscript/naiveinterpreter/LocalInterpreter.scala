@@ -38,7 +38,8 @@ object LocalInterpreter {
 
   def main(args : Array[String]) {
     println("ProofScript v0.2-SNAPSHOT (c) 2014, 2015 University of Edinburgh")
-    val compileDir = new java.io.File("/Users/stevenobua/proofscript.compiled")
+    val compileDir = new java.io.File(System.getProperty("java.io.tmpdir"), "proofscript.compiled")
+    println("The directory for storing compiled theories is: " + compileDir)
     var loaded = 0
     val (ee, allTheories) = LocalExecutionEnvironment.create(compileDir, args, _ => loaded = loaded + 1)
     val interpreter = new Interpreter(ee)
