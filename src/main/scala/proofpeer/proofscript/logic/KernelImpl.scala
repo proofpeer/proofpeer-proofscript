@@ -479,6 +479,16 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     namespaces += (namespace -> completedContext)
     completedContext
   }
+
+  def restoreCompletedNamespace(parents : Set[Namespace], aliases : Aliases, context : Context) {
+    if (!context.isInstanceOf[ContextImpl] || context.kernel != this) 
+      failwith("context does not belong to this kernel")
+    val namespace = context.namespace
+    if (namespaces.contains(namespace)) 
+      failwith("this namespace has already been completed: " + namespace)
+    namespaces += (namespace -> context)
+    namespaceInfo = namespaceInfo + (namespace -> new NamespaceInfo(parents, aliases))
+  }
   
   def createNewNamespace(namespace : Namespace, parents : Set[Namespace], aliases : Aliases) : Context = {
     var ancestors : Set[Namespace] = Set()

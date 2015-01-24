@@ -13,7 +13,7 @@ trait ExecutionEnvironmentAdapter {
   /** Can be called multiple times to override previously stored data. */
   def storeTheoryData(namespace : Namespace, theoryData : Bytes)
 
-  def loadCompileKeyData(compileKey : Bytes) : Bytes
+  def loadCompileKeyData(compileKey : Bytes) : Option[Bytes]
 
   /** Can be called multiple times to override previously stored data. */
   def storeCompileKeyData(compileKey : Bytes, data : Bytes)
@@ -43,22 +43,20 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
   private val store = new MultiStore(true, bytecodeOfTheory _)
   private val kernelSerializers = kernel.serializers(store)
 
-  private type TheoryData = Either[(Set[Namespace], Bytes), Vector[Fault]] 
-  private type RootingData = (Set[Namespace], Aliases, String)
-  private type CompiledData = (ParseTree, Output.Captured, State)
-  private type CompileKeyData = (RootingData, Option[CompiledData], Vector[Fault])
+  private type RootingData = (Bytes, Set[Namespace], Aliases, String)
+  private type TheoryData = (Option[RootingData], Vector[Fault])
+  private type CompileKeyData = (ParseTree, Output.Captured, State)
 
+  private val AliasSerializer = new BasicAliasSerializer(BasicNamespaceSerializer)
+  private val AliasesSerializer = new BasicAliasesSerializer(BasicNamespaceSerializer, AliasSerializer)
+  private val RootingDataSerializer : Serializer[RootingData] = QuadrupleSerializer(BytesSerializer,
+    SetSerializer(BasicNamespaceSerializer), AliasesSerializer, StringSerializer)
+  private val TheoryDataSerializer : Serializer[TheoryData] = PairSerializer(OptionSerializer(RootingDataSerializer), 
+    VectorSerializer(FaultSerializer()))
   private val StateSerializer = new CustomizableStateSerializer(store, kernelSerializers)
   private val OutputSerializer = CapturedOutputSerializer(kernelSerializers.NamespaceSerializer)
-  private val TheoryDataSerializer : Serializer[TheoryData] = EitherSerializer(PairSerializer(
-    SetSerializer(BasicNamespaceSerializer), BytesSerializer), VectorSerializer(FaultSerializer()))
-  private val RootingDataSerializer : Serializer[RootingData] = TripleSerializer(
-    SetSerializer(kernelSerializers.NamespaceSerializer), kernelSerializers.AliasesSerializer, StringSerializer)
-  private val CompiledDataSerializer : Serializer[CompiledData]
-    = TripleSerializer(StateSerializer.ParseTreeSerializer, OutputSerializer, StateSerializer)
   private val CompileKeyDataSerializer : Serializer[CompileKeyData] = 
-    TripleSerializer(RootingDataSerializer, OptionSerializer(CompiledDataSerializer), 
-      VectorSerializer(FaultSerializer(StateSerializer.SourcePositionSerializer)))
+    TripleSerializer(StateSerializer.ParseTreeSerializer, OutputSerializer, StateSerializer)
   private val CompileKeyDataBytesSerializer : Serializer[(Bytes, Bytes)] = PairSerializer(BytesSerializer, BytesSerializer)
 
   private def updateTheory[A <: Theory](thy : A) : A = {
@@ -66,74 +64,70 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
     thy
   }
 
-  def lookupTheory(namespace : Namespace) : Option[Theory] = {
-    theories.get(namespace) match {
-      case Some(thy) => Some(thy)
-      case None =>
-        eeAdapter.lookupTheory(namespace) match {
-          case None => None
-          case Some((source, contentKey, content, optionalTheoryData)) =>
-            optionalTheoryData match {
-              case None => Some(updateTheory(TheoryImpl(namespace, source, content, contentKey, Vector())))
-              case Some(theoryDataBytes) =>
-                TheoryDataSerializer.deserialize(Bytes.decode(theoryDataBytes)) match {
-                  case Right(faults) =>
-                    Some(updateTheory(TheoryImpl(namespace, source, content, contentKey, faults)))  
-                  case Left((parents, compileKey)) =>
-                    // lookup all the parents of the theory first; this is necessary for 2 reasons:
-                    // 1. when loading the state of a theory, we might reference the states of earlier theories,
-                    //    and this means that storedBytes must have been primed with the data for those earlier theories.
-                    // 2. in order to complete the context with the kernel, its parent contexts must have been completed already
-                    for (parent <- parents) {
-                      if (!lookupTheory(parent).isDefined) 
-                        throw new RuntimeException("cannot load parent theory '" + parent + "' of theory '" + namespace + "'")
-                    }
-                    val (encodedBytes, storeBytes) = CompileKeyDataBytesSerializer.deserialize(Bytes.decode(eeAdapter.loadCompileKeyData(compileKey)))
+  private def loadTheory(namespace : Namespace) : Option[Theory] = {
+    eeAdapter.lookupTheory(namespace) match {
+      case None => None
+      case Some((source, contentKey, content, optionalTheoryData)) =>
+        optionalTheoryData match {
+          case None => Some(updateTheory(TheoryImpl(namespace, source, content, contentKey, Vector())))
+          case Some(theoryDataBytes) =>
+            TheoryDataSerializer.deserialize(Bytes.decode(theoryDataBytes)) match {
+              case (None, faults) =>
+                Some(updateTheory(TheoryImpl(namespace, source, content, contentKey, faults)))  
+              case (Some((compileKey, parents, aliases, proofscriptVersion)), faults) =>
+                // lookup all the parents of the theory first; this is necessary for 2 reasons:
+                // 1. when loading the state of a theory, we might reference the states of earlier theories,
+                //    and this means that storedBytes must have been primed with the data for those earlier theories.
+                // 2. in order to complete the context with the kernel, its parent contexts must have been completed already
+                for (parent <- parents) {
+                  if (!lookupTheory(parent).isDefined) 
+                    throw new RuntimeException("cannot load parent theory '" + parent + "' of theory '" + namespace + "'")
+                }
+                eeAdapter.loadCompileKeyData(compileKey) match {
+                  case None => Some(updateTheory(RootedTheoryImpl(namespace, source, content, contentKey, faults,
+                    parents, aliases, compileKey, proofscriptVersion)))
+                  case Some(compileKeyDataBytes) =>
+                    val (encodedBytes, storeBytes) = CompileKeyDataBytesSerializer.deserialize(Bytes.decode(compileKeyDataBytes))
                     storedBytes = storedBytes + (namespace -> storeBytes)
-                    val (rootingData, optionalCompiledData, faults) = CompileKeyDataSerializer.deserialize(Bytes.decode(encodedBytes))
-                    optionalCompiledData match {
-                      case None => Some(updateTheory(RootedTheoryImpl(namespace, source, content, contentKey, faults,
-                        rootingData._1, rootingData._2, compileKey, rootingData._3)))
-                      case Some((parsetree, capturedOutput, state)) =>
-                        val thy = CompiledTheoryImpl(namespace, source, content, contentKey, faults, 
-                          rootingData._1, rootingData._2, compileKey, rootingData._3, parsetree.asInstanceOf[ParseTree.Block],
-                          state, capturedOutput)
-                        kernel.completeNamespace(thy.state.context)
-                        Some(updateTheory(thy))
-                    }
+                    val (parsetree, capturedOutput, state) = CompileKeyDataSerializer.deserialize(Bytes.decode(encodedBytes))
+                    val thy = CompiledTheoryImpl(namespace, source, content, contentKey, faults, 
+                      parents, aliases, compileKey, proofscriptVersion, parsetree.asInstanceOf[ParseTree.Block],
+                      state, capturedOutput)
+                    kernel.restoreCompletedNamespace(thy.parents, thy.aliases, thy.state.context)
+                    Some(updateTheory(thy))
                 }
             }
         }
+    }    
+  }
+
+  def lookupTheory(namespace : Namespace) : Option[Theory] = {
+    theories.get(namespace) match {
+      case Some(thy) => Some(thy)
+      case None => loadTheory(namespace)
     }
   }
 
   private def saveCompileKeyData(thy : Theory) {
     thy match {
-      case thy : RootedTheory =>
+      case thy : CompiledTheory =>
         store.setCurrentNamespace(thy.namespace)
-        val rootingData = (thy.parents, thy.aliases, thy.proofscriptVersion)
-        val compiledData = 
-          thy match {
-            case thy: CompiledTheory =>
-              Some((thy.parseTree, thy.capturedOutput, thy.state))
-            case _ => None
-          }
-        val compileKeyData : CompileKeyData = (rootingData, compiledData, thy.faults)
+        val compileKeyData : CompileKeyData = (thy.parseTree, thy.capturedOutput, thy.state)
         val encoding = Bytes.encode(CompileKeyDataSerializer.serialize(compileKeyData))
         val storeBytes = store.toBytes(thy.namespace).get
         val bytes = Bytes.encode(CompileKeyDataBytesSerializer.serialize((encoding, storeBytes)))
         eeAdapter.storeCompileKeyData(thy.compileKey, bytes)
-      case _ => throw new RuntimeException("there is no compile key data to save for non-rooted theory '" + thy.namespace + "'")
+      case _ => throw new RuntimeException("there is no compile key data to save for non-compiled theory '" + thy.namespace + "'")
     }
   }
 
   private def saveTheoryData(thy : Theory) {
     thy match {
       case t : RootedTheory =>
-        val data : TheoryData = Left((t.parents, t.compileKey))
+        val data : TheoryData = (Some(t.compileKey, t.parents, t.aliases, t.proofscriptVersion), t.faults)
         eeAdapter.storeTheoryData(thy.namespace, Bytes.encode(TheoryDataSerializer.serialize(data)))
       case t : Theory =>
-        val data : TheoryData = Right(t.faults)
+        val data : TheoryData = (None, t.faults)
         eeAdapter.storeTheoryData(thy.namespace, Bytes.encode(TheoryDataSerializer.serialize(data)))
     }
   }
@@ -148,7 +142,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
       case Some(t : RootedTheory) => 
         val thy = updateTheory(RootedTheoryImpl(t.namespace, t.source, t.content, t.contentKey, t.faults ++ faults, 
           t.parents, t.aliases, t.compileKey, t.proofscriptVersion))
-        saveCompileKeyData(thy)
+        saveTheoryData(thy)
         thy
       case Some(t : Theory) => 
         val thy = updateTheory(TheoryImpl(t.namespace, t.source, t.content, t.contentKey, t.faults ++ faults)) 
@@ -181,9 +175,8 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
         val compileKey = Bytes.encode((t.contentKey, parentCompileKeys)).sha256
         val thy = updateTheory(RootedTheoryImpl(t.namespace, t.source, t.content, t.contentKey, t.faults, 
           parents, aliases, compileKey, version.get))
-        saveCompileKeyData(thy)
         saveTheoryData(thy)
-        thy
+        loadTheory(thy.namespace).get.asInstanceOf[RootedTheory]
       case _ => throw new RuntimeException("cannot finish rooting of theory '" + namespace + "'")
     }
   }

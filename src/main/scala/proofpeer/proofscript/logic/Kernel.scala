@@ -201,6 +201,7 @@ trait Kernel {
     * the creation of arbitrary contexts and theorems possible !!!
     */
   def serializers(store : UniquelyIdentifiableStore) : KernelSerializers
+  def restoreCompletedNamespace(parents : Set[Namespace], aliases : Aliases, context : Context)
 
 }
 
