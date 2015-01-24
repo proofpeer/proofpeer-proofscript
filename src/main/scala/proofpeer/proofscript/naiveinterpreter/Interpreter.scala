@@ -7,6 +7,20 @@ import proofpeer.general.algorithms.TopologicalSort
 import proofpeer.proofscript.serialization._
 import proofpeer.general.Bytes
 
+trait InterpreterNotificationHandler {
+  def startCompiling(theory : Namespace)
+  def finishedCompiling(theory : Namespace, success : Boolean)
+  def skippedFaultyTheory(theory : Namespace)
+  def skippedTheoryWithFaultyParents(theory : Namespace)
+}
+
+object NoInterpreterNotificationHandler extends InterpreterNotificationHandler {
+  def startCompiling(theory : Namespace) {}
+  def finishedCompiling(theory : Namespace, success : Boolean)  {} 
+  def skippedFaultyTheory(theory : Namespace) {}
+  def skippedTheoryWithFaultyParents(theory : Namespace) {}
+}
+
 class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   import ExecutionEnvironment._
@@ -285,36 +299,63 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         } else {
           val completed = kernel.completeNamespace(state.context)
           val completedState = new State(completed, state.env.freeze, Collect.Zero, false)
-          /*store.setCurrentNamespace(thy.namespace)
-          stateSerializer.serialize(completedState)
-          val bytecode = store.toBytes(thy.namespace).get */
           executionEnvironment.finishedCompiling(thy.namespace, parsetree, completedState, output.export())
-          //states.register(thy.namespace, completedState)
           true 
         }
     }
   }  
 
   /** Returns true if the theory has been compiled successfully, otherwise false. */
-  private def compileTheory(theory : Namespace) : Boolean = {
+  private def compileTheory(theory : Namespace, handler : InterpreterNotificationHandler) : Boolean = {
     executionEnvironment.lookupTheory(theory) match {
-      case Some(theory : Theory) if theory.isFaulty => false
-      case Some(theory : CompiledTheory) => true
+      case Some(theory : Theory) if theory.isFaulty => 
+        handler.skippedFaultyTheory(theory.namespace)
+        false
+      case Some(theory : CompiledTheory) => 
+        true
       case Some(rootedTheory : RootedTheory) =>
         for (parent <- rootedTheory.parents) {
-          if (!compileTheory(parent)) {
+          if (!compileTheory(parent, handler)) {
             addFault(rootedTheory.namespace, "parent theory does not compile: " + parent)
+            handler.skippedTheoryWithFaultyParents(rootedTheory.namespace)
             return false
           }
         }
-        evalTheory(rootedTheory)
+        handler.startCompiling(rootedTheory.namespace)
+        val success = evalTheory(rootedTheory)
+        handler.finishedCompiling(rootedTheory.namespace, success)
+        success
       case _ => throw new RuntimeException("cannot compile non-existing or non-rooted theory '" + theory + "'")
     }
   }
 
-  def compileTheories(theories : Set[Namespace]) {
+  private class SuppressDuplicateNotifications(handler : InterpreterNotificationHandler) extends InterpreterNotificationHandler {
+    private var alreadyVisited : Set[Namespace] = Set()
+    def startCompiling(theory : Namespace) {
+      handler.startCompiling(theory)
+    }
+    def finishedCompiling(theory : Namespace, success : Boolean)  {
+      handler.finishedCompiling(theory, success)
+      alreadyVisited = alreadyVisited + theory
+    } 
+    def skippedFaultyTheory(theory : Namespace) {
+      if (!alreadyVisited.contains(theory)) {
+        alreadyVisited = alreadyVisited + theory
+        handler.skippedFaultyTheory(theory)
+      }      
+    }
+    def skippedTheoryWithFaultyParents(theory : Namespace) {
+      if (!alreadyVisited.contains(theory)) {
+        alreadyVisited = alreadyVisited + theory
+        handler.skippedTheoryWithFaultyParents(theory)
+      }      
+    }
+  }
+
+  def compileTheories(theories : Set[Namespace], handler : InterpreterNotificationHandler = NoInterpreterNotificationHandler) {
+    val h = new SuppressDuplicateNotifications(handler)
     rootTheories(theories)
-    for (theory <- theories) compileTheory(theory)
+    for (theory <- theories) compileTheory(theory, h)
   }
 
 }

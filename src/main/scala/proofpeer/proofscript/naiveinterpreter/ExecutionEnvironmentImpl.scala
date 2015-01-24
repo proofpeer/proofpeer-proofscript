@@ -20,7 +20,7 @@ trait ExecutionEnvironmentAdapter {
 
 }
 
-class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends ExecutionEnvironment {
+class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNotification : Namespace => Unit = _ => ()) extends ExecutionEnvironment {
 
   import ExecutionEnvironment._
   import ExecutionEnvironmentImpl._
@@ -94,7 +94,9 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
                       parents, aliases, compileKey, proofscriptVersion, parsetree.asInstanceOf[ParseTree.Block],
                       state, capturedOutput)
                     kernel.restoreCompletedNamespace(thy.parents, thy.aliases, thy.state.context)
-                    Some(updateTheory(thy))
+                    updateTheory(thy)
+                    loadNotification(thy.namespace)
+                    Some(thy)
                 }
             }
         }
@@ -153,7 +155,8 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter) extends 
     }
   }
 
-  def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory = {
+  def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory = 
+  {
     lookupTheory(namespace) match {
       case Some(t : RootedTheory) =>
         throw new RuntimeException("cannot finish rooting of already rooted theory '" + namespace + "'")
