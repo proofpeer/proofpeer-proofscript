@@ -299,7 +299,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         } else {
           val completed = kernel.completeNamespace(state.context)
           val completedState = new State(completed, state.env.freeze, Collect.Zero, false)
-          executionEnvironment.finishedCompiling(thy.namespace, parsetree, completedState, output.export())
+          executionEnvironment.finishedCompiling(thy.namespace, completedState) // no output.export
           true 
         }
     }

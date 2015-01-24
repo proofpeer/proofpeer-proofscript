@@ -19,7 +19,7 @@ object LocalInterpreter {
         println(" done")
       } else {
         failed = failed + 1
-        println("failed:")
+        println(" failed:")
         displayErrors(theory)
       }
     } 

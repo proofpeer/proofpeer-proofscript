@@ -38,7 +38,7 @@ class Storage(kernel : Kernel) {
 import UniquelyIdentifiableStore.{Id => StoreId}
 
 /** In memory store implementation. */
-class FlatStore(sharing : Boolean, 
+class FlatStore(val storename : String, sharing : Boolean, 
   exportId : StoreId => StoreId, 
   importId : StoreId => Either[StoreId, UniquelyIdentifiableStore],
   storedBytes : Option[Bytes]) 
@@ -86,6 +86,7 @@ extends UniquelyIdentifiableStore {
       case Right(otherStore) => otherStore.lookup(id, create, deserialize, assign)
       case Left(id) =>
         if (id == -1) return null.asInstanceOf[T]
+        println("accessing id = " + id + " in store " + storename)
         val storeItem = items(decodeId(id))
         if (storeItem.deserialized != null) return storeItem.deserialized.asInstanceOf[T]
         val fresh_t = create(storeItem.item)
@@ -152,7 +153,7 @@ class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes]) ext
             case _ => throw new RuntimeException("Invalid id " + id)
           }
         }
-        val store = new FlatStore(sharing, exportId _, importId _, loadNamespace(namespace))
+        val store = new FlatStore(namespace, sharing, exportId _, importId _, loadNamespace(namespace))
         stores = stores + (namespace -> store)
         store
     }

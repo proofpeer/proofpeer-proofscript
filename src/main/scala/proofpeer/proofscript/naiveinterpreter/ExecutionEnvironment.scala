@@ -30,9 +30,7 @@ object ExecutionEnvironment {
 
   /** All parents of a compiled theory must be compiled. */
   trait CompiledTheory extends RootedTheory {
-    def parseTree : ParseTree.Block
     def state : State
-    def capturedOutput : Output.Captured
   }
   
 }
@@ -49,6 +47,6 @@ trait ExecutionEnvironment {
 
   def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory
 
-  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, state : State, capturedOutput : Output.Captured) : CompiledTheory
+  def finishedCompiling(namespace : Namespace, state : State) : CompiledTheory
 
 }

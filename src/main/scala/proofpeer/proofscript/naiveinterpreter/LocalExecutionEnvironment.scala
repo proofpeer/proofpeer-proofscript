@@ -91,7 +91,7 @@ object LocalExecutionEnvironment {
       else throw new RuntimeException("'" + f + "' is not a directory")
     }
     val adapter = new LocalExecutionEnvironmentAdapter(compileDir, theoryFiles)
-    (new ExecutionEnvironmentImpl(adapter), theoryFiles.map(_.namespace).toSet)
+    (new ExecutionEnvironmentImpl(adapter, n => println("loaded " + n)), theoryFiles.map(_.namespace).toSet)
   }
 
   private def findTheoriesInDirectory(namespace : Namespace, dir : File, files : List[TheoryFile]) : List[TheoryFile] = {

@@ -45,7 +45,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
 
   private type RootingData = (Bytes, Set[Namespace], Aliases, String)
   private type TheoryData = (Option[RootingData], Vector[Fault])
-  private type CompileKeyData = (ParseTree, Output.Captured, State)
+  private type CompileKeyData = State
 
   private val AliasSerializer = new BasicAliasSerializer(BasicNamespaceSerializer)
   private val AliasesSerializer = new BasicAliasesSerializer(BasicNamespaceSerializer, AliasSerializer)
@@ -54,9 +54,8 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
   private val TheoryDataSerializer : Serializer[TheoryData] = PairSerializer(OptionSerializer(RootingDataSerializer), 
     VectorSerializer(FaultSerializer()))
   private val StateSerializer = new CustomizableStateSerializer(store, kernelSerializers)
-  private val OutputSerializer = CapturedOutputSerializer(kernelSerializers.NamespaceSerializer)
-  private val CompileKeyDataSerializer : Serializer[CompileKeyData] = 
-    TripleSerializer(StateSerializer.ParseTreeSerializer, OutputSerializer, StateSerializer)
+  //private val OutputSerializer = CapturedOutputSerializer(kernelSerializers.NamespaceSerializer)
+  private val CompileKeyDataSerializer : Serializer[CompileKeyData] = StateSerializer
   private val CompileKeyDataBytesSerializer : Serializer[(Bytes, Bytes)] = PairSerializer(BytesSerializer, BytesSerializer)
 
   private def updateTheory[A <: Theory](thy : A) : A = {
@@ -65,6 +64,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
   }
 
   private def loadTheory(namespace : Namespace) : Option[Theory] = {
+    println("loading theory " + namespace)
     eeAdapter.lookupTheory(namespace) match {
       case None => None
       case Some((source, contentKey, content, optionalTheoryData)) =>
@@ -89,10 +89,9 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
                   case Some(compileKeyDataBytes) =>
                     val (encodedBytes, storeBytes) = CompileKeyDataBytesSerializer.deserialize(Bytes.decode(compileKeyDataBytes))
                     storedBytes = storedBytes + (namespace -> storeBytes)
-                    val (parsetree, capturedOutput, state) = CompileKeyDataSerializer.deserialize(Bytes.decode(encodedBytes))
+                    val state = CompileKeyDataSerializer.deserialize(Bytes.decode(encodedBytes))
                     val thy = CompiledTheoryImpl(namespace, source, content, contentKey, faults, 
-                      parents, aliases, compileKey, proofscriptVersion, parsetree.asInstanceOf[ParseTree.Block],
-                      state, capturedOutput)
+                      parents, aliases, compileKey, proofscriptVersion, state)
                     kernel.restoreCompletedNamespace(thy.parents, thy.aliases, thy.state.context)
                     updateTheory(thy)
                     loadNotification(thy.namespace)
@@ -114,7 +113,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
     thy match {
       case thy : CompiledTheory =>
         store.setCurrentNamespace(thy.namespace)
-        val compileKeyData : CompileKeyData = (thy.parseTree, thy.capturedOutput, thy.state)
+        val compileKeyData : CompileKeyData = thy.state
         val encoding = Bytes.encode(CompileKeyDataSerializer.serialize(compileKeyData))
         val storeBytes = store.toBytes(thy.namespace).get
         val bytes = Bytes.encode(CompileKeyDataBytesSerializer.serialize((encoding, storeBytes)))
@@ -138,7 +137,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
     lookupTheory(namespace) match {
       case Some(t : CompiledTheory) => 
         val thy = updateTheory(CompiledTheoryImpl(t.namespace, t.source, t.content, t.contentKey, t.faults ++ faults, 
-          t.parents, t.aliases, t.compileKey, t.proofscriptVersion, t.parseTree, t.state, t.capturedOutput))
+          t.parents, t.aliases, t.compileKey, t.proofscriptVersion, t.state))
         saveCompileKeyData(thy)
         thy
       case Some(t : RootedTheory) => 
@@ -175,7 +174,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
         }
         if (parents.isEmpty && namespace != Namespace.root) throw new RuntimeException("theory '" + namespace + "' does not have any parent theories")
         if (version.isEmpty) throw new RuntimeException("theory '" + namespace + "' doesn't have a version of ProofScript associated with it")
-        val compileKey = Bytes.encode((t.contentKey, parentCompileKeys)).sha256
+        val compileKey = Bytes.encode((namespace.toString.toLowerCase, t.contentKey, parentCompileKeys)).sha256
         val thy = updateTheory(RootedTheoryImpl(t.namespace, t.source, t.content, t.contentKey, t.faults, 
           parents, aliases, compileKey, version.get))
         saveTheoryData(thy)
@@ -184,7 +183,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
     }
   }
 
-  def finishedCompiling(namespace : Namespace, parseTree : ParseTree.Block, state : State, capturedOutput : Output.Captured) : CompiledTheory = {
+  def finishedCompiling(namespace : Namespace, state : State) : CompiledTheory = {
     lookupTheory(namespace) match {
       case Some(t : CompiledTheory) =>
         throw new RuntimeException("cannot finish compiling of already compiled theory '" + namespace + "'")
@@ -197,7 +196,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
           }
         }
         val thy = updateTheory(CompiledTheoryImpl(t.namespace, t.source, t.content, t.contentKey, t.faults, 
-          t.parents, t.aliases, t.compileKey, t.proofscriptVersion, parseTree, state, capturedOutput))
+          t.parents, t.aliases, t.compileKey, t.proofscriptVersion, state))
         saveCompileKeyData(thy)
         thy
       case _ => throw new RuntimeException("cannot finish rooting of theory '" + namespace + "'")
@@ -217,7 +216,6 @@ object ExecutionEnvironmentImpl {
     parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String) extends RootedTheory
 
   private case class CompiledTheoryImpl(namespace : Namespace, source : Source, content : String, contentKey : Bytes, faults : Vector[Fault],
-    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, 
-    parseTree : ParseTree.Block, state : State, capturedOutput : Output.Captured) extends CompiledTheory
+    parents : Set[Namespace], aliases : Aliases, compileKey : Bytes, proofscriptVersion : String, state : State) extends CompiledTheory
 
 }
