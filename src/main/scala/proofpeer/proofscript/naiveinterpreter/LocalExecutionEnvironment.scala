@@ -81,7 +81,7 @@ object LocalExecutionEnvironment {
 
   private def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
 
-  def create(compileDir : File, directories : Seq[String]) : (ExecutionEnvironment, Set[Namespace]) = {
+  def create(compileDir : File, directories : Seq[String], loadedAction : Namespace => Unit) : (ExecutionEnvironment, Set[Namespace]) = {
     var theoryFiles : List[TheoryFile] = List()
     val rootNamespace = Namespace("\\")
     for (directory <- directories) {
@@ -91,7 +91,7 @@ object LocalExecutionEnvironment {
       else throw new RuntimeException("'" + f + "' is not a directory")
     }
     val adapter = new LocalExecutionEnvironmentAdapter(compileDir, theoryFiles)
-    (new ExecutionEnvironmentImpl(adapter, n => println("loaded " + n)), theoryFiles.map(_.namespace).toSet)
+    (new ExecutionEnvironmentImpl(adapter, loadedAction), theoryFiles.map(_.namespace).toSet)
   }
 
   private def findTheoriesInDirectory(namespace : Namespace, dir : File, files : List[TheoryFile]) : List[TheoryFile] = {

@@ -26,6 +26,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
   import ExecutionEnvironmentImpl._
 
   private var theories : Map[Namespace, Theory] = Map()
+  private var ancestors : Map[Namespace, Set[String]] = Map()
   private var storedBytes : Map[Namespace, Bytes] = Map()
 
   val kernel = Kernel.createDefaultKernel()
@@ -40,7 +41,7 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
     }
   }
 
-  private val store = new MultiStore(true, bytecodeOfTheory _)
+  private val store = new MultiStore(true, bytecodeOfTheory _, n => ancestors(n))
   private val kernelSerializers = kernel.serializers(store)
 
   private type RootingData = (Bytes, Set[Namespace], Aliases, String)
@@ -60,11 +61,19 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
 
   private def updateTheory[A <: Theory](thy : A) : A = {
     theories = theories + (thy.namespace -> thy)
+    thy match {
+      case thy : RootedTheory =>
+        var a : Set[String] = Set(thy.namespace.toString.toLowerCase)
+        for (parent <- thy.parents) {
+          a = a ++ ancestors(parent)
+        }
+        ancestors = ancestors + (thy.namespace -> a)
+      case _ =>
+    }
     thy
   }
 
   private def loadTheory(namespace : Namespace) : Option[Theory] = {
-    println("loading theory " + namespace)
     eeAdapter.lookupTheory(namespace) match {
       case None => None
       case Some((source, contentKey, content, optionalTheoryData)) =>

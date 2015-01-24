@@ -4,43 +4,13 @@ import proofpeer.proofscript.logic._
 import proofpeer.proofscript.naiveinterpreter.State
 import proofpeer.general._
 
-class Storage(kernel : Kernel) {
-
-  val theStore = new MultiStore(true, _ => None)
-  
-  val kernelSerializers = kernel.serializers(theStore)
-
-  val stateSerializer = new CustomizableStateSerializer(theStore, kernelSerializers)
-  
-  def store(namespace : Namespace, state : State) : Any = {
-    theStore.setCurrentNamespace(namespace)
-    stateSerializer.serialize(state)
-  }
-
-  def restore(storedStateId : Any) : State = {
-    stateSerializer.deserialize(storedStateId).asInstanceOf[State]
-  }
-
-  def printStats() {
-    println("number of items in store: " + theStore.size)
-    println("number of namespaces in store: " + theStore.allStores.size)
-    var size = 0
-    for ((namespace, flatstore) <- theStore.allStores) {
-      val b = flatstore.toBytes
-      size = size + b.length
-      println(namespace + " has " + b.length + " bytes")
-    }
-    println("total size in bytes: " + size)
-  }
-
-}
-
 import UniquelyIdentifiableStore.{Id => StoreId}
 
 /** In memory store implementation. */
 class FlatStore(val storename : String, sharing : Boolean, 
   exportId : StoreId => StoreId, 
   importId : StoreId => Either[StoreId, UniquelyIdentifiableStore],
+  isCompatible : StoreId => Boolean,
   storedBytes : Option[Bytes]) 
 extends UniquelyIdentifiableStore {
 
@@ -81,18 +51,18 @@ extends UniquelyIdentifiableStore {
     }
   }
 
-  def lookup[T <: UniquelyIdentifiable](id : Id, create : Item => T, deserialize : Item => T, assign : (T, T) => T) : T = {
-    importId(id) match {
-      case Right(otherStore) => otherStore.lookup(id, create, deserialize, assign)
+  def lookup[T <: UniquelyIdentifiable](exportedId : Id, create : Item => T, deserialize : Item => T, assign : (T, T) => T) : T = {
+    importId(exportedId) match {
+      case Right(otherStore) => otherStore.lookup(exportedId, create, deserialize, assign)
       case Left(id) =>
         if (id == -1) return null.asInstanceOf[T]
-        println("accessing id = " + id + " in store " + storename)
         val storeItem = items(decodeId(id))
         if (storeItem.deserialized != null) return storeItem.deserialized.asInstanceOf[T]
         val fresh_t = create(storeItem.item)
         storeItem.deserialized = fresh_t
         val t = deserialize(storeItem.item)
         val result = assign(fresh_t, t)
+        result.uniqueIdentifiers = exportedId :: result.uniqueIdentifiers
         storeItem.deserialized = result
         result
     }
@@ -100,23 +70,25 @@ extends UniquelyIdentifiableStore {
 
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
     if (t == null) return nullId
-    t.optionalUniqueIdentifier match {
+    t.uniqueIdentifiers.find(isCompatible) match {
       case Some(id) => id
       case None =>
         val storeItem = new StoreItem()
         val id = items.size
         items = items :+ storeItem
-        t.optionalUniqueIdentifier = Some(exportId(id))
+        var exportedId = exportId(id)
+        t.uniqueIdentifiers = exportedId :: t.uniqueIdentifiers
         val item = serialize(t)
         if (sharing && id == items.size - 1 && itemsIndex.get(item).isDefined) {
           items = items.dropRight(1)
           val id = itemsIndex(item)
-          t.optionalUniqueIdentifier = Some(exportId(id))
+          exportedId = exportId(id)
+          t.uniqueIdentifiers = exportedId :: t.uniqueIdentifiers.tail          
         } else {
           storeItem.item = item
           if (sharing) itemsIndex = itemsIndex + (item -> id)
         }
-        t.optionalUniqueIdentifier.get
+        exportedId
     }
   }
 
@@ -124,7 +96,7 @@ extends UniquelyIdentifiableStore {
 
 
 /** Store implementation which maintains separate stores for each namespace. */
-class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes]) extends UniquelyIdentifiableStore {
+class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes], ancestors : Namespace => Set[String]) extends UniquelyIdentifiableStore {
 
   import UniquelyIdentifiableStore._
 
@@ -153,7 +125,14 @@ class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes]) ext
             case _ => throw new RuntimeException("Invalid id " + id)
           }
         }
-        val store = new FlatStore(namespace, sharing, exportId _, importId _, loadNamespace(namespace))
+        val a = ancestors(Namespace(ns))
+        def isCompatible(id : Any) : Boolean = {
+          id match {
+            case Vector(n : String, x) => a.contains(n)
+            case _ => throw new RuntimeException("Invalid id " + id)
+          }
+        }
+        val store = new FlatStore(namespace, sharing, exportId _, importId _, isCompatible _, loadNamespace(namespace))
         stores = stores + (namespace -> store)
         store
     }

@@ -6,6 +6,7 @@ object LocalInterpreter {
 
   class ConsoleInterpreterNotificationHandler(ee : ExecutionEnvironment) extends InterpreterNotificationHandler {
     var failed : Int = 0
+    var succeeded : Int = 0
     def displayErrors(theory : Namespace) {
       for (fault <- ee.lookupTheory(theory).get.faults) {
         println("  * " + fault.description)
@@ -16,6 +17,7 @@ object LocalInterpreter {
     }
     def finishedCompiling(theory : Namespace, success : Boolean)  {
       if (success) {
+        succeeded = succeeded + 1
         println(" done")
       } else {
         failed = failed + 1
@@ -37,15 +39,17 @@ object LocalInterpreter {
   def main(args : Array[String]) {
     println("ProofScript v0.2-SNAPSHOT (c) 2014, 2015 University of Edinburgh")
     val compileDir = new java.io.File("/Users/stevenobua/proofscript.compiled")
-    val (ee, allTheories) = LocalExecutionEnvironment.create(compileDir, args)
+    var loaded = 0
+    val (ee, allTheories) = LocalExecutionEnvironment.create(compileDir, args, _ => loaded = loaded + 1)
     val interpreter = new Interpreter(ee)
     val handler = new ConsoleInterpreterNotificationHandler(ee)
     interpreter.compileTheories(allTheories, handler)
     println("")
+    val total = loaded + handler.succeeded + handler.failed
     if (handler.failed == 0)
-      println("All theories compile successfully.")
+      println("All " + total + " theories compile successfully.")
     else
-      println("There are " + handler.failed + " theories which fail to compile.")
+      println("There are " + handler.failed + " out of " + total + " theories which fail to compile.")
   }
 
 }

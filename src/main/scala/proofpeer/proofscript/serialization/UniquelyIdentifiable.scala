@@ -8,7 +8,7 @@ object UniquelyIdentifiableStore {
 }
 
 trait UniquelyIdentifiable extends AnyRef {
-  var optionalUniqueIdentifier : Option[UniquelyIdentifiableStore.Id] = None
+  var uniqueIdentifiers : List[UniquelyIdentifiableStore.Id] = List()
 }
 
 trait CyclicSerializer[T] extends Serializer[T] {
