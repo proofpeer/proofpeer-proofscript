@@ -20,7 +20,7 @@ object LocalInterpreter {
     
     def displayErrors(theory : Namespace) {
       for (fault <- ee.lookupTheory(theory).get.faults) {
-        println("  * " + fault.description)
+        print(fault.describe("  "))
       }
     }
 

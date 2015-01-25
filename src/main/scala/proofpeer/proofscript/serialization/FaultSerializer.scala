@@ -46,8 +46,6 @@ object SourceLabelSerializer extends CaseClassSerializerBase[SourceLabel] {
 
 object FaultSerializer { 
 
-  import ExecutionEnvironment.Fault
-
   private type Triple = (SourcePosition, String, Vector[(SourcePosition, SourceLabel)])
 
   private val SourcePositionSerializer : Serializer[SourcePosition] =
