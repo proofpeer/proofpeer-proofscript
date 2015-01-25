@@ -27,17 +27,26 @@ class LocalExecutionEnvironmentAdapter(compileDir : File, theoryFiles : List[Loc
     dataOfTheories = dataOfTheories + (namespace -> theoryData)
   }
 
-  private def compileKeyFile(compileKey : Bytes) : File = {
-    new File(compileDir, compileKey.asHex)
+  private def compileKeyFile(suffix : String, compileKey : Bytes) : File = {
+    new File(compileDir, compileKey.asHex + "." + suffix)
   }
 
   def loadCompileKeyData(compileKey : Bytes) : Option[Bytes] = {
-    val f = compileKeyFile(compileKey)
+    val f = compileKeyFile("state", compileKey)
     if (f.exists) Some(BytesInFiles.loadBytes(f)) else None
   }
 
   def storeCompileKeyData(compileKey : Bytes, data : Bytes) {
-    BytesInFiles.writeBytes(compileKeyFile(compileKey), data)
+    BytesInFiles.writeBytes(compileKeyFile("state", compileKey), data)
+  }
+
+  def loadOutput(compileKey : Bytes) : Option[Bytes] = {
+    val f = compileKeyFile("output", compileKey)
+    if (f.exists) Some(BytesInFiles.loadBytes(f)) else None
+  }
+
+  def storeOutput(compileKey : Bytes, output : Bytes) {
+    BytesInFiles.writeBytes(compileKeyFile("output", compileKey), output)
   }
 
 }

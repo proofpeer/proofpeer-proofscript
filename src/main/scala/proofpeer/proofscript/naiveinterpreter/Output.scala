@@ -16,17 +16,7 @@ trait Output {
 object DefaultOutput extends Output {
 
   def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) {
-    val slocation : String = 
-      location match {
-        case None => ""
-        case Some(span) => ":" + (span.firstRow + 1)
-      }
-    val skind = 
-      kind match {
-        case OutputKind.SHOW => "show"
-        case OutputKind.FAILURE => "failure intercepted"
-      }
-    println("** " + skind + " ("+namespace+slocation+"): " + output)
+    println(Output.itemToString((namespace, location, kind, output)))
   }
 
 }
@@ -42,6 +32,21 @@ object Output {
   type Item = (Namespace, Option[Span], OutputKind, String)
 
   type Captured = Vector[Item]
+
+  def itemToString(item : Item) : String = {
+    val (namespace, location, kind, output) = item
+    val slocation : String = 
+      location match {
+        case None => ""
+        case Some(span) => ":" + (span.firstRow + 1)
+      }
+    val skind = 
+      kind match {
+        case OutputKind.SHOW => "show"
+        case OutputKind.FAILURE => "failure intercepted"
+      }
+    "** " + skind + " ("+namespace+slocation+"): " + output
+  }
 
 }
 

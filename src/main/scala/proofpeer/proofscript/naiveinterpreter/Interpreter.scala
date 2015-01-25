@@ -272,6 +272,9 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   private def evalTheory(thy: RootedTheory) : Boolean = {
     val output = new DefaultOutputCapture()
+    def dumpOutput() {
+      executionEnvironment.storeOutput(thy.compileKey, output.export())
+    }
     val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, logicNamespaceResolution, thy.aliases, thy.namespace, output)
     val state : State = 
       if (thy.namespace == Kernel.root_namespace) 
@@ -285,6 +288,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       }
     evaluator.evalBlock(state, ParseTree.Block(parsetree.statements.tail)) match {
       case Failed(trace, error) =>
+        dumpOutput()
         var positions = trace.reverse
         if (positions.size > MAX_TRACE_LENGTH) positions = positions.take(MAX_TRACE_LENGTH)
         val pos : SourcePosition = 
@@ -293,13 +297,14 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         executionEnvironment.addFaults(thy.namespace, Vector(fault))
         false
       case Success(state, _) => 
+        dumpOutput()
         if (state.context.hasAssumptions && state.context.namespace != Kernel.root_namespace) {
           addFault(thy.namespace, "theory fails because it introduces axioms (which only the root theory can do)")
           false
         } else {
           val completed = kernel.completeNamespace(state.context)
           val completedState = new State(completed, state.env.freeze, Collect.Zero, false)
-          executionEnvironment.finishedCompiling(thy.namespace, completedState) // no output.export
+          executionEnvironment.finishedCompiling(thy.namespace, completedState) 
           true 
         }
     }

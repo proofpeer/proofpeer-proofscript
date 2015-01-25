@@ -6,7 +6,7 @@ import proofpeer.general.Bytes
 
 object ExecutionEnvironment {
 
-  final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)] = Vector())
+  final case class Fault(pos : SourcePosition, description : String, trace : Vector[(SourcePosition, SourceLabel)] = Vector()) 
 
   type OutputItem = (SourcePosition, OutputKind, String)
 
@@ -48,5 +48,16 @@ trait ExecutionEnvironment {
   def finishedRooting(namespace : Namespace, parents : Set[Namespace], aliases : Aliases, proofscriptVersion : Option[String]) : RootedTheory
 
   def finishedCompiling(namespace : Namespace, state : State) : CompiledTheory
+
+  def storeOutput(compileKey : Bytes, capturedOutput : Output.Captured)
+
+  def loadOutput(compileKey : Bytes) : Option[Output.Captured]
+
+  def loadOutput(namespace : Namespace) : Option[Output.Captured] = {
+    lookupTheory(namespace) match {
+      case Some(thy : RootedTheory) => loadOutput(thy.compileKey)
+      case _ => None
+    }
+  }
 
 }

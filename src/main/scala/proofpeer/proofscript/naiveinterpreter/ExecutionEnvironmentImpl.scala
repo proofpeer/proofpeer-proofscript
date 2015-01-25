@@ -18,6 +18,11 @@ trait ExecutionEnvironmentAdapter {
   /** Can be called multiple times to override previously stored data. */
   def storeCompileKeyData(compileKey : Bytes, data : Bytes)
 
+  def loadOutput(compileKey : Bytes) : Option[Bytes]
+
+  /** Can be called multiple times to override previously stored data. */
+  def storeOutput(compileKey : Bytes, output : Bytes)
+
 }
 
 class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNotification : Namespace => Unit = _ => ()) extends ExecutionEnvironment {
@@ -55,9 +60,9 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
   private val TheoryDataSerializer : Serializer[TheoryData] = PairSerializer(OptionSerializer(RootingDataSerializer), 
     VectorSerializer(FaultSerializer()))
   private val StateSerializer = new CustomizableStateSerializer(store, kernelSerializers)
-  //private val OutputSerializer = CapturedOutputSerializer(kernelSerializers.NamespaceSerializer)
   private val CompileKeyDataSerializer : Serializer[CompileKeyData] = StateSerializer
   private val CompileKeyDataBytesSerializer : Serializer[(Bytes, Bytes)] = PairSerializer(BytesSerializer, BytesSerializer)
+  private val OutputSerializer = CapturedOutputSerializer(BasicNamespaceSerializer)
 
   private def updateTheory[A <: Theory](thy : A) : A = {
     theories = theories + (thy.namespace -> thy)
@@ -209,6 +214,18 @@ class ExecutionEnvironmentImpl(eeAdapter : ExecutionEnvironmentAdapter, loadNoti
         saveCompileKeyData(thy)
         thy
       case _ => throw new RuntimeException("cannot finish rooting of theory '" + namespace + "'")
+    }
+  }
+
+  def storeOutput(compileKey : Bytes, capturedOutput : Output.Captured) {
+    val bytes = Bytes.encode(OutputSerializer.serialize(capturedOutput))
+    eeAdapter.storeOutput(compileKey, bytes)
+  }
+
+  def loadOutput(compileKey : Bytes) : Option[Output.Captured] = {
+    eeAdapter.loadOutput(compileKey) match {
+      case None => None
+      case Some(bytes) => Some(OutputSerializer.deserialize(Bytes.decode(bytes)))
     }
   }
 
