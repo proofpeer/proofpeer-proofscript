@@ -25,7 +25,12 @@ final case class Fault(pos : SourcePosition, description : String, trace : Vecto
       }
     }
     if (trace.isEmpty) {
-      prefix + "* " + description + "\n" + prefix + "  " + describePosition(pos, NoSourceLabel) + "\n"
+      val singlepos =
+        if (pos != null)
+          prefix + "  " + describePosition(pos, NoSourceLabel) + "\n"
+        else 
+          ""
+      prefix + "* " + description + "\n" + singlepos
     } else {
       var output = new StringBuilder()
       output.append(prefix + "* " + description + "\n")

@@ -286,8 +286,19 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         case None => return false
         case Some(block) => block
       }
-    evaluator.evalBlock(state, ParseTree.Block(parsetree.statements.tail)) match {
-      case Failed(trace, error) =>
+    val result : Either[Result[State], String] = 
+      try {
+        Left(evaluator.evalBlock(state, ParseTree.Block(parsetree.statements.tail)))
+      } catch {
+        case x : StackOverflowError =>
+          Right("cannot evaluate theory because the stack overflowed")
+        case x : OutOfMemoryError =>
+          Right("cannot evaluate theory because memory ran out")
+        case x : Exception => 
+          Right("cannot evaluate theory because an exception occurred: " + x.getMessage())
+      }
+    result match {
+      case Left(Failed(trace, error)) =>
         dumpOutput()
         var positions = trace.reverse
         if (positions.size > MAX_TRACE_LENGTH) positions = positions.take(MAX_TRACE_LENGTH)
@@ -296,7 +307,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         val fault = Fault(pos, error, positions.toVector)
         executionEnvironment.addFaults(thy.namespace, Vector(fault))
         false
-      case Success(state, _) => 
+      case Left(Success(state, _)) => 
         dumpOutput()
         if (state.context.hasAssumptions && state.context.namespace != Kernel.root_namespace) {
           addFault(thy.namespace, "theory fails because it introduces axioms (which only the root theory can do)")
@@ -307,6 +318,10 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
           executionEnvironment.finishedCompiling(thy.namespace, completedState) 
           true 
         }
+      case Right(error) =>
+        dumpOutput()
+        addFault(thy.namespace, error)
+        false
     }
   }  
 
