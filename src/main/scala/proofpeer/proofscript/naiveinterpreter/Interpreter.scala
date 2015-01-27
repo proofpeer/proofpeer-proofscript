@@ -25,12 +25,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   import ExecutionEnvironment._
 
-  println("making parser")
-
   private val parser = new ProofScriptParser()  
-
-  println("made parser")
-
   private val kernel = executionEnvironment.kernel
 
   def theoryIsRooted(namespace : Namespace) : Boolean = {
@@ -87,7 +82,6 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
   }
 
   private def parseTheoryHeader(thy : Theory) : Either[TheoryHeader, TheoryHeaderError] = {
-    println("parsing theory header of: " + thy.namespace)
     class AcceptHeader(parseProofscriptVersion : Boolean) {
       var state = 0
       def accept(line : String) : Boolean = {
@@ -318,7 +312,6 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   /** Returns true if the theory has been compiled successfully, otherwise false. */
   private def compileTheory(theory : Namespace, handler : InterpreterNotificationHandler) : Boolean = {
-    println("compiling theory: " + theory)
     executionEnvironment.lookupTheory(theory) match {
       case Some(theory : Theory) if theory.isFaulty => 
         handler.skippedFaultyTheory(theory.namespace)
@@ -366,11 +359,8 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   def compileTheories(theories : Set[Namespace], handler : InterpreterNotificationHandler = NoInterpreterNotificationHandler) {
     val h = new SuppressDuplicateNotifications(handler)
-    println("rooting theories")
     rootTheories(theories)
-    println("compiling theories")
     for (theory <- theories) compileTheory(theory, h)
-    println("done compiling theories")
   }
 
 }
