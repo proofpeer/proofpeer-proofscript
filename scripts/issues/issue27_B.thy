@@ -14,6 +14,7 @@ def
 failure u 2
 
 # "failure" swallows the stack trace, replace "failure" by "show" to see the trace
-failure g(50)
+  values higher than 30, like 70, reliably produce stack overflows
+failure g(30) 
 
 
