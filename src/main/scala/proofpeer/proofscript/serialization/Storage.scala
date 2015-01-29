@@ -8,14 +8,13 @@ import UniquelyIdentifiableStore.{Id => StoreId}
 
 /** In memory store implementation. */
 class FlatStore(val storename : String, sharing : Boolean, 
-  exportId : StoreId => StoreId, 
+  exportId : StoreId => (StoreId, StoreId), // the first one is used as a reference, the second one as a label in uniqueIdentifiers
   importId : StoreId => Either[StoreId, UniquelyIdentifiableStore],
-  isCompatible : StoreId => Boolean,
+  isCompatible : StoreId => Option[StoreId],
   storedBytes : Option[Bytes]) 
 extends UniquelyIdentifiableStore {
 
-  private val nullId = exportId(-1)
-  final val firstId = exportId(0)
+  private val (nullId, _) = exportId(-1)
 
   import UniquelyIdentifiableStore._
 
@@ -62,28 +61,40 @@ extends UniquelyIdentifiableStore {
         storeItem.deserialized = fresh_t
         val t = deserialize(storeItem.item)
         val result = assign(fresh_t, t)
-        result.uniqueIdentifiers = exportedId :: result.uniqueIdentifiers
+        val (_, uniqueIdentifier) = exportId(id)
+        result.uniqueIdentifiers = uniqueIdentifier :: result.uniqueIdentifiers
         storeItem.deserialized = result
         result
     }
   }
 
+  private def findUniqueIdentifier(uniqueIdentifiers : Seq[StoreId]) : Option[StoreId] = {
+    for (u <- uniqueIdentifiers) {
+      isCompatible(u) match {
+        case Some(id) => return Some(id)
+        case None =>
+      }
+    }
+    None
+  }
+
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
     if (t == null) return nullId
-    t.uniqueIdentifiers.find(isCompatible) match {
+    findUniqueIdentifier(t.uniqueIdentifiers) match {
       case Some(id) => id
       case None =>
         val storeItem = new StoreItem()
         val id = items.size
         items = items :+ storeItem
-        var exportedId = exportId(id)
-        t.uniqueIdentifiers = exportedId :: t.uniqueIdentifiers
+        var (exportedId, uniqueIdentifier) = exportId(id)
+        t.uniqueIdentifiers = uniqueIdentifier :: t.uniqueIdentifiers
         val item = serialize(t)
         if (sharing && id == items.size - 1 && itemsIndex.get(item).isDefined) {
           items = items.dropRight(1)
           val id = itemsIndex(item)
-          exportedId = exportId(id)
-          t.uniqueIdentifiers = exportedId :: t.uniqueIdentifiers.tail          
+          val (_exportedId, uniqueIdentifier) = exportId(id)
+          exportedId = _exportedId
+          t.uniqueIdentifiers = uniqueIdentifier :: t.uniqueIdentifiers.tail          
         } else {
           storeItem.item = item
           if (sharing) itemsIndex = itemsIndex + (item -> id)
@@ -94,11 +105,21 @@ extends UniquelyIdentifiableStore {
 
 }
 
+object MultiStore {
+  
+  import java.util.concurrent.atomic.AtomicLong
+  
+  private val uniqueStoreId = new AtomicLong(0)
+
+  def obtainNewStoreId() : Long = uniqueStoreId.incrementAndGet()
+}
 
 /** Store implementation which maintains separate stores for each namespace. */
 class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes], ancestors : Namespace => Set[String]) extends UniquelyIdentifiableStore {
 
   import UniquelyIdentifiableStore._
+
+  private val myStoreId = MultiStore.obtainNewStoreId()
 
   private var stores : Map[String, FlatStore] = Map()
   private var currentStore : FlatStore = null
@@ -117,7 +138,7 @@ class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes], anc
       case Some(store) => store
       case None =>
         val ns = namespace.toString.toLowerCase
-        def exportId(x : Any) : Any = Vector(ns, x)
+        def exportId(x : Any) : (Any, Any) = (Vector(ns, x), Vector(myStoreId, ns, x))
         def importId(id : Any) : Either[Any, UniquelyIdentifiableStore] = {
           id match {
             case Vector(n : String, x) if n == ns => Left(x)
@@ -126,9 +147,12 @@ class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes], anc
           }
         }
         val a = ancestors(Namespace(ns))
-        def isCompatible(id : Any) : Boolean = {
+        def isCompatible(id : Any) : Option[Any] = {
           id match {
-            case Vector(n : String, x) => a.contains(n)
+            case Vector(storeId : Long, n : String, x) =>
+              if (storeId == myStoreId && a.contains(n)) 
+                Some((Vector(n, x)))
+              else None 
             case _ => throw new RuntimeException("Invalid id " + id)
           }
         }
@@ -148,10 +172,6 @@ class MultiStore(sharing : Boolean, loadNamespace : String => Option[Bytes], anc
       case Some(store) => Some(store.toBytes)
       case None => None
     }
-  }
-
-  def firstIdOf(namespace : Namespace) : Id = {
-    getStore(namespace.toString.toLowerCase).firstId
   }
 
   def add[T <: UniquelyIdentifiable](t : T, serialize : T => Item) : Id = {
