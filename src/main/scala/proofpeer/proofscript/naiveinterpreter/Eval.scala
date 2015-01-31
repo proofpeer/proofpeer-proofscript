@@ -48,6 +48,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	val logicNameresolution : NamespaceResolution[IndexedName], 
 	val aliases : Aliases, namespace : Namespace, output : Output) 
 {
+	import proofpeer.general.continuation._
+
+	type RCont[T] = Continuation[Result[T]]
+	type RThunk[T] = Thunk[Result[T]]
 
 	def success[T](result : T) : Success[T] = Success(result, false)
 
@@ -168,7 +172,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def evalBlock(_state : State, block : Block) : Result[State] = {
+	def evalBlock(_state : State, block : Block, evalDepth : Int, cont : RCont[State]) : RThunk[State] = {
 		val statements = block.statements
 		var state = _state
 		val num = statements.size
@@ -178,22 +182,22 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				st match {
 					case STValIntro(ids) =>
 						if (ids.toSet.size != ids.size)
-							return fail(st, "cannot introduce the same variable more than once")
+							return cont(fail(st, "cannot introduce the same variable more than once"))
 						else 
 							for (id <- ids) state = state.bind(Map(id.name -> NilValue))
 					case STVal(pat, body) => 
-						evalBlock(state.setCollect(Collect.emptyOne), body) match {
-							case f : Failed[_] => return fail(f)
+						evalBlock(state.setCollect(Collect.emptyOne), body, evalDepth + 1, {
+							case f : Failed[_] => return cont(fail(f))
 							case su @ Success(s, isReturnValue) => 
-								if (isReturnValue) return su
+								if (isReturnValue) ret(su)
 								val value = s.reapCollect
 								state = state.setContext(s.context)
 								matchPattern(state.freeze, pat, value) match {
-									case Failed(pos, error) => return Failed(pos, error)
-									case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
+									case Failed(pos, error) => return cont(Failed(pos, error))
+									case Success(None, _) => return cont(fail(pat, "value " + display(state, value) + " does not match pattern"))
 									case Success(Some(matchings), _) => state = state.bind(matchings)
 								}
-						}
+						})
 					case STAssign(pat, body) =>
 						if (!(pat.introVars subsetOf state.assignables)) {
 							val unassignables = pat.introVars -- state.assignables
