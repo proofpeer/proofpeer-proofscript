@@ -49,6 +49,20 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	val aliases : Aliases, namespace : Namespace, output : Output) 
 {
 
+	import proofpeer.general.continuation._
+
+	type RC[S, T] = Continuation[Result[S], T]
+
+	def mkRC[S, T](f : Result[S] => Thunk[T]) : RC[S, T] = f
+
+	var maxEvalDepth : Int = 0
+	private def TOO_DEEP(evalDepth : Int) : Boolean = {
+		if (evalDepth > maxEvalDepth) {
+			maxEvalDepth = evalDepth
+			println("NEW maxEvalDepth = " + maxEvalDepth)
+		}
+		evalDepth > 20
+	}
 	def success[T](result : T) : Success[T] = Success(result, false)
 
 	def fail[T](p : TracksSourcePosition, error : String) : Failed[T] = 
@@ -65,7 +79,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
 			tm.quoted match {
 				case expr : Expr =>
-					evalExpr(state.freeze, expr) match {
+					evalExprSynchronously(state.freeze, expr) match {
 						case failed : Failed[_] => 
 							expr match {
 								case Id(name) if createFresh =>
@@ -114,7 +128,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	} 
 
 	def evalTermExpr(state : State, expr : Expr) : Result[Term] = {
-		evalExpr(state, expr) match {
+		evalExprSynchronously(state, expr) match {
 			case failed : Failed[_] => fail(failed)
 			case Success(TermValue(tm),_) => success(tm)
 			case Success(s : StringValue, _) =>
@@ -136,7 +150,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			  // issue #31 temporarily remove quote intro feature from language:
 				evalLogicPreterm(state, tm, false)
 			case _ => 
-				evalExpr(state.freeze, expr) match {
+				evalExprSynchronously(state.freeze, expr) match {
 					case failed : Failed[_] => fail(failed)
 					case Success(TermValue(tm),_) => success((Preterm.translate(tm), state))
 					case Success(s : StringValue, _) =>
@@ -153,191 +167,212 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		StateValue.display(aliases, logicNameresolution, state.context, value)	
 	}
 
-	def recordTrace(tracks : TracksSourcePosition)(block : => Unit) {
-		import scala.runtime.NonLocalReturnControl
-		try {
-			block
-		} catch {
-			case _e : NonLocalReturnControl[_] =>
-				val e = _e.asInstanceOf[NonLocalReturnControl[Result[State]]]
-				e.value match {
-					case f : Failed[_] => f.addToTrace(tracks, NoSourceLabel)
-					case _ =>
-				}
-				throw e
-		}
+	def recordTraceCont[T](tracks : TracksSourcePosition, cont : RC[State, T]) : RC[State, T] = { 
+		case f : Failed[_] => cont(f.addToTrace(tracks, NoSourceLabel))
+		case r => cont(r)
 	}
 
-	def evalStatement(_state : State, st : Statement, isLastStatement : Boolean) : Result[State] = {
-		var state = _state
-		recordTrace(st) {
-			st match {
-				case STValIntro(ids) =>
-					if (ids.toSet.size != ids.size)
-						return fail(st, "cannot introduce the same variable more than once")
-					else 
-						for (id <- ids) state = state.bind(Map(id.name -> NilValue))
-				case STVal(pat, body) => 
-					evalBlock(state.setCollect(Collect.emptyOne), body) match {
-						case f : Failed[_] => return fail(f)
-						case su @ Success(s, isReturnValue) => 
-							if (isReturnValue) return su
+	def evalStatement[T](state : State, st : Statement, isLastStatement : Boolean, 
+		evalDepth : Int, _cont : RC[State, T]) : Thunk[T] = 
+	{
+		if (TOO_DEEP(evalDepth)) 
+			return Thunk.computation[T](() => evalStatement[T](state, st, isLastStatement, 0, _cont))
+		val cont : RC[State, T] = recordTraceCont(st, _cont)
+		st match {
+			case STValIntro(ids) =>
+				if (ids.toSet.size != ids.size)
+					cont(fail(st, "cannot introduce the same variable more than once"))
+				else {
+					var _state = state
+					for (id <- ids) _state = _state.bind(Map(id.name -> NilValue))
+					cont(success(_state))
+				}
+			case STVal(pat, body) => 
+				evalBlock[T](state.setCollect(Collect.emptyOne), body, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f))
+					case su @ Success(s, isReturnValue) => 
+						if (isReturnValue) cont(su)
+						else {
 							val value = s.reapCollect
-							state = state.setContext(s.context)
-							matchPattern(state.freeze, pat, value) match {
-								case Failed(pos, error) => return Failed(pos, error)
-								case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
-								case Success(Some(matchings), _) => state = state.bind(matchings)
+							val _state = state.setContext(s.context)
+							matchPattern(_state.freeze, pat, value) match {
+								case Failed(pos, error) => cont(Failed(pos, error))
+								case Success(None, _) => cont(fail(pat, "value " + display(_state, value) + " does not match pattern"))
+								case Success(Some(matchings), _) => cont(success(_state.bind(matchings)))
 							}
-					}
-				case STAssign(pat, body) =>
-					if (!(pat.introVars subsetOf state.assignables)) {
-						val unassignables = pat.introVars -- state.assignables
-						var error = "pattern assigns to variables not in linear scope:"
-						for (v <- unassignables) error = error + " " + v
-						return fail(pat, error)
-					}
-					evalBlock(state.setCollect(Collect.emptyOne), body) match {
-						case f : Failed[_] => return fail(f)
-						case su @ Success(s, isReturnValue) => 
-							if (isReturnValue) return su
-							val value = s.reapCollect
-							state = state.setContext(s.context)
-							matchPattern(state.freeze, pat, value) match {
-								case Failed(pos, error) => return Failed(pos, error)
-								case Success(None, _) => return fail(pat, "value " + display(state, value) + " does not match pattern")
-								case Success(Some(matchings), _) => state = state.rebind(matchings)
-							}
-					}					
-				case STExpr(expr) =>
-					val ok =
-						state.collect match {
-							case Collect.Zero => false
-							case _ : Collect.One => isLastStatement
-							case _ : Collect.Multiple => true
 						}
-					if (!ok) return fail(st, "cannot yield here")
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(s, _) => state = state.addToCollect(s)
-					}
-				case STReturn(expr) => 
-					if (!state.canReturn) return fail(st, "cannot return here")
-					expr match {
-						case None => return Success(State.fromValue(NilValue), true)
-						case Some(expr) =>
-							evalExpr(state.freeze, expr) match {
-								case f : Failed[_] => return fail(f)
-								case Success(s, _) => return Success(State.fromValue(s), true)
-							}						
-					}
-				case STShow(expr) => 
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(value, _) => 
-							val location : String = 
-								st.sourcePosition.span match {
-									case None => ""
-									case Some(span) => ":" + (span.firstRow + 1)
+				})
+			case STAssign(pat, body) =>
+				if (!(pat.introVars subsetOf state.assignables)) {
+					val unassignables = pat.introVars -- state.assignables
+					var error = "pattern assigns to variables not in linear scope:"
+					for (v <- unassignables) error = error + " " + v
+					cont(fail(pat, error))
+				} else {
+					evalBlock[T](state.setCollect(Collect.emptyOne), body, evalDepth + 1, {
+						case f : Failed[_] => cont(fail(f))
+						case su @ Success(s, isReturnValue) => 
+							if (isReturnValue) cont(su)
+							else {
+								val value = s.reapCollect
+								val _state = state.setContext(s.context)
+								matchPattern(_state.freeze, pat, value) match {
+									case Failed(pos, error) => cont(Failed(pos, error))
+									case Success(None, _) => cont(fail(pat, "value " + display(_state, value) + " does not match pattern"))
+									case Success(Some(matchings), _) => cont(success(_state.rebind(matchings)))
 								}
-							output.add(namespace, st.sourcePosition.span, OutputKind.SHOW, display(state, value))
-					}
-				case STFail(None) => return fail(st, "fail")
-				case STFail(Some(expr)) =>
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(value, _) => return fail(st, "fail: "+display(state, value))
-					}		
-				case STAssert(expr) =>
-					evalExpr(state.freeze, expr) match {
-						case f : Failed[_] => return fail(f)
-						case Success(BoolValue(true), _) => // do nothing
-						case Success(BoolValue(false), _) => return fail(st, "Assertion does not hold")
-						case Success(value, _) => return fail(st, "Assertion does not hold: " + display(state, value))
-					}
-				case STFailure(block) =>
-					evalBlock(state.freeze.setCollect(Collect.emptyMultiple), block) match {
-						case f : Failed[_] => 
-							val location : String = 
-								st.sourcePosition.span match {
-									case None => ""
-									case Some(span) => ":" + (span.firstRow + 1)
-								}						
-							output.add(namespace, st.sourcePosition.span, OutputKind.FAILURE, f.error)
-						case Success(newState, _) =>
-							val value = newState.reapCollect 
-							return fail(st, "Failure expected, but evaluates successfully to: " + display(state, value))
-					}		
-				case STControlFlow(controlflow) =>
-					val (changedCollect, collect) = 
-						state.collect match {
-							case _ : Collect.One if !isLastStatement => (true, Collect.Zero)
-							case c => (false, c)
 						}
-					evalControlFlow(state.setCollect(collect), controlflow) match {
-						case f : Failed[_] => return fail(f)
-						case su @ Success(value, isReturnValue) =>
-							if (isReturnValue) return su
-							state = if (changedCollect) value.setCollect(state.collect) else value
+					})				
+				}	
+			case STExpr(expr) =>
+				val ok =
+					state.collect match {
+						case Collect.Zero => false
+						case _ : Collect.One => isLastStatement
+						case _ : Collect.Multiple => true
 					}
-				case stdef : STDef =>
-					lookupVars(state, stdef.freeVars) match {
-						case Right(xs) =>
-							var error = "definition depends on unknown free variables:"
-							for (x <- xs) error = error + " " + x
-							return fail(stdef, error)
-						case Left(bindings) =>
-							var functions : Map[String, RecursiveFunctionValue] = Map()
-							var nonlinear = bindings
-							for ((name, cs) <- stdef.cases) {
-								val f = RecursiveFunctionValue(null, cs)
-								nonlinear = nonlinear + (name -> f)
-								functions = functions + (name -> f)
+				if (!ok) cont(fail(st, "cannot yield here"))
+				else {
+					evalExpr[T](state.freeze, expr, evalDepth + 1, {
+						case f : Failed[_] => cont(fail(f))
+						case Success(s, _) => cont(success(state.addToCollect(s)))
+					})
+				}
+			case STReturn(expr) => 
+				if (!state.canReturn) cont(fail(st, "cannot return here"))
+				else {
+					expr match {
+						case None => cont(Success(State.fromValue(NilValue), true))
+						case Some(expr) =>
+							evalExpr[T](state.freeze, expr, evalDepth + 1, {
+								case f : Failed[_] => cont(fail(f))
+								case Success(s, _) => cont(Success(State.fromValue(s), true))
+							})						
+					}
+				}
+			case STShow(expr) => 
+				evalExpr[T](state.freeze, expr, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f)) 
+					case Success(value, _) => 
+						val location : String = 
+							st.sourcePosition.span match {
+								case None => ""
+								case Some(span) => ":" + (span.firstRow + 1)
 							}
-							var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
-							for ((_, f) <- functions) f.state = defstate
-							state = state.bind(functions)
+						output.add(namespace, st.sourcePosition.span, OutputKind.SHOW, display(state, value))
+						cont(success(state))
+				})
+			case STFail(None) => cont(fail(st, "fail"))
+			case STFail(Some(expr)) =>
+				evalExpr[T](state.freeze, expr, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f))
+					case Success(value, _) => cont(fail(st, "fail: "+display(state, value)))
+				})
+			case STAssert(expr) =>
+				evalExpr[T](state.freeze, expr, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f))
+					case Success(BoolValue(true), _) => cont(success(state))
+					case Success(BoolValue(false), _) => cont(fail(st, "Assertion does not hold"))
+					case Success(value, _) => cont(fail(st, "Assertion does not hold: " + display(state, value)))
+				})
+			case STFailure(block) =>
+				evalBlock[T](state.freeze.setCollect(Collect.emptyMultiple), block, evalDepth + 1, {
+					case f : Failed[_] => 
+						val location : String = 
+							st.sourcePosition.span match {
+								case None => ""
+								case Some(span) => ":" + (span.firstRow + 1)
+							}						
+						output.add(namespace, st.sourcePosition.span, OutputKind.FAILURE, f.error)
+						cont(success(state))
+					case Success(newState, _) =>
+						val value = newState.reapCollect 
+						cont(fail(st, "Failure expected, but evaluates successfully to: " + display(state, value)))
+				})		
+			case STControlFlow(controlflow) =>
+				val (changedCollect, collect) = 
+					state.collect match {
+						case _ : Collect.One if !isLastStatement => (true, Collect.Zero)
+						case c => (false, c)
 					}
-				case st if isLogicStatement(st) => 
-					evalLogicStatement(state, st) match {
-						case f : Failed[_] => return fail(f)
-						case Success((_state, name, value), isReturnValue) =>
-							if (isReturnValue) return Success(_state, true)
-							state = _state
+				evalControlFlow[T](state.setCollect(collect), controlflow, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f))
+					case su @ Success(value, isReturnValue) =>
+						if (isReturnValue) cont(su)
+						else cont(success(if (changedCollect) value.setCollect(state.collect) else value))
+				})
+			case stdef : STDef =>
+				lookupVars(state, stdef.freeVars) match {
+					case Right(xs) =>
+						var error = "definition depends on unknown free variables:"
+						for (x <- xs) error = error + " " + x
+						cont(fail(stdef, error))
+					case Left(bindings) =>
+						var functions : Map[String, RecursiveFunctionValue] = Map()
+						var nonlinear = bindings
+						for ((name, cs) <- stdef.cases) {
+							val f = RecursiveFunctionValue(null, cs)
+							nonlinear = nonlinear + (name -> f)
+							functions = functions + (name -> f)
+						}
+						var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+						for ((_, f) <- functions) f.state = defstate
+						cont(success(state.bind(functions)))
+				}
+			case st if isLogicStatement(st) => 
+				evalLogicStatement[T](state, st, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f))
+					case Success((_state, name, value), isReturnValue) =>
+						if (isReturnValue) cont(Success(_state, true))
+						else {
+							var state = _state
 							if (name.isDefined) state = state.bind(Map(name.get -> value))
 							if (isLastStatement) 
 								state.collect match {
 									case _ : Collect.One => state = state.addToCollect(value)
 									case _ => // do nothing
 								}
-					}
-				case _ : STComment => // ignore comment and do nothing
-				case _ => return fail(st, "statement has not been implemented yet: "+st)
-			}
+							cont(success(state))
+						}
+				})
+			case _ : STComment => cont(success(state))
+			case _ => cont(fail(st, "statement has not been implemented yet: "+st))
 		}
-		success(state)
 	}
 
-	def evalBlock(state : State, block : Block, i : Int) : Result[State] = {
+	def evalBlocki[T](state : State, block : Block, i : Int, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalBlocki[T](state, block, i, 0, cont))	
 		val num = block.statements.size 
 		if (i >= num) {
 			state.collect match {
-				case Collect.One(None) => fail(block, "block does not yield a value") 
-				case _ => success(state)
+				case Collect.One(None) => cont(fail(block, "block does not yield a value")) 
+				case _ => cont(success(state))
 			}						
 		} else {
-			evalStatement(state, block.statements(i), i == num - 1) match {
-				case f : Failed[State] => f
+			evalStatement(state, block.statements(i), i == num - 1, evalDepth + 1, {
+				case f : Failed[State] => cont(f)
 				case s @ Success(state, isReturnValue) => 
-					if (isReturnValue) s
-					else evalBlock(state, block, i + 1)
-			}
+					if (isReturnValue) cont(s)
+					else evalBlocki(state, block, i + 1, evalDepth + 1, cont)
+			})
 		}
 	}
 
-	def evalBlock(state : State, block : Block) : Result[State] = {
-		evalBlock(state, block, 0)
+	def evalBlock[T](state : State, block : Block, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {	
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalBlock[T](state, block, 0, cont))	
+		try {
+			evalBlocki[T](state, block, 0, evalDepth + 1, cont)
+		} catch {
+			case x : StackOverflowError =>
+				println("evalDepth = " + evalDepth)
+				throw x
+		}
 	}
+
+	def evalBlockSynchronously(state : State, block : Block) : Result[State] = {		
+		evalBlock[Result[State]](state, block, 0, (r : Result[State]) => Thunk.value(r))()
+	}
+
 
 	def isLogicStatement(st : Statement) : Boolean = {
 		st match {
@@ -349,104 +384,112 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def evalLogicStatement(state : State, st : Statement) : Result[(State, Option[String], StateValue)] = {
+	def evalLogicStatement[T](state : State, st : Statement, evalDepth : Int, 
+		cont : RC[(State, Option[String], StateValue), T]) : Thunk[T] = 
+	{
 		st match {
 			case STAssume(thm_name, tm) =>
 				evalTermExpr(state.freeze, tm) match {
-					case failed : Failed[_] => fail(failed)
+					case failed : Failed[_] => cont(fail(failed))
 					case Success(tm, _) =>
 						try {
 							val thm = state.context.assume(tm)
-							success((state.setContext(thm.context), thm_name, new TheoremValue(thm)))
+							cont(success((state.setContext(thm.context), thm_name, new TheoremValue(thm))))
 						} catch {
 							case ex : Utils.KernelException =>
-								fail(st, "assume: "+ex.reason)
+								cont(fail(st, "assume: "+ex.reason))
 						}
 				}
 			case st @ STLet(thm_name, tm) =>
 				evalPretermExpr(state, tm) match {
-					case failed : Failed[_] => fail(failed)
+					case failed : Failed[_] => cont(fail(failed))
 					case Success((ptm, state), _) =>
 						checkTypedName(ptm) match {
 							case None => 
 								letIsDef(ptm) match {
 									case None =>
-										fail(st, "let can only handle introductions or simple definitions")
-									case Some((n, tys, right)) => evalLetDef(state, st, ptm, n, tys, right)
+										cont(fail(st, "let can only handle introductions or simple definitions"))
+									case Some((n, tys, right)) => cont(evalLetDef(state, st, ptm, n, tys, right))
 								}
-							case Some((n, tys)) => evalLetIntro(state, st, n, tys) 
+							case Some((n, tys)) => cont(evalLetIntro(state, st, n, tys))
 						}
 				}
 			case STChoose(thm_name, tm, proof) =>
 				evalPretermExpr(state, tm) match {
-					case failed : Failed[_] => fail(failed)
+					case failed : Failed[_] => cont(fail(failed))
 					case Success((ptm, state), _) =>
 						checkTypedName(ptm) match {
-							case None => fail(tm, "name expected")
+							case None => cont(fail(tm, "name expected"))
 							case Some((n, tys)) =>
-								if (n.namespace.isDefined) return fail(tm, "choose: constant must not have explicit namespace")
-								val name = Name(Some(state.context.namespace), n.name)
-								evalProof(state, proof) match {
-									case failed : Failed[_] => fail(failed)
-									case Success(value, true) => 
-										Success((State.fromValue(value), thm_name, value), true)	
-									case Success(TheoremValue(thm), _) =>
-										try {
-											val liftedThm = state.context.lift(thm)
-											val chosenThm = state.context.choose(name, liftedThm)
-											val ty = chosenThm.context.typeOfConst(name).get
-											if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
-												return fail(st, "declared type of constant does not match computed type")
-											success((state.setContext(chosenThm.context), thm_name, TheoremValue(chosenThm)))
-										}	catch {
-											case ex : Utils.KernelException =>
-												return fail(st, "choose: " + ex.reason)
-										}	
-									case Success(v, _) => fail(proof, "Theorem expected, found: " + display(state, v))
-								} 
+								if (n.namespace.isDefined) cont(fail(tm, "choose: constant must not have explicit namespace"))
+								else {
+									val name = Name(Some(state.context.namespace), n.name)
+									evalProof(state, proof) match {
+										case failed : Failed[_] => cont(fail(failed))
+										case Success(value, true) => 
+											cont(Success((State.fromValue(value), thm_name, value), true))
+										case Success(TheoremValue(thm), _) =>
+											try {
+												val liftedThm = state.context.lift(thm)
+												val chosenThm = state.context.choose(name, liftedThm)
+												val ty = chosenThm.context.typeOfConst(name).get
+												if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
+													cont(fail(st, "declared type of constant does not match computed type"))
+												else
+													cont(success((state.setContext(chosenThm.context), thm_name, TheoremValue(chosenThm))))
+											}	catch {
+												case ex : Utils.KernelException =>
+													cont(fail(st, "choose: " + ex.reason))
+											}	
+										case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
+									} 
+								}
 						}
 				}
 			case STTheorem(thm_name, tm, proof) =>
 				evalTermExpr(state.freeze, tm) match {
-					case f : Failed[_] => fail(f)
+					case f : Failed[_] => cont(fail(f))
 					case Success(prop, _) =>
 						if (state.context.typeOfTerm(prop) != Some(Type.Prop)) 
-							return fail(tm, "Proposition expected, found: " + display(state, TermValue(prop)))
-						evalProof(state, proof) match {
-							case f : Failed[_] => fail(f)
-							case Success(value, true) => 
-								Success((State.fromValue(value), thm_name, value), true)
-							case Success(TheoremValue(thm), _) =>
-								try {
-									val ctx = state.context
-									var liftedThm = ctx.lift(thm, false)
-									if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
-										val liftedThm2 = ctx.lift(thm, true)
-										if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) {
-											if (KernelUtils.betaEtaEq(liftedThm.proposition, liftedThm2.proposition)) 
-												return fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm)))
-											else {
-												val th1 = display(state, TheoremValue(liftedThm))
-												val th2 = display(state, TheoremValue(liftedThm2))
-												return fail(proof, "Proven theorem does not match, neither as:\n    "+th1+"\nnor as:\n    "+th2)
+							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop))))
+						else {
+							evalProof(state, proof) match {
+								case f : Failed[_] => cont(fail(f))
+								case Success(value, true) => 
+									cont(Success((State.fromValue(value), thm_name, value), true))
+								case Success(TheoremValue(thm), _) =>
+									try {
+										val ctx = state.context
+										val liftedThm = ctx.lift(thm, false)
+										if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
+											val liftedThm2 = ctx.lift(thm, true)
+											if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) {
+												if (KernelUtils.betaEtaEq(liftedThm.proposition, liftedThm2.proposition)) 
+													cont(fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm))))
+												else {
+													val th1 = display(state, TheoremValue(liftedThm))
+													val th2 = display(state, TheoremValue(liftedThm2))
+													cont(fail(proof, "Proven theorem does not match, neither as:\n    "+th1+"\nnor as:\n    "+th2))
+												}
+											} else {
+												cont(success((state, thm_name, TheoremValue(ctx.normalize(liftedThm2, prop)))))
 											}
-										}
-										liftedThm = liftedThm2
+										} else 
+											cont(success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop)))))
+									} catch {
+										case ex: Utils.KernelException => cont(fail(st, "theorem: " + ex.reason))
 									}
-									success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop))))
-								} catch {
-									case ex: Utils.KernelException => return fail(st, "theorem: " + ex.reason)
-								}
-							case Success(v, _) => fail(proof, "Theorem expected, found: " + display(state, v))
+								case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
+							}
 						}
 				}
 			case _ =>
-				fail(st, "internal error: statement is not a logic statement")
+				cont(fail(st, "internal error: statement is not a logic statement"))
 		}
 	}
 
 	def evalProof(state : State, proof : Block) : Result[StateValue] = {
-		evalBlock(state.setCollect(Collect.emptyOne), proof) match {
+		evalBlockSynchronously(state.setCollect(Collect.emptyOne), proof) match {
 			case f : Failed[_] => fail(f)
 			case Success(state, isReturnValue) => 
 				state.reapCollect match {
@@ -526,13 +569,13 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}	
 
-	def evalSubBlock(state : State, block : Block) : Result[State] = {
-		evalBlock(state, block) match {
-			case f : Failed[_] => f
+	def evalSubBlock[T](state : State, block : Block, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		evalBlock[T](state, block, evalDepth + 1, {
+			case f : Failed[_] => cont(f)
 			case su @ Success(updatedState, isReturnValue) =>
-				if (isReturnValue) su
-				else success(state.subsume(updatedState))
-		}
+				if (isReturnValue) cont(su)
+				else cont(success(state.subsume(updatedState)))
+		})
 	}
 
 	sealed trait CmpResult
@@ -674,250 +717,271 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			Right(notfound)
 	}
 
-	def evalExpr(state : State, expr : Expr) : Result[StateValue] = {
+	def evalExprSynchronously(state : State, expr : Expr) : Result[StateValue] = {
+		evalExpr[Result[StateValue]](state, expr, 0, (r : Result[StateValue]) => Thunk.value(r))()
+	}
+
+	def evalExpr[T](state : State, expr : Expr, evalDepth : Int, cont : RC[StateValue, T]) : Thunk[T] = {
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalExpr[T](state, expr, 0, cont))
 		expr match {
-			case NilExpr => success(NilValue)
-			case Bool(b) => success(BoolValue(b))
-			case Integer(i) => success(IntValue(i))
-			case StringLiteral(s) => success(StringValue(s))
+			case NilExpr => cont(success(NilValue))
+			case Bool(b) => cont(success(BoolValue(b)))
+			case Integer(i) => cont(success(IntValue(i)))
+			case StringLiteral(s) => cont(success(StringValue(s)))
 			case Id(name) =>
 				state.lookup(name) match {
-					case None => lookupVar(expr, state, false, namespace, name)
-					case Some(v) => success(v)
+					case None => cont(lookupVar(expr, state, false, namespace, name))
+					case Some(v) => cont(success(v))
 				}
 			case QualifiedId(_ns, name) =>
 				val ns = aliases.resolve(_ns)
 				if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
-					lookupVar(expr, state, true, ns, name)
+					cont(lookupVar(expr, state, true, ns, name))
 				else 
-					fail(expr, "unknown or inaccessible namespace: "+ns)
+					cont(fail(expr, "unknown or inaccessible namespace: "+ns))
 			case UnaryOperation(op, expr) =>
-				evalExpr(state, expr) match {
+				evalExpr[T](state, expr, evalDepth + 1, {
 					case Success(value, _) =>
 						(op, value) match {
-							case (Not, BoolValue(b)) => success(BoolValue(!b)) 
-							case (Neg, IntValue(i)) => success(IntValue(-i))
-							case _ => fail(op, "unary operator "+op+" cannot be applied to: "+display(state, value))
+							case (Not, BoolValue(b)) => cont(success(BoolValue(!b)))
+							case (Neg, IntValue(i)) => cont(success(IntValue(-i)))
+							case _ => cont(fail(op, "unary operator "+op+" cannot be applied to: "+display(state, value)))
 						}
-					case f => f
-				}
+					case f => cont(f)
+				})
 			case BinaryOperation(op, left, right) if op != And && op != Or =>
-				evalExpr(state, left) match {
+				evalExpr[T](state, left, evalDepth + 1, {
 					case Success(left, _) =>
-						evalExpr(state, right) match {
+						evalExpr[T](state, right, evalDepth + 1, {
 							case Success(right, _) =>
 								(op, left, right) match {
 									case (RangeTo, IntValue(x), IntValue(y)) => 
-										success(TupleValue((x to y).map(i => IntValue(i)).toVector))
+										cont(success(TupleValue((x to y).map(i => IntValue(i)).toVector)))
 									case (RangeDownto, IntValue(x), IntValue(y)) => 
-										success(TupleValue((y to x).reverse.map(i => IntValue(i)).toVector))
-									case (Add, IntValue(x), IntValue(y)) => success(IntValue(x + y))
-									case (Sub, IntValue(x), IntValue(y)) => success(IntValue(x - y))
-									case (Mul, IntValue(x), IntValue(y)) => success(IntValue(x * y))
+										cont(success(TupleValue((y to x).reverse.map(i => IntValue(i)).toVector)))
+									case (Add, IntValue(x), IntValue(y)) => cont(success(IntValue(x + y)))
+									case (Sub, IntValue(x), IntValue(y)) => cont(success(IntValue(x - y)))
+									case (Mul, IntValue(x), IntValue(y)) => cont(success(IntValue(x * y)))
 									case (Div, IntValue(x), IntValue(y)) => 
 										if (y == 0)
-											fail(op, "division by zero")
+											cont(fail(op, "division by zero"))
 										else
-											success(IntValue(x / y)) 
+											cont(success(IntValue(x / y)))
 									case (Mod, IntValue(x), IntValue(y)) =>
 										if (y == 0)
-											fail(op, "modulo zero")
+											cont(fail(op, "modulo zero"))
 										else
-											success(IntValue(x % y))
-									case (And, BoolValue(x), BoolValue(y)) => success(BoolValue(x && y))
-									case (Or, BoolValue(x), BoolValue(y)) => success(BoolValue(x || y))
-									case (Prepend, x, xs : TupleValue) => success(xs.prepend(x))
-									case (Append, xs : TupleValue, x) => success(xs.append(x))
-									case (Concat, xs : TupleValue, ys : TupleValue) => success(xs.concat(ys))
-									case (Concat, xs : StringValue, ys : StringValue) => success(xs.concat(ys))
-									case _ => fail(op, "binary operator "+op+" cannot be applied to values: "+
-										display(state,left)+", "+display(state,right))
+											cont(success(IntValue(x % y)))
+									case (And, BoolValue(x), BoolValue(y)) => cont(success(BoolValue(x && y)))
+									case (Or, BoolValue(x), BoolValue(y)) => cont(success(BoolValue(x || y)))
+									case (Prepend, x, xs : TupleValue) => cont(success(xs.prepend(x)))
+									case (Append, xs : TupleValue, x) => cont(success(xs.append(x)))
+									case (Concat, xs : TupleValue, ys : TupleValue) => cont(success(xs.concat(ys)))
+									case (Concat, xs : StringValue, ys : StringValue) => cont(success(xs.concat(ys)))
+									case _ => cont(fail(op, "binary operator "+op+" cannot be applied to values: "+
+										display(state,left)+", "+display(state,right)))
 								}
-							case f => f
-						}
-					case f => f
-				}
+							case f => cont(f)
+						})
+					case f => cont(f)
+				})
 			case BinaryOperation(And, left, right) =>
-				evalExpr(state, left) match {
-					case Success(v @ BoolValue(false), _) => success(v)
+				evalExpr[T](state, left, evalDepth + 1, {
+					case Success(v @ BoolValue(false), _) => cont(success(v))
 					case Success(BoolValue(true), _) => 
-						evalExpr(state, right) match {
-							case su @ Success(_ : BoolValue, _) => su
-							case Success(v, _) => fail(right, "Boolean expected, found: " + display(state, v))
-							case f => f
-						}
-					case Success(v, _) => fail(left, "Boolean expected, found: " + display(state, v))
-					case f => f
-				}
-			case BinaryOperation(Or, left, right) =>
-				evalExpr(state, left) match {
-					case Success(v @ BoolValue(true), _) => success(v)
+						evalExpr(state, right, evalDepth + 1,  {
+							case su @ Success(_ : BoolValue, _) => cont(su)
+							case Success(v, _) => cont(fail(right, "Boolean expected, found: " + display(state, v)))
+							case f => cont(f)
+						})
+					case Success(v, _) => cont(fail(left, "Boolean expected, found: " + display(state, v)))
+					case f => cont(f)
+				})
+			case BinaryOperation(Or, left, right) => 
+				evalExpr[T](state, left, evalDepth + 1, {
+					case Success(v @ BoolValue(true), _) => cont(success(v))
 					case Success(BoolValue(false), _) => 
-						evalExpr(state, right) match {
-							case su @ Success(_ : BoolValue, _) => su
-							case Success(v, _) => fail(right, "Boolean expected, found: " + display(state, v))
-							case f => f
-						}					
-					case Success(v, _) => fail(left, "Boolean expected, found: " + display(state, v))
-					case f => f
-				}
-			case CmpOperation(_operators, _operands) => 
-				evalExpr(state, _operands.head) match {
-					case f : Failed[_] => f
+						evalExpr[T](state, right, evalDepth + 1, {
+							case su @ Success(_ : BoolValue, _) => cont(su)
+							case Success(v, _) => cont(fail(right, "Boolean expected, found: " + display(state, v)))
+							case f => cont(f)
+						})
+					case Success(v, _) => cont(fail(left, "Boolean expected, found: " + display(state, v)))
+					case f => cont(f)
+				})
+			case CmpOperation(operators, operands) => 
+				evalExpr[T](state, operands.head, evalDepth + 1, {
+					case f : Failed[_] => cont(f)
 					case Success(v, _) =>
-						var value = v
-						var operators = _operators
-						var operands = _operands.tail
-						while (!operators.isEmpty) {
-							evalExpr(state, operands.head) match {
-								case f : Failed[_] => return f
-								case Success(v, _) =>
-									cmp(state, operators.head, value, v) match {
-										case f : Failed[_] => return fail(f)
-										case Success(false, _) => return success(BoolValue(false))
-										case Success(true, _) => value = v
-									}
-							} 
-							operands = operands.tail
-							operators = operators.tail
+						def loop(value : StateValue, operators : Seq[CmpOperator], operands : Seq[Expr],
+							evalDepth : Int, cont : RC[StateValue, T]) : Thunk[T] = 
+						{
+							if (operators.isEmpty) 
+								cont(success(BoolValue(true)))
+							else {
+								evalExpr[T](state, operands.head, evalDepth + 1, {
+									case f : Failed[_] => cont(f)
+									case Success(v, _) =>
+										cmp(state, operators.head, value, v) match {
+											case f : Failed[_] => cont(fail(f))
+											case Success(false, _) => cont(success(BoolValue(false)))
+											case Success(true, _) => loop(v, operators.tail, operands.tail, evalDepth + 1, cont)
+										}
+								})
+							}
 						}
-						success(BoolValue(true))
-				} 
-			case Tuple(xs) =>
-				var values : List[StateValue] = List()
-				for (x <- xs) {
-					evalExpr(state, x) match {
-						case f : Failed[_] => return f
-						case Success(value, _) => values = value :: values
-					}
+						loop(v, operators, operands.tail, evalDepth + 1, cont)
+				}) 
+			case Tuple(xs) => 
+				def loop(xs : Seq[Expr], values : List[StateValue], evalDepth : Int, cont : RC[StateValue, T]) : Thunk[T] = {
+					if (xs.isEmpty) 
+						cont(success(TupleValue(values.reverse.toVector)))
+					else 
+						evalExpr[T](state, xs.head, evalDepth + 1, {
+							case f : Failed[_] => cont(f)
+							case Success(value, _) => loop(xs.tail, value :: values, evalDepth + 1, cont)
+						})
 				}
-				success(TupleValue(values.reverse.toVector))
-			case ControlFlowExpr(controlflow) =>
+				loop(xs, List(), evalDepth + 1, cont)
+			case ControlFlowExpr(controlflow) => 
 				val cstate = state.setCollect(Collect.emptyOne)
-				evalControlFlow(cstate, controlflow) match {
-					case f : Failed[_] => return fail(f)
-					case Success(state, _) => success(state.reapCollect)
-				} 
+				evalControlFlow[T](cstate, controlflow, evalDepth + 1, {
+					case f : Failed[_] => cont(fail(f))
+					case Success(state, _) => cont(success(state.reapCollect))
+				}) 
 			case f @ Fun(param, body) => 
 				lookupVars(state, f.freeVars) match {
 					case Right(notFound) =>
 						var error = "function has unknown free variables:"
 						for (x <- notFound) error = error + " " + x
-						fail(f, error)
+						cont(fail(f, error))
 					case Left(nonlinear) =>
 						val funstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
-						success(SimpleFunctionValue(funstate, f))
+						cont(success(SimpleFunctionValue(funstate, f)))
 				}
 			case App(u, v) =>
-				evalExpr(state, u) match {
-					case failed : Failed[_] => failed
+				evalExpr[T](state, u, evalDepth + 1, {
+					case failed : Failed[_] => cont(failed)
 					case Success(f : SimpleFunctionValue, _) =>
-						evalExpr(state, v) match {
-							case failed : Failed[_] => failed
-							case Success(x, _) => evalApply(f.state.setContext(state.context), f.f.param, f.f.body, x)
-						}
+						evalExpr[T](state, v, evalDepth + 1, {
+							case failed : Failed[_] => cont(failed)
+							case Success(x, _) => evalApply[T](f.state.setContext(state.context), f.f.param, f.f.body, x,
+								evalDepth + 1, cont)
+						})
 					case Success(f : RecursiveFunctionValue, _) =>
-						evalExpr(state, v) match {
-							case failed : Failed[_] => failed
-							case Success(x, _) => evalApply(f.state.setContext(state.context), f.cases, x)
-						}
+						evalExpr[T](state, v, evalDepth + 1, {
+							case failed : Failed[_] => cont(failed)
+							case Success(x, _) => evalApply[T](f.state.setContext(state.context), f.cases, x, evalDepth + 1, cont)
+						})
 					case Success(f : NativeFunctionValue, _) =>
-						evalExpr(state, v) match {
-							case failed : Failed[_] => failed
+						evalExpr[T](state, v, evalDepth + 1, {
+							case failed : Failed[_] => cont(failed)
 							case Success(x, _) => 
 								f.nativeFunction(this, state, x) match {
-									case Left(value) => success(value)
-									case Right(error) => fail(expr, error)
+									case Left(value) => cont(success(value))
+									case Right(error) => cont(fail(expr, error))
 								}
-						}
+						})
 					case Success(StringValue(s), _) =>
-						evalExpr(state, v) match {
-							case failed : Failed[_] => failed
+						evalExpr[T](state, v, evalDepth + 1, {
+							case failed : Failed[_] => cont(failed)
 							case Success(IntValue(i), _) =>
-								if (i < 0 || i >= s.size) fail(v, "index " + i + " is out of bounds")
-								else success(StringValue(Vector(s(i.toInt))))
+								if (i < 0 || i >= s.size) cont(fail(v, "index " + i + " is out of bounds"))
+								else cont(success(StringValue(Vector(s(i.toInt)))))
 							case Success(TupleValue(indices), _) =>
-								val len = s.size
-								var codes : List[Int] = List()
-								for (index <- indices) {
-									index match {
-										case IntValue(i) =>
-											if (i < 0 || i >= len) return fail(v, "index " + i + " is out of bounds")
-											else codes = s(i.toInt) :: codes
-										case _ =>
-											return return fail(v, "index expected, found: " + display(state, index))
+								def buildString() : Thunk[T] = {
+									val len = s.size
+									var codes : List[Int] = List()
+									for (index <- indices) {
+										index match {
+											case IntValue(i) =>
+												if (i < 0 || i >= len) return cont(fail(v, "index " + i + " is out of bounds"))
+												else codes = s(i.toInt) :: codes
+											case _ =>
+												return cont(fail(v, "index expected, found: " + display(state, index)))
+										}
 									}
+									cont(success(StringValue(codes.reverse.toVector)))									
 								}
-								success(StringValue(codes.reverse.toVector))
+								buildString()
 							case Success(value, _) =>
-								fail(v, "string cannot be applied to: " + display(state, value))
-						}
+								cont(fail(v, "string cannot be applied to: " + display(state, value)))
+						})
 					case Success(TupleValue(s), _) =>
-						evalExpr(state, v) match {
-							case failed : Failed[_] => failed
+						evalExpr[T](state, v, evalDepth + 1, {
+							case failed : Failed[_] => cont(failed)
 							case Success(IntValue(i), _) =>
-								if (i < 0 || i >= s.size) fail(v, "index " + i + " is out of bounds")
-								else success(s(i.toInt))
+								if (i < 0 || i >= s.size) cont(fail(v, "index " + i + " is out of bounds"))
+								else cont(success(s(i.toInt)))
 							case Success(TupleValue(indices), _) =>
-								val len = s.size
-								var values : List[StateValue] = List()
-								for (index <- indices) {
-									index match {
-										case IntValue(i) =>
-											if (i < 0 || i >= len) return fail(v, "index " + i + " is out of bounds")
-											else values = s(i.toInt) :: values
-										case _ =>
-											return return fail(v, "index expected, found: " + display(state, index))
+								def buildTuple() : Thunk[T] = {
+									val len = s.size
+									var values : List[StateValue] = List()
+									for (index <- indices) {
+										index match {
+											case IntValue(i) =>
+												if (i < 0 || i >= len) return cont(fail(v, "index " + i + " is out of bounds"))
+												else values = s(i.toInt) :: values
+											case _ =>
+												return cont(fail(v, "index expected, found: " + display(state, index)))
+										}
 									}
+									cont(success(TupleValue(values.reverse.toVector)))									
 								}
-								success(TupleValue(values.reverse.toVector))
+								buildTuple()
 							case Success(value, _) =>
-								fail(v, "string cannot be applied to: " + display(state, value))
-						}					
-					case Success(v, _) => fail(u, "value cannot be applied to anything: " + display(state, v))
-				}
+								cont(fail(v, "string cannot be applied to: " + display(state, value)))
+						})					
+					case Success(v, _) => cont(fail(u, "value cannot be applied to anything: " + display(state, v)))
+				})
 			case tm : LogicTerm =>
 				evalLogicTerm(state, tm) match {
-					case f : Failed[_] => fail(f)
-					case Success(tm, _) => success(TermValue(tm))
+					case f : Failed[_] => cont(fail(f))
+					case Success(tm, _) => cont(success(TermValue(tm)))
 				}
-			case Lazy(_) => fail(expr, "lazy evaluation is not available (yet)")
-			case _ => fail(expr, "don't know how to evaluate this expression")
+			case Lazy(_) => cont(fail(expr, "lazy evaluation is not available (yet)"))
+			case _ => cont(fail(expr, "don't know how to evaluate this expression"))
 		}	
 	}
 
-	def evalApply(state : State, pat : Pattern, body : Block, argument : StateValue) : Result[StateValue] = {
+	def evalApply[T](state : State, pat : Pattern, body : Block, argument : StateValue, 
+		evalDepth : Int, cont : RC[StateValue, T]) : Thunk[T] = 
+	{
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalApply[T](state, pat, body, argument, 0, cont))
 		matchPattern(state.freeze, pat, argument) match {
-			case failed : Failed[_] => fail(failed).addToTrace(pat, FunctionLabel(this, state, argument))
+			case failed : Failed[_] => cont(fail(failed).addToTrace(pat, FunctionLabel(this, state, argument)))
 			case Success(None, _) => 
-				fail(null, "function argument does not match").addToTrace(pat, 
-					FunctionLabel(this, state, argument))
+				cont(fail(null, "function argument does not match").addToTrace(pat, 
+					FunctionLabel(this, state, argument)))
 			case Success(Some(matchings), _) =>
-				evalBlock(state.bind(matchings), body) match {
-					case failed : Failed[_] => fail(failed).addToTrace(pat, 
-						FunctionLabel(this, state, argument))
-					case Success(state, _) => success(state.reapCollect)
-				}
+				evalBlock[T](state.bind(matchings), body, evalDepth + 1, {
+					case failed : Failed[_] => cont(fail(failed).addToTrace(pat, 
+						FunctionLabel(this, state, argument)))
+					case Success(state, _) => cont(success(state.reapCollect))
+				})
 		}
 	}
 
-	def evalApply(state : State, cases : Vector[DefCase], argument : StateValue) : Result[StateValue] = {
+	def evalApply[T](state : State, cases : Vector[DefCase], argument : StateValue, evalDepth : Int,
+		cont : RC[StateValue, T]) : Thunk[T] = 
+	{
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalApply[T](state, cases,argument, 0, cont))
 		val matchState = state.freeze
 		for (c <- cases) {
 			matchPattern(matchState, c.param, argument) match {
 				case failed : Failed[_] => 
-					return fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument))
+					return cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
 				case Success(None, _) =>
 				case Success(Some(matchings), _) =>
-					evalBlock(state.bind(matchings), c.body) match {
+					return evalBlock[T](state.bind(matchings), c.body, evalDepth + 1, {
 						case failed : Failed[_] => 
-							return fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument))
-						case Success(state, _) => return success(state.reapCollect)
-					}
+							cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
+						case Success(state, _) => cont(success(state.reapCollect))
+					})
 			}
 		}
 		val c = cases.head
-		fail(null, "function argument does not match").addToTrace(c.param, FunctionLabel(c.name, this, state, argument))
+		cont(fail(null, "function argument does not match").addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {
@@ -929,141 +993,155 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def evalControlFlow(state : State, controlflow : ControlFlow) : Result[State] = {
+	def evalControlFlow[T](state : State, controlflow : ControlFlow, evalDepth : Int, 
+		cont : RC[State, T]) : Thunk[T] = 
+	{
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalControlFlow[T](state, controlflow, 0, cont))
 		val wrapMultiple =
 			state.collect match {
 				case _ : Collect.One => producesMultiple(controlflow)
 				case _ => false
 			}	
 		if (wrapMultiple) {
-			evalControlFlowSwitch(state.setCollect(Collect.emptyMultiple), controlflow) match {
-				case f : Failed[_] => f
+			evalControlFlowSwitch[T](state.setCollect(Collect.emptyMultiple), controlflow, evalDepth + 1, {
+				case f : Failed[_] => cont(f)
 				case su @ Success(state, isReturnValue) =>
-					if (isReturnValue) su
-					else success(state.setCollect(Collect.One(Some(state.reapCollect))))
-			}
+					if (isReturnValue) cont(su)
+					else cont(success(state.setCollect(Collect.One(Some(state.reapCollect)))))
+			})
 		} else 
-			evalControlFlowSwitch(state, controlflow)
+			evalControlFlowSwitch[T](state, controlflow, evalDepth + 1, cont)
 	}
 
-	def evalControlFlowSwitch(state : State, controlflow : ControlFlow) : Result[State] = {
+	def evalControlFlowSwitch[T](state : State, controlflow : ControlFlow, 
+		evalDepth : Int, cont : RC[State, T]) : Thunk[T] = 
+	{
 		controlflow match {
-			case c : Do => evalDo(state, c)
-			case c : If => evalIf(state, c)
-			case c : While => evalWhile(state, c)
-			case c : For => evalFor(state, c)
-			case c : Match => evalMatch(state, c)
-			case c : ContextControl => evalContextControl(state, c)
-			case _ => fail(controlflow, "controlflow not implemented yet: "+controlflow)
+			case c : Do => evalDo[T](state, c, evalDepth, cont)
+			case c : If => evalIf[T](state, c, evalDepth, cont)
+			case c : While => evalWhile[T](state, c, evalDepth, cont)
+			case c : For => evalFor[T](state, c, evalDepth, cont)
+			case c : Match => evalMatch[T](state, c, evalDepth, cont)
+			case c : ContextControl => evalContextControl[T](state, c, evalDepth, cont)
+			case _ => cont(fail(controlflow, "controlflow not implemented yet: "+controlflow))
 		}
 	}
 
-	def evalDo(state : State, control : Do) : Result[State] = {
-		evalSubBlock(state, control.block)
+	def evalDo[T](state : State, control : Do, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		evalSubBlock[T](state, control.block, evalDepth + 1, cont)
 	}
 
-	def evalIf(state : State, control : If) : Result[State] = {
-		evalExpr(state.freeze, control.cond) match {
-			case f : Failed[_] => fail(f)
+	def evalIf[T](state : State, control : If, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		evalExpr[T](state.freeze, control.cond, evalDepth + 1, {
+			case f : Failed[_] => cont(fail(f))
 			case Success(BoolValue(test), _) =>
 				if (test) 
-					evalSubBlock(state, control.thenCase) 
+					evalSubBlock[T](state, control.thenCase, evalDepth + 1, cont) 
 				else 
-					evalSubBlock(state, control.elseCase)
-			case Success(value, _) => fail(control.cond, "Boolean expected, found: " + display(state, value))
-		}	
+					evalSubBlock[T](state, control.elseCase, evalDepth + 1, cont)
+			case Success(value, _) => cont(fail(control.cond, "Boolean expected, found: " + display(state, value)))
+		})
 	}
 
-	def evalWhile(_state : State, control : While) : Result[State] = {
-		var repeat : Boolean = true
-		var state = _state
-		while (repeat) {
-			evalExpr(state.freeze, control.cond) match {
-				case f : Failed[_] => return fail(f)
-				case Success(BoolValue(false), _) => repeat = false
-				case Success(BoolValue(true), _) => 
-					evalSubBlock(state, control.body) match {
-						case f : Failed[_] => return f
-						case su @ Success(s, isReturnValue) =>
-							if (isReturnValue) return su
-							state = state.subsume(s)
-					}
-				case Success(value, _) => return fail(control.cond, "Boolean expected, found: " + display(state, value))
-			}
-		}
-		success(state)
+	def evalWhile[T](state : State, control : While, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		evalExpr(state.freeze, control.cond, evalDepth + 1, {
+			case f : Failed[_] => cont(fail(f))
+			case Success(BoolValue(false), _) => cont(success(state))
+			case Success(BoolValue(true), _) => 
+				evalSubBlock[T](state, control.body, evalDepth + 1, {
+					case f : Failed[_] => cont(f)
+					case su @ Success(s, isReturnValue) =>
+						if (isReturnValue) cont(su)
+						else evalWhile[T](state.subsume(s), control, evalDepth + 1, cont)
+				})
+			case Success(value, _) => cont(fail(control.cond, "Boolean expected, found: " + display(state, value)))
+		})
 	}
 
-	def evalFor(_state : State, control : For) : Result[State] = {
-		evalExpr(_state.freeze, control.coll) match {
-			case f : Failed[_] => fail(f)
+	def evalFor[T](state : State, control : For, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		evalExpr[T](state.freeze, control.coll, evalDepth + 1, {
+			case f : Failed[_] => cont(fail(f))
 			case Success(TupleValue(values), _) =>
-				var state = _state
-				for (value <- values) {
-					matchPattern(state.freeze, control.pat, value) match {
-						case f : Failed[_] => return fail(f)
-						case Success(None, _) => 
-						case Success(Some(matchings), _) =>
-							evalSubBlock(state.bind(matchings), control.body) match {
-								case f : Failed[_] => return f
-								case su @ Success(s, isReturnValue) =>
-									if (isReturnValue) return su
-									state = state.subsume(s)
-							}
+				def loop(state : State, values : Seq[StateValue], evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+					if (TOO_DEEP(evalDepth)) return Thunk.computation(() => loop(state, values, 0, cont))
+					if (values.isEmpty) cont(success(state))
+					else {
+						matchPattern(state.freeze, control.pat, values.head) match {
+							case f : Failed[_] => cont(fail(f))
+							case Success(None, _) => loop(state, values.tail, evalDepth + 1, cont)
+							case Success(Some(matchings), _) =>
+								evalSubBlock(state.bind(matchings), control.body, evalDepth + 1, {
+									case f : Failed[_] => cont(f)
+									case su @ Success(s, isReturnValue) =>
+										if (isReturnValue) cont(su)
+										else loop(state.subsume(s), values.tail, evalDepth + 1, cont)
+								})
+						}
 					}
 				}
-				success(state)
-			case Success(v, _) => fail(control.coll, "tuple expected, found: " + v)
-		}
+				loop(state, values, evalDepth + 1, cont)
+			case Success(v, _) => cont(fail(control.coll, "tuple expected, found: " + v))
+		})
 	}
 
-	def evalMatch(state : State, control : Match) : Result[State] = {
+	def evalMatch[T](state : State, control : Match, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
 		val frozenState = state.freeze
-		evalExpr(frozenState, control.expr) match {
-			case f : Failed[_] => fail(f)
+		evalExpr(frozenState, control.expr, evalDepth + 1, {
+			case f : Failed[_] => cont(fail(f))
 			case Success(value, _) =>
-				for (matchCase <- control.cases) {
-					matchPattern(frozenState, matchCase.pat, value) match {
-						case f : Failed[_] => return fail(f)
-						case Success(None, _) => 
-						case Success(Some(matchings), _) =>
-							evalSubBlock(state.bind(matchings), matchCase.body) match {
-								case f : Failed[_] => return fail(f)
-								case su @ Success(s, isReturnValue) =>
-									if (isReturnValue) return su
-									else return success(state.subsume(s))
-							}
-					}	
+				def loop(cases : Seq[MatchCase], evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+					if (TOO_DEEP(evalDepth)) return Thunk.computation(() => loop(cases, 0, cont))
+					if (cases.isEmpty) {
+						cont(fail(control, "no match for value: " + display(state, value)))
+					} else {
+						val matchCase = cases.head
+						matchPattern(frozenState, matchCase.pat, value) match {
+							case f : Failed[_] => cont(fail(f))
+							case Success(None, _) => loop(cases.tail, evalDepth + 1, cont)
+							case Success(Some(matchings), _) =>
+								evalSubBlock[T](state.bind(matchings), matchCase.body, evalDepth + 1, {
+									case f : Failed[_] => cont(fail(f))
+									case su @ Success(s, isReturnValue) =>
+										if (isReturnValue) cont(su)
+										else cont(success(state.subsume(s)))
+								})
+						}	
+					}
 				}
-				fail(control, "no match for value: " + display(state, value))
-		}	
+				loop(control.cases, evalDepth + 1, cont)
+		})
 	}
 
-	def evalContextControl(state : State, control : ContextControl) : Result[State] = {
-		val context =
-			control.ctx match {
-				case None => state.context
-				case Some(expr) =>
-					evalExpr(state.freeze, expr) match {
-						case failed : Failed[_] => return fail(failed)
-						case Success(ContextValue(context), _) => context
-						case Success(TheoremValue(thm), _) => thm.context
-						case Success(v, _) => return fail(expr, "context or theorem expected, found: " + display(state, v))
-					}
-			}
-		evalBlock(state.setContext(context).setCollect(Collect.Zero), control.body) match {
-			case failed : Failed[_] => failed
-			case su @ Success(updatedState, isReturnValue) =>
-				if (isReturnValue) return su 	
-				state.collect match {
-					case _ : Collect.One =>
-						success(state.addToCollect(ContextValue(updatedState.context)))
-					case _ => 
-						success(state)
-				}
+	def evalContextControl[T](state : State, control : ContextControl, evalDepth : Int, cont : RC[State, T]) : Thunk[T] = {
+		if (TOO_DEEP(evalDepth)) return Thunk.computation(() => evalContextControl[T](state, control, 0, cont))
+		val contWithContext : Continuation[Context, T] = { 
+			case context : Context =>
+				evalBlock[T](state.setContext(context).setCollect(Collect.Zero), control.body, evalDepth + 1, {
+					case failed : Failed[_] => cont(failed)
+					case su @ Success(updatedState, isReturnValue) =>
+						if (isReturnValue) cont(su)	
+						else {
+							state.collect match {
+								case _ : Collect.One =>
+									cont(success(state.addToCollect(ContextValue(updatedState.context))))
+								case _ => 
+									cont(success(state))
+							}
+						}
+				})
+		}
+
+		control.ctx match {
+			case None => contWithContext(state.context)
+			case Some(expr) =>
+				evalExpr[T](state.freeze, expr, evalDepth + 1, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(ContextValue(context), _) => contWithContext(context)
+					case Success(TheoremValue(thm), _) => contWithContext(thm.context)
+					case Success(v, _) => cont(fail(expr, "context or theorem expected, found: " + display(state, v)))
+				})
 		}
 	}
-
 
 	type Matchings = Map[String, StateValue]
 
@@ -1139,7 +1217,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							if (matchings.contains(id))
 								return fail(p, "pattern is not linear, multiple use of: "+id)
 						}
-						evalExpr(state.bind(pMatchings).freeze, cond) match {
+						evalExprSynchronously(state.bind(pMatchings).freeze, cond) match {
 							case failed : Failed[_] => fail(failed)
 							case Success(BoolValue(false), _) => success(None)
 							case Success(BoolValue(true), _) => success(Some(matchings ++ pMatchings))
