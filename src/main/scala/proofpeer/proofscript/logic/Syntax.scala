@@ -432,7 +432,7 @@ val g_Pattern_term =
   }   */
 
   def parsePreterm(input : String) : Option[Preterm] = {
-    val d = Document.fromString(input)
+    val d = Document.fromString(input, Some(2))
     proofpeer.proofscript.frontend.Parser.earleyParser.parse(d, "ValueTerm") match {
       case Left(parsetree) if !parsetree.hasAmbiguities =>
         Some(parsetree.getValue)

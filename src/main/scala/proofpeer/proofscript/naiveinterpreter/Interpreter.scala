@@ -113,7 +113,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       }
     }
     val isRoot = thy.namespace == Namespace("\\root")
-    val document = Document.fromString(thy.content, None, (new AcceptHeader(isRoot)).accept _)
+    val document = Document.fromString(thy.content, Some(2), (new AcceptHeader(isRoot)).accept _)
     val header = document.getText(0, document.size)
     import ProofScriptParser._
     parser.parseFromSource(thy.source, header) match {
