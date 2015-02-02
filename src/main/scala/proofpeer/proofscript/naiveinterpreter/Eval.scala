@@ -91,7 +91,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.trace, f.error)
 
-	def evalLogicPreterm(_state : State, tm : LogicTerm, createFresh : Boolean) : Result[(Preterm, State)] = 
+	def evalLogicPreterm[T](_state : State, tm : LogicTerm, createFresh : Boolean, 
+		cont : RC[(Preterm, State), T]) : Thunk[T] = 
 	{
 		var state = _state
 		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
@@ -122,8 +123,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			}
 		}
 		Preterm.instQuotes(inst, tm.tm) match {
-		  case Right(f) => fail(f)
-			case Left(preterm) => success((preterm, state))
+		  case Right(f) => cont(fail(f))
+			case Left(preterm) => cont(success((preterm, state)))
 		}
 	}
 
@@ -138,46 +139,47 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}		
 	}
 
-	def evalLogicTerm(state : State, tm : LogicTerm) : Result[Term] = {
-		evalLogicPreterm(state, tm, false) match {
-			case failed : Failed[_] => fail(failed)
-			case Success((preterm, _), _) => resolvePreterm(state.context, preterm)
-		}
+	def evalLogicTerm[T](state : State, tm : LogicTerm, cont : RC[Term, T]) : Thunk[T] = {
+		evalLogicPreterm[T](state, tm, false, {
+			case failed : Failed[_] => cont(fail(failed))
+			case Success((preterm, _), _) => cont(resolvePreterm(state.context, preterm))
+		})
 	} 
 
-	def evalTermExpr(state : State, expr : Expr) : Result[Term] = {
-		evalExprSynchronously(state, expr) match {
-			case failed : Failed[_] => fail(failed)
-			case Success(TermValue(tm),_) => success(tm)
+	def evalTermExpr[T](state : State, expr : Expr, cont : RC[Term, T]) : Thunk[T] = {
+		evalExpr[T](state, expr, {
+			case failed : Failed[_] => cont(fail(failed))
+			case Success(TermValue(tm),_) => cont(success(tm))
 			case Success(s : StringValue, _) =>
-				try {
-					success(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)) 
-				} catch {
-					case ex : Utils.KernelException =>
-						fail(expr, "parse error: " + ex.reason)	
-				}
-			case Success(v, _) => fail(expr, "Term expected, found: "+display(state, v))
-		}
+				cont(
+					try {
+						success(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)) 
+					} catch {
+						case ex : Utils.KernelException =>
+							fail(expr, "parse error: " + ex.reason)	
+					})
+			case Success(v, _) => cont(fail(expr, "Term expected, found: "+display(state, v)))
+		})
 	}
 
 	// Note that state is not frozen!!
-	def evalPretermExpr(state : State, expr : Expr) : Result[(Preterm, State)] = {
+	def evalPretermExpr[T](state : State, expr : Expr, cont : RC[(Preterm, State), T]) : Thunk[T] = {
 		expr match {
 			case tm : LogicTerm => 
 			  // Instead of evalLogicPreterm(state, tm, true), because of 
 			  // issue #31 temporarily remove quote intro feature from language:
-				evalLogicPreterm(state, tm, false)
+				evalLogicPreterm[T](state, tm, false, cont)
 			case _ => 
-				evalExprSynchronously(state.freeze, expr) match {
-					case failed : Failed[_] => fail(failed)
-					case Success(TermValue(tm),_) => success((Preterm.translate(tm), state))
+				evalExpr[T](state.freeze, expr, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(TermValue(tm),_) => cont(success((Preterm.translate(tm), state)))
 					case Success(s : StringValue, _) =>
 						Syntax.parsePreterm(s.toString) match {
-							case None => fail(expr, "parse error")
-							case Some(preterm) => success((preterm, state))
+							case None => cont(fail(expr, "parse error"))
+							case Some(preterm) => cont(success((preterm, state)))
 						}
-					case Success(v, _) => fail(expr, "Preterm expected, found: "+display(state, v))
-				}
+					case Success(v, _) => cont(fail(expr, "Preterm expected, found: "+display(state, v)))
+				})
 		}
 	}
 
@@ -415,7 +417,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	{
 		st match {
 			case STAssume(thm_name, tm) =>
-				evalTermExpr(state.freeze, tm) match {
+				evalTermExpr[T](state.freeze, tm, {
 					case failed : Failed[_] => cont(fail(failed))
 					case Success(tm, _) =>
 						try {
@@ -425,9 +427,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							case ex : Utils.KernelException =>
 								cont(fail(st, "assume: "+ex.reason))
 						}
-				}
+				})
 			case st @ STLet(thm_name, tm) =>
-				evalPretermExpr(state, tm) match {
+				evalPretermExpr(state, tm, {
 					case failed : Failed[_] => cont(fail(failed))
 					case Success((ptm, state), _) =>
 						checkTypedName(ptm) match {
@@ -439,9 +441,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								}
 							case Some((n, tys)) => cont(evalLetIntro(state, st, n, tys))
 						}
-				}
+				})
 			case STChoose(thm_name, tm, proof) =>
-				evalPretermExpr(state, tm) match {
+				evalPretermExpr(state, tm, {
 					case failed : Failed[_] => cont(fail(failed))
 					case Success((ptm, state), _) =>
 						checkTypedName(ptm) match {
@@ -450,7 +452,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								if (n.namespace.isDefined) cont(fail(tm, "choose: constant must not have explicit namespace"))
 								else {
 									val name = Name(Some(state.context.namespace), n.name)
-									evalProof(state, proof) match {
+									evalProof(state, proof, {
 										case failed : Failed[_] => cont(fail(failed))
 										case Success(value, true) => 
 											cont(Success((State.fromValue(value), thm_name, value), true))
@@ -468,18 +470,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 													cont(fail(st, "choose: " + ex.reason))
 											}	
 										case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
-									} 
+									})
 								}
 						}
-				}
+				})
 			case STTheorem(thm_name, tm, proof) =>
-				evalTermExpr(state.freeze, tm) match {
+				evalTermExpr(state.freeze, tm, {
 					case f : Failed[_] => cont(fail(f))
 					case Success(prop, _) =>
 						if (state.context.typeOfTerm(prop) != Some(Type.Prop)) 
 							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop))))
 						else {
-							evalProof(state, proof) match {
+							evalProof(state, proof, {
 								case f : Failed[_] => cont(fail(f))
 								case Success(value, true) => 
 									cont(Success((State.fromValue(value), thm_name, value), true))
@@ -506,25 +508,25 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										case ex: Utils.KernelException => cont(fail(st, "theorem: " + ex.reason))
 									}
 								case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
-							}
+							})
 						}
-				}
+				})
 			case _ =>
 				cont(fail(st, "internal error: statement is not a logic statement"))
 		}
 	}
 
-	def evalProof(state : State, proof : Block) : Result[StateValue] = {
-		evalBlockSynchronously(state.setCollect(Collect.emptyOne), proof) match {
-			case f : Failed[_] => fail(f)
+	def evalProof[T](state : State, proof : Block, cont : RC[StateValue, T]) : Thunk[T] = {
+		evalBlock(state.setCollect(Collect.emptyOne), proof, {
+			case f : Failed[_] => cont(fail(f))
 			case Success(state, isReturnValue) => 
 				state.reapCollect match {
 					case TheoremValue(th) if !isReturnValue =>
 						val liftedTh = state.context.lift(th)
-						Success(TheoremValue(liftedTh), false)
-					case value => Success(value, isReturnValue)
+						cont(Success(TheoremValue(liftedTh), false))
+					case value => cont(Success(value, isReturnValue))
 				}
-		}
+		})
 	}
 
 	def evalLetIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : 
@@ -968,10 +970,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case Success(v, _) => cont(fail(u, "value cannot be applied to anything: " + display(state, v)))
 					})
 				case tm : LogicTerm =>
-					evalLogicTerm(state, tm) match {
+					evalLogicTerm(state, tm, {
 						case f : Failed[_] => cont(fail(f))
 						case Success(tm, _) => cont(success(TermValue(tm)))
-					}
+					})
 				case Lazy(_) => cont(fail(expr, "lazy evaluation is not available (yet)"))
 				case _ => cont(fail(expr, "don't know how to evaluate this expression"))
 			}	
