@@ -95,10 +95,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		cont : RC[(Preterm, State), T]) : Thunk[T] = 
 	{
 		var state = _state
-		def inst(tm : Preterm.PTmQuote) : Either[Preterm, Failed[StateValue]] = {
+		def inst(tm : Preterm.PTmQuote, cont : Continuation[Either[Preterm, Failed[StateValue]], T]) : Thunk[T] = 
+		{
 			tm.quoted match {
 				case expr : Expr =>
-					evalExprSynchronously(state.freeze, expr) match {
+					evalExpr[T](state.freeze, expr, {
 						case failed : Failed[_] => 
 							expr match {
 								case Id(name) if createFresh =>
@@ -107,25 +108,25 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					            val freshName = state.context.mkFresh(indexedName)
 					            val codePoints = proofpeer.general.StringUtils.codePoints(freshName.toString)
 					            state = state.bind(Map(name -> StringValue(codePoints)))
-					            Left(Preterm.PTmName(Name(None, freshName), Pretype.PTyAny))
-					          case _ => Right(failed)       										
+					            cont(Left(Preterm.PTmName(Name(None, freshName), Pretype.PTyAny)))
+					          case _ => cont(Right(failed))      										
 									}
-								case _ => Right(failed)
+								case _ => cont(Right(failed))
 							}
-						case Success(TermValue(t), _) => Left(Preterm.translate(t))
+						case Success(TermValue(t), _) => cont(Left(Preterm.translate(t)))
 						case Success(s : StringValue, _) =>
 							Syntax.parsePreterm(s.toString) match {
-								case None => Right(fail(expr, "parse error"))
-								case Some(preterm) => Left(preterm)
+								case None => cont(Right(fail(expr, "parse error")))
+								case Some(preterm) => cont(Left(preterm))
 							}
-						case Success(v, _) => Right(fail(expr, "term value expected, found: " + display(state, v)))
-					}    	
+						case Success(v, _) => cont(Right(fail(expr, "term value expected, found: " + display(state, v))))
+					})    	
 			}
 		}
-		Preterm.instQuotes(inst, tm.tm) match {
+		Preterm.instQuotes[Failed[StateValue], T](inst, tm.tm, {
 		  case Right(f) => cont(fail(f))
 			case Left(preterm) => cont(success((preterm, state)))
-		}
+		})
 	}
 
 	def resolvePreterm(context : Context, preterm : Preterm) : Result[Term] = {

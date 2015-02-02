@@ -1,5 +1,7 @@
 package proofpeer.proofscript.logic
 
+import proofpeer.general.continuation._
+
 sealed trait Domain
 case class TypeDomain(ty : Pretype) extends Domain
 case class SetDomain(tm : Preterm) extends Domain
@@ -159,6 +161,34 @@ object Preterm {
       case q : PTmQuote => inst(q)
       case name : PTmName => Left(name)
       case error : PTmError => Left(error)
+    }
+  }
+
+  def instQuotes[F, T](inst : (PTmQuote, Continuation[Either[Preterm, F], T]) => Thunk[T], tm : Preterm, 
+    cont : Continuation[Either[Preterm, F], T]) : Thunk[T] = 
+  {
+    tm match {
+      case PTmTyping(tm, ty) => 
+        instQuotes[F, T](inst, tm, {
+          case Left(tm) => cont(Left(PTmTyping(tm, ty)))
+          case f => cont(f)
+        })
+      case PTmAbs(x, ty, body, body_ty) =>
+        instQuotes[F, T](inst, body, {
+          case Left(body) => cont(Left(PTmAbs(x, ty, body, body_ty)))
+          case f => cont(f)
+        })
+      case PTmComb(f, g, higherorder, typeof) =>
+        instQuotes[F, T](inst, f, left =>
+          instQuotes[F, T](inst, g, right =>
+            (left, right) match {
+              case (Left(f), Left(g)) => cont(Left(PTmComb(f, g, higherorder, typeof)))
+              case (f @ Right(_), _) => cont(f)
+              case (_, g @ Right(_)) => cont(g)              
+            }))
+      case q : PTmQuote => inst(q, cont)
+      case name : PTmName => cont(Left(name))
+      case error : PTmError => cont(Left(error))
     }
   }
 
