@@ -224,11 +224,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							else {
 								val value = s.reapCollect
 								val _state = state.setContext(s.context)
-								matchPattern[T](_state.freeze, pat, value, {
+								matchPattern(_state.freeze, pat, value) match {
 									case Failed(pos, error) => cont(Failed(pos, error))
 									case Success(None, _) => cont(fail(pat, "value " + display(_state, value) + " does not match pattern"))
 									case Success(Some(matchings), _) => cont(success(_state.bind(matchings)))
-								})
+								}
 							}
 					})
 				case STAssign(pat, body) =>
@@ -245,11 +245,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								else {
 									val value = s.reapCollect
 									val _state = state.setContext(s.context)
-									matchPattern[T](_state.freeze, pat, value, {
+									matchPattern(_state.freeze, pat, value) match {
 										case Failed(pos, error) => cont(Failed(pos, error))
 										case Success(None, _) => cont(fail(pat, "value " + display(_state, value) + " does not match pattern"))
 										case Success(Some(matchings), _) => cont(success(_state.rebind(matchings)))
-									})
+									}
 							}
 						})				
 					}	
@@ -986,7 +986,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def evalApply[T](state : State, pat : Pattern, body : Block, argument : StateValue, 
 		 cont : RC[StateValue, T]) : Thunk[T] = 
 	{
-		matchPattern[T](state.freeze, pat, argument, {
+		matchPattern(state.freeze, pat, argument) match {
 			case failed : Failed[_] => cont(fail(failed).addToTrace(pat, FunctionLabel(this, state, argument)))
 			case Success(None, _) => 
 				cont(fail(null, "function argument does not match").addToTrace(pat, 
@@ -997,33 +997,28 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						FunctionLabel(this, state, argument)))
 					case Success(state, _) => cont(success(state.reapCollect))
 				})
-		})
+		}
 	}
 
 	def evalApply[T](state : State, cases : Vector[DefCase], argument : StateValue, 
 		cont : RC[StateValue, T]) : Thunk[T] = 
 	{
 		val matchState = state.freeze
-		def loop(cs : Seq[DefCase]) : Thunk[T] = {
-			if (cs.isEmpty) {
-				val c = cases.head
-				cont(fail(null, "function argument does not match").addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
-			} else {
-				val c = cs.head
-				matchPattern[T](matchState, c.param, argument, {
-					case failed : Failed[_] => 
-						cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
-					case Success(None, _) => loop(cs.tail)
-					case Success(Some(matchings), _) =>
-						evalBlock[T](state.bind(matchings), c.body,  {
-							case failed : Failed[_] => 
-								cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
-							case Success(state, _) => cont(success(state.reapCollect))
-						})
-				})				
+		for (c <- cases) {
+			matchPattern(matchState, c.param, argument) match {
+				case failed : Failed[_] => 
+					return cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
+				case Success(None, _) =>
+				case Success(Some(matchings), _) =>
+					return evalBlock[T](state.bind(matchings), c.body,  {
+						case failed : Failed[_] => 
+							cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
+						case Success(state, _) => cont(success(state.reapCollect))
+					})
 			}
 		}
-		loop(cases.toSeq)
+		val c = cases.head
+		cont(fail(null, "function argument does not match").addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
 	}
 
 	def producesMultiple(controlflow : ControlFlow) : Boolean = {
@@ -1106,7 +1101,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				def loop(state : State, values : Seq[StateValue],  cont : RC[State, T]) : Thunk[T] = {
 					if (values.isEmpty) cont(success(state))
 					else {
-						matchPattern[T](state.freeze, control.pat, values.head, {
+						matchPattern(state.freeze, control.pat, values.head) match {
 							case f : Failed[_] => cont(fail(f))
 							case Success(None, _) => loop(state, values.tail,  cont)
 							case Success(Some(matchings), _) =>
@@ -1116,7 +1111,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										if (isReturnValue) cont(su)
 										else loop(state.subsume(s), values.tail,  cont)
 								})
-						})
+						}
 					}
 				}
 				loop(state, values,  cont)
@@ -1134,7 +1129,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						cont(fail(control, "no match for value: " + display(state, value)))
 					} else {
 						val matchCase = cases.head
-						matchPattern[T](frozenState, matchCase.pat, value, {
+						matchPattern(frozenState, matchCase.pat, value) match {
 							case f : Failed[_] => cont(fail(f))
 							case Success(None, _) => loop(cases.tail,  cont)
 							case Success(Some(matchings), _) =>
@@ -1144,7 +1139,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										if (isReturnValue) cont(su)
 										else cont(success(state.subsume(s)))
 								})
-						})
+						}	
 					}
 				}
 				loop(control.cases,  cont)
@@ -1183,90 +1178,95 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	type Matchings = Map[String, StateValue]
 
-	def matchPattern[T](state : State, pat : Pattern, value : StateValue, cont : RC[Option[Matchings], T]) : Thunk[T] = {
-		matchPatternCont[T](state, pat, value, Map(), cont)
+	def matchPattern(state : State, pat : Pattern, value : StateValue) : Result[Option[Matchings]] = {
+		matchPattern(state, pat, value, Map())
 	}
 
-	def matchPatternCont[T](state : State, pat : Pattern, value : StateValue, matchings : Matchings,
-		cont : RC[Option[Matchings], T]) : Thunk[T] = 
-	{
+	def matchPattern(state : State, pat : Pattern, value : StateValue, matchings : Matchings) : Result[Option[Matchings]] = {
 		pat match {
-			case PAny => cont(success(Some(matchings)))
+			case PAny => success(Some(matchings))
 			case PNil =>
 				value match {
-					case NilValue => cont(success(Some(matchings)))
-					case _ => cont(success(None))
+					case NilValue => success(Some(matchings))
+					case _ => success(None)
 				}
 			case PId(name) => 
 				matchings.get(name) match {
-					case None => cont(success(Some(matchings + (name -> value))))
-					case Some(v) => cont(fail(pat, "pattern is not linear, multiple use of: "+v))
+					case None => success(Some(matchings + (name -> value)))
+					case Some(v) => fail(pat, "pattern is not linear, multiple use of: "+v)
 				}
 			case PInt(x) =>
 				value match {
-					case IntValue(y) if x == y => cont(success(Some(matchings)))
-					case _ => cont(success(None))
+					case IntValue(y) if x == y => success(Some(matchings))
+					case _ => success(None)
 				}
 			case PBool(x) =>
 				value match {
-					case BoolValue(y) if x == y => cont(success(Some(matchings)))
-					case _ => cont(success(None))
+					case BoolValue(y) if x == y => success(Some(matchings))
+					case _ => success(None)
 				}
 			case PString(xs) =>
 				value match {
-					case StringValue(ys) if xs == ys => cont(success(Some(matchings)))
-					case _ => cont(success(None))
+					case StringValue(ys) if xs == ys => success(Some(matchings))
+					case _ => success(None)
 				}
 			case PTuple(ps) =>
 				value match {
 					case TupleValue(xs) if xs.size == ps.size =>
-						matchPatterns[T](state, ps, xs, matchings, cont)
-					case _ => cont(success(None))
+						var m = matchings
+						for (i <- 0 until xs.size) {
+							matchPattern(state, ps(i), xs(i), m) match {
+								case Success(Some(matchings_i), _) => m = matchings_i
+								case r => return r
+							}
+						}
+						success(Some(m)) 
+					case _ => success(None)
 				}
-			case PPrepend(p, ps) =>  
+			case PPrepend(p, ps) =>
 				value match {
 					case TupleValue(xs) if !xs.isEmpty =>
-						matchPatternCont[T](state, p, xs.head, matchings, {
+						matchPattern(state, p, xs.head, matchings) match {
 							case Success(Some(matchings), _) => 
-								matchPatternCont[T](state, ps, TupleValue(xs.tail), matchings, cont) 
-							case r => cont(r)
-						})
-					case _ => cont(success(None))
+								matchPattern(state, ps, TupleValue(xs.tail), matchings) 
+							case r => r
+						}
+					case _ => success(None)
 				}
 			case PAppend(ps, p) =>
 				value match {
 					case TupleValue(xs) if !xs.isEmpty =>
-						matchPatternCont[T](state, p, xs.last, matchings, {
+						matchPattern(state, p, xs.last, matchings) match {
 							case Success(Some(matchings), _) => 
-								matchPatternCont[T](state, ps, TupleValue(xs.take(xs.size - 1)), matchings, cont) 
-							case r => cont(r)
-						})
-					case _ => cont(success(None))
+								matchPattern(state, ps, TupleValue(xs.take(xs.size - 1)), matchings) 
+							case r => r
+						}
+					case _ => success(None)
 				}	
 			case PIf(p, cond) =>
-				matchPattern[T](state, p, value, {
+				matchPattern(state, p, value) match {
 					case Success(Some(pMatchings), _) =>
-						pMatchings.find(m => matchings.contains(m._1)) match {
-							case Some(m) => cont(fail(p, "pattern is not linear, multiple use of: "+m._1))
-							case None =>
-								evalExpr[T](state.bind(pMatchings).freeze, cond, {
-									case failed : Failed[_] => cont(fail(failed))
-									case Success(BoolValue(false), _) => cont(success(None))
-									case Success(BoolValue(true), _) => cont(success(Some(matchings ++ pMatchings)))
-									case Success(v, _) => cont(fail(cond, "Boolean expected, found: "+display(state, v)))
-								})							
+						for ((id,_) <- pMatchings) {
+							if (matchings.contains(id))
+								return fail(p, "pattern is not linear, multiple use of: "+id)
 						}
-					case r => cont(r)
-				})
+						evalExprSynchronously(state.bind(pMatchings).freeze, cond) match {
+							case failed : Failed[_] => fail(failed)
+							case Success(BoolValue(false), _) => success(None)
+							case Success(BoolValue(true), _) => success(Some(matchings ++ pMatchings))
+							case Success(v, _) => fail(cond, "Boolean expected, found: "+display(state, v))
+						}
+					case r => r
+				}
 			case PAs(p, name) =>
-				matchPatternCont[T](state, p, value, matchings, {
+				matchPattern(state, p, value, matchings) match {
 					case Success(Some(matchings), _) =>
 						matchings.get(name) match {
-							case None => cont(success(Some(matchings + (name -> value))))
-							case Some(v) => cont(fail(pat, "pattern is not linear, multiple use of: "+v))
+							case None => success(Some(matchings + (name -> value)))
+							case Some(v) => fail(pat, "pattern is not linear, multiple use of: "+v)
 						}
-					case r => cont(r)
-				})
+					case r => r
+				}
 			case PLogic(_preterm) =>
 				val term = 
 					value match {
@@ -1277,9 +1277,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)
 							} catch {
 								case ex : Utils.KernelException =>
-									return cont(success(None))
+									return success(None)
 							}
-						case _ => return cont(success(None))
+						case _ => return success(None)
 					}
 				val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
 				val preterm = 
@@ -1288,51 +1288,31 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case Right(errors) => 
 							var erroroutput = errors.mkString("\n")
 							if (errors.size <= 1)
-								return cont(fail(pat, "ill-typed pattern: " + erroroutput))
+								return fail(pat, "ill-typed pattern: " + erroroutput)
 							else
-								return cont(fail(pat, "ill-typed pattern:\n" + erroroutput))
+								return fail(pat, "ill-typed pattern:\n" + erroroutput)
 					}
 				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
 				if (!state.context.typeOfTerm(term).isDefined)
-					return cont(fail(pat, "value to be matched is invalid in current context, value is:\n    " + display(state, value)))
+					return fail(pat, "value to be matched is invalid in current context, value is:\n    " + display(state, value))
 				HOPattern.patternMatch(state.context, hop, term) match {
 					case Right(invalid) => 
-						if (invalid) cont(fail(pat, "pattern is not a higher-order pattern"))
-						else cont(success(None))
+						if (invalid) fail(pat, "pattern is not a higher-order pattern")
+						else success(None)
 					case Left(subst) => 
-						def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings, cont : RC[Option[Matchings], T]) : Thunk[T] = {
-							if (idTerms.isEmpty)
-								cont(success(Some(matchings)))
-							else {
-								val (quoteId, term) = idTerms.head
-								val p = quotes(quoteId).quoted.asInstanceOf[Pattern]
-								matchPatternCont[T](state, p, value, matchings, {
-									case Success(Some(matchings_q), _) => loop(idTerms.tail, matchings_q, cont)
-									case r => cont(r)
-								})																
+						var m = matchings
+						for ((quoteId, term) <- subst) {
+							val value = TermValue(term)
+							val p = quotes(quoteId).quoted.asInstanceOf[Pattern]
+							matchPattern(state, p, value, m) match {
+								case Success(Some(matchings_q), _) => m = matchings_q
+								case r => return r
 							}
 						}
-						loop(subst.toSeq, matchings, cont)
+						success(Some(m))
 				}
-			case _ => cont(fail(pat, "pattern has not been implemented yet"))
+			case _ => return fail(pat, "pattern has not been implemented yet")
 		}		
 	}
-
-	def matchPatterns[T](state : State, pats : Seq[Pattern], values : Seq[StateValue], matchings : Matchings,
-		cont : RC[Option[Matchings], T]) : Thunk[T] = 
-	{
-		if (pats.isEmpty || values.isEmpty) {
-			if (pats.isEmpty && values.isEmpty)
-				cont(success(Some(matchings)))
-			else
-				cont(success(None))
-		} else {
-			matchPatternCont[T](state, pats.head, values.head, matchings, {
-				case Success(Some(m), _) => matchPatterns[T](state, pats.tail, values.tail, m, cont)
-				case r => cont(r)
-			})			
-		}
-	}
-
 
 }
