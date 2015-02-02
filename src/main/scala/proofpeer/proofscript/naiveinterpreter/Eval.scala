@@ -55,30 +55,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	def mkRC[S, T](f : Result[S] => Thunk[T]) : RC[S, T] = f
 
-	private var evalDepths : Array[Int] = new Array[Int](128)
-	private var evalDepthsPtr : Int = -1
+	private var evalDepth : Int = 0
 
-	private def pushEvalDepth() {
-		evalDepthsPtr += 1
-		if (evalDepthsPtr >= evalDepths.length) {
-			val depths : Array[Int] = new Array[Int](evalDepths.length * 2)
-			for (i <- 0 until evalDepths.length) depths(i) = evalDepths(i)
-			evalDepths = depths
-		}
-		evalDepths(evalDepthsPtr) = 0
-	}
-
-	private def popEvalDepth() {
-		evalDepthsPtr -= 1
-	}
 
 	private def incEvalDepth() : Boolean = {
-		evalDepths(evalDepthsPtr) = evalDepths(evalDepthsPtr) + 1
-		evalDepths(evalDepthsPtr) > 100
+		evalDepth = evalDepth + 1
+		evalDepth > 100
 	}
 
 	private def decEvalDepth() {
-		evalDepths(evalDepthsPtr) = evalDepths(evalDepthsPtr) - 1
+		evalDepth = evalDepth - 1
 	}
 
 	def success[T](result : T) : Success[T] = Success(result, false)
@@ -393,13 +379,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		evalBlocki[T](state, block, 0,  cont)
 	}
 
-	def evalBlockSynchronously(state : State, block : Block) : Result[State] = {		
-		pushEvalDepth()
-		try {
-			evalBlock[Result[State]](state, block, (r : Result[State]) => Thunk.value(r))()
-		} finally { 
-			popEvalDepth()
-		}
+	def eval(state : State, block : Block) : Result[State] = {		
+		evalBlock[Result[State]](state, block, (r : Result[State]) => Thunk.value(r))()
 	}
 
 
@@ -744,15 +725,6 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			Left(values)
 		else
 			Right(notfound)
-	}
-
-	def evalExprSynchronously(state : State, expr : Expr) : Result[StateValue] = {
-		pushEvalDepth()
-		try {
-			evalExpr[Result[StateValue]](state, expr, (r : Result[StateValue]) => Thunk.value(r))()
-		} finally {
-			popEvalDepth()
-		}
 	}
 
 	def evalExpr[T](state : State, expr : Expr,  _cont : RC[StateValue, T]) : Thunk[T] = {
@@ -1300,19 +1272,20 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						if (invalid) cont(fail(pat, "pattern is not a higher-order pattern"))
 						else cont(success(None))
 					case Left(subst) => 
-						def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings, cont : RC[Option[Matchings], T]) : Thunk[T] = {
+						def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings) : Thunk[T] = {
 							if (idTerms.isEmpty)
 								cont(success(Some(matchings)))
 							else {
 								val (quoteId, term) = idTerms.head
+								val value = TermValue(term)
 								val p = quotes(quoteId).quoted.asInstanceOf[Pattern]
 								matchPatternCont[T](state, p, value, matchings, {
-									case Success(Some(matchings_q), _) => loop(idTerms.tail, matchings_q, cont)
+									case Success(Some(matchings_q), _) => loop(idTerms.tail, matchings_q)
 									case r => cont(r)
 								})																
 							}
 						}
-						loop(subst.toSeq, matchings, cont)
+						loop(subst.toSeq, matchings)
 				}
 			case _ => cont(fail(pat, "pattern has not been implemented yet"))
 		}		
@@ -1333,6 +1306,5 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			})			
 		}
 	}
-
 
 }

@@ -288,7 +288,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       }
     val result : Either[Result[State], String] = 
       try {
-        Left(evaluator.evalBlockSynchronously(state, ParseTree.Block(parsetree.statements.tail)))
+        Left(evaluator.eval(state, ParseTree.Block(parsetree.statements.tail)))
       } catch {
         case x : StackOverflowError =>
           x.printStackTrace()
