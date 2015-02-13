@@ -20,7 +20,7 @@ import Utils.KernelException
 trait Theory[F[_,_],E] {
   def kernel: Kernel
   def FEisME: MonadError[F,E]
-  def kernelError: KernelException => E
+  def kernelError(e: KernelException): E
 
   type FE[A]  = F[E,A]
   implicit def FEisM: Monad[FE] = FEisME
@@ -30,7 +30,7 @@ trait Theory[F[_,_],E] {
     val proposition = get.proposition
   }
 
-  private def kleisli_ [A](f: Context => F[E,A]) =
+  private def kleisli_ [A](f: (Context) => F[E,A]) =
     Kleisli[({ type λ[A] = F[E,A] })#λ,Context,A](f)
 
   // Context is automatically threaded through computations (using Kleisli arrows
@@ -81,19 +81,19 @@ trait Theory[F[_,_],E] {
       new Thy(kleisli_ { ctx =>
         FEisME.handleError(fa.k.run(ctx))(e => handler(e).k.run(ctx))
       })
-
-    /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Namespace]].
-      */
-    def run[Fold[_]:Foldable](mthm: Thy[E,Thm])(
-      namespace: Namespace, parents: Fold[Namespace]): F[E,Theorem] = {
-      val parentSet = parents.foldLeft[Set[Namespace]](Set()) { _ + _ }
-      val ctx = kernel.createNewNamespace(
-        namespace,
-        parentSet,
-        new Aliases(namespace, List()))
-      mthm(ctx).map{_.get}
-    }
    }
+
+  /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Namespace]].
+    */
+  def run[Fold[_]:Foldable](mthm: Thy[E,Thm])(
+    namespace: Namespace, parents: Fold[Namespace]): F[E,Theorem] = {
+    val parentSet = parents.foldLeft[Set[Namespace]](Set()) { _ + _ }
+    val ctx = kernel.createNewNamespace(
+      namespace,
+      parentSet,
+      new Aliases(namespace, List()))
+    mthm(ctx).map{_.get}
+  }
 
   // Context access.
   private def ask_ : Thy[E,Context] =
@@ -104,8 +104,11 @@ trait Theory[F[_,_],E] {
 
   // Put KernelExceptions into MonadError. Could skip this when specialising
   // MonadError on this exception type.
-  private def except[A](x: => A): Thy[E,A] =
-    try x.point[ThyE]
+  def except[A](x: => A): Thy[E,A] =
+    try {
+      val theX = x
+      theX.point[ThyE]
+    }
     catch {
       case exc: Utils.KernelException =>
         ThyIsMonadError.raiseError[A](kernelError(exc))
@@ -123,43 +126,51 @@ trait Theory[F[_,_],E] {
 
   // NB: The following functions should not throw any exceptions concerning invalid
   // contexts.
-  def introducing(constName: Name, ty: Type)(mthm: Thy[E,Thm]):
+  private def lift(thm: Thm): Thy[E,Thm] = ask_ map { ctx =>
+    new Thm(ctx.lift(thm.get,true)) }
+
+  def introducing(name: IndexedName, ty: Type)(mthm: Term.Const => Thy[E,Thm]):
       Thy[E,Thm] =
     for (
       ctx    <- ask_;
-      newCtx =  ctx.introduce(constName,ty);
-      thm    <- scope_[Thm](newCtx)(mthm)
+      n       = Name(None,name);
+      newCtx  = ctx.introduce(n,ty);
+      thm    <- scope_[Thm](newCtx)(mthm(Term.Const(n)) >>= (lift(_))) >>= (lift(_))
     )
-    yield new Thm(ctx.lift(thm.get))
+    yield thm
 
-  def assuming(tm: Term)(mthm: Thy[E,Thm]): Thy[E,Thm] =
+  def assuming(tm: Term)(mthm: Thm => Thy[E,Thm]): Thy[E,Thm] =
+    for (
+      ctx <- ask_;
+      asm <- except(ctx.assume(tm));
+      thm <- scope_[Thm](asm.context)(mthm(new Thm(asm))) >>= (lift(_))
+    )
+    yield thm
+
+  def defining(name: IndexedName, tm: Term)(mthm: Term.Const => Thy[E,Thm]):
+      Thy[E,Thm] =
     for (
       ctx  <- ask_;
-      asm  <- except(ctx.assume(tm));
-      thm  <- scope_[Thm](asm.context)(mthm)
-    )
-    yield new Thm(ctx.lift(thm.get))
-
-  def defining(name: IndexedName, tm: Term)(mthm: Thy[E,Theorem]): Thy[E,Thm] =
-    for (
-      ctx  <- ask_;
+      n     = Name(None,name);
       defn <- except(ctx.define(Name(None,name), tm));
-      thm  <- scope_[Theorem](defn.context)(mthm)
+      thm  <- scope_[Thm](defn.context)(mthm(Term.Const(n))) >>= (lift(_))
     )
-    yield new Thm(ctx.lift(thm))
+    yield thm
 
   def choosing(name: IndexedName, tm: Term)(mthm: Thy[E,Thm]): Thy[E,Thm] =
     for (
       ctx  <- ask_;
       defn <- except(ctx.define(Name(None,name), tm));
-      thm  <- scope_[Thm](defn.context)(mthm)
+      thm  <- scope_[Thm](defn.context)(mthm) >>= (lift(_))
     )
-    yield new Thm(ctx.lift(thm.get))
+    yield thm
 
   private def askThm(f: Context => Theorem): Thy[E,Thm] =
     ask_ map { ctx => new Thm(f(ctx)) }
+  private def askThmExceptM(f: Context => Thy[E,Theorem]): Thy[E,Thm] =
+    ask_ >>= { ctx => except(f(ctx)).join map { thm => new Thm(thm) } }
   private def askThmExcept(f: Context => Theorem): Thy[E,Thm] =
-    ask_ >>= { ctx => except(f(ctx)) map { thm => new Thm(thm) } }
+    askThmExceptM { ctx => f(ctx).point[ThyE] }
 
   def reflexive(x: Term): Thy[E,Thm] = askThm(_.reflexive(x))
   def beta(tm: Term): Thy[E,Thm] = askThmExcept(_.beta(tm))
@@ -175,4 +186,14 @@ trait Theory[F[_,_],E] {
   def equiv(l: Thm, r: Thm) = askThmExcept(_.equiv(l.get,r.get))
   def instantiate(thm: Thm, insts: List[Option[Term]]) =
     askThmExcept(_.instantiate(thm.get, insts))
+
+  val emptyRes = new NamespaceResolution((_ => Set()), (_ => Set[IndexedName]()))
+
+  def parse(str: String): Thy[E,Term] = {
+    for (
+      ctx     <- ask_;
+      aliases = new Aliases(ctx.namespace, List());
+      tm      <- except(Syntax.parseTerm(aliases,emptyRes,ctx,str)))
+    yield tm
+  }
 }
