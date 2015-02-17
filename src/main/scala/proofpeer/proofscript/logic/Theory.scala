@@ -45,6 +45,7 @@ trait Theory[F[_,_],E] {
 
   implicit object ThyIsMonad extends ThyIsMonad
   object ThyIsMonadError extends ThyIsMonadError with ThyIsMonad
+
   implicit def ThyIsMonadPlus(implicit ev: MonadPlus[({type λ[A] = F[E,A]})#λ]) =
     new ThyIsMonadPlus {
       override def FEisMP = ev
@@ -126,7 +127,7 @@ trait Theory[F[_,_],E] {
 
   // NB: The following functions should not throw any exceptions concerning invalid
   // contexts.
-  private def lift(thm: Thm): Thy[E,Thm] = ask_ map { ctx =>
+  def lift(thm: Thm): Thy[E,Thm] = ask_ map { ctx =>
     new Thm(ctx.lift(thm.get,true)) }
 
   def introducing(name: IndexedName, ty: Type)(mthm: Term.Const => Thy[E,Thm]):
@@ -165,6 +166,16 @@ trait Theory[F[_,_],E] {
     )
     yield thm
 
+
+  def destAbs[A](tm: Term)(f: (Term,Term) => Thy[E,A]) = ask_ map { ctx =>
+    ctx.destAbs(tm) match {
+      case None => ThyIsMonadError.raiseError[Type](
+        kernelError(new KernelException("Not an abstraction.")))
+      case Some((newCtx,x,bod)) =>
+        scope_[A](newCtx)(f(x,bod))
+    }
+  }
+
   private def askThm(f: Context => Theorem): Thy[E,Thm] =
     ask_ map { ctx => new Thm(f(ctx)) }
   private def askThmExceptM(f: Context => Thy[E,Theorem]): Thy[E,Thm] =
@@ -172,6 +183,10 @@ trait Theory[F[_,_],E] {
   private def askThmExcept(f: Context => Theorem): Thy[E,Thm] =
     askThmExceptM { ctx => f(ctx).point[ThyE] }
 
+  /** The following rules do not lift theorems. If this is necessary,
+      lift must be used manually.
+    */
+  // TODO: Should probably provide versions which do lifting automatically.
   def reflexive(x: Term): Thy[E,Thm] = askThm(_.reflexive(x))
   def beta(tm: Term): Thy[E,Thm] = askThmExcept(_.beta(tm))
   def eta(tm: Term): Thy[E,Thm] = askThmExcept(_.eta(tm))

@@ -1,5 +1,6 @@
 package proofpeer.proofscript.logic
 
+import proofpeer.proofscript.naiveinterpreter._
 import KernelUtils._
 import Utils.KernelException
 import scala.language.higherKinds
@@ -43,7 +44,6 @@ trait Conversions[F[_,_],E] extends Theory[F,E] {
       )
       yield thm
     )
-
   }
 
   implicit def kleisliIsConv(k: Kleisli[ThyE, Term, Thm]): Conv = Conv(k)
@@ -85,19 +85,43 @@ object Test extends Conversions[({type λ[E,A] = EitherT[Id,E,A]})#λ,String] {
     e.reason + e.getStackTrace().foldLeft("\n"){_ + "\n" + _}
   def stringError(e: String): String = e
 
-  def kernel = Kernel.createDefaultKernel()
+  val kernel = {
+    val handler = new ConsoleInterpreterNotificationHandler(print _)
+    val dir = "/afs/inf.ed.ac.uk/user/p/pscott7/proofpeer/proofpeer-proofscript/" +
+        "scripts/"
+    val compileDir = new java.io.File(dir,"build")
+    val theoryDirs = List(dir)
+    val theoryFile = new java.io.File(dir,"root.thy")
+    val source = scala.io.Source.fromFile(theoryFile)
+    val (ee, allTheories) =
+      LocalExecutionEnvironment.create(compileDir,theoryDirs,handler.loadedTheory _)
+    val rootThys = allTheories.filter(_ == Namespace.root)
+    val interpreter = new Interpreter(ee)
+
+    handler.initialize(ee, rootThys)
+    interpreter.compileTheories(rootThys,handler)
+    ee.kernel
+  }
+
+  val ns = Namespace(true,Vector("foo"))
+  val foo =
+    Test.kernel.createNewNamespace(
+      ns,
+      Set(Kernel.root_namespace),
+      new Aliases(ns, List()))
+
   def FEisME = EitherT.eitherTMonadError[Id,String]
   import Term._
   import Type._
 
   val x   = IndexedName("x",None)
   val y   = IndexedName("y",None)
+  val p   = IndexedName("P",None)
+  val q   = IndexedName("Q",None)
   val vx  = Var(x)
   val vy  = Var(y)
   val abs = Abs(x,Universe,vx)
 
-  val ns = Namespace(true,Vector("foo"))
-  val aliases = new Aliases(ns, List())
   val theory =
     introducing(x,Universe) { x =>
       introducing(y,Universe) { y =>
@@ -107,11 +131,18 @@ object Test extends Conversions[({type λ[E,A] = EitherT[Id,E,A]})#λ,String] {
       }
     }
 
-  val badtheory = {
-    assuming(Comb(Comb(PolyConst(Kernel.equals, Universe),vx),vy)) {
-      _.point[ThyE]
+  def myterm(str: String) =
+    introducing(x,Universe) { x =>
+      introducing(y,Universe) { y =>
+        introducing(p,Fun(Universe,Prop)) { p =>
+          introducing(q,Fun(Universe,Fun(Universe,Prop))) { q =>
+            parse(str) >>= {
+              assuming(_) { _.point[ThyE] }
+            }
+          }
+        }
+      }
     }
-  }
 
-  val thm = run[List](theory)(ns,List())
+//  val thm = run[List](theory)(ns,List())
 }
