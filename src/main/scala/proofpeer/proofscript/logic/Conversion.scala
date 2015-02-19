@@ -8,7 +8,7 @@ import scala.language.implicitConversions
 import scalaz._
 import Scalaz._
 import Kleisli._
-import EqualsInstances._
+import KernelInstances._
 
 /** Conversions are Kleisli arrows Term => Thy[E,Theorem]. The intended semantics of
     conversions is given by its `thenMonoid`. */

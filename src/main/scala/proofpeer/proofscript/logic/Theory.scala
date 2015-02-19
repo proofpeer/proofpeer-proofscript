@@ -6,7 +6,7 @@ import scala.language.implicitConversions
 import scalaz._
 import Scalaz._
 import Kleisli._
-import EqualsInstances._
+import KernelInstances._
 import Utils.KernelException
 
 /** `Theory` exposes inference rules without reference to contexts. The core type is
