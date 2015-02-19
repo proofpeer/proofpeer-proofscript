@@ -26,6 +26,10 @@ object FOF {
 
   sealed case class Neg()
 
+  /** Naive conversion from first-order Proofpeer terms:
+        p → q   becomes   ~p ∨ q
+        p ↔ q   becomes   (p ∧ q) ∨ (~p ∧ q)
+    */
   def unapply(term: Term): Option[FOF[IndexedName,Name,Name,Neg,Binder]] = {
     term match {
       case Term.PolyConst(c,_) => Some(Pred(c,List()))
@@ -65,6 +69,7 @@ object FOF {
     }
   }
 
+  /*
   def pentamap[V,F,P,Un,B,V_,F_,P_,Un_,B_](fof: FOF[V,F,P,Un,B])(
     f: V => V_, g: F => F_, h: P => P_, i: Un => Un_, j: B => B_):
       FOF[V_,F_,P_,Un_,B_] = {
@@ -122,13 +127,16 @@ object FOF {
 }
 
 object Matrix {
+  /** A matrix has no unary operators nor any binders. */
   type Matrix[V,F,P] = FOF[V,F,P,Nothing,Nothing]
 
   import FOF.{Binder,All,Exists,Neg}
 
+  /** All variables in a matrix. */
   def frees[V,F,P](fof: Matrix[V,F,P]): Set[V] =
     preds(fof).flatMap { case Pred(p,args) => args.foldMap(_.frees) }
 
+  /** All predicates in a matrix. */
   def preds[V,F,P](fof: Matrix[V,F,P]): Set[Pred[V,F,P,Nothing,Nothing]] = {
     fof match {
       case p@Pred(_,_)      => Set(p)
@@ -139,8 +147,12 @@ object Matrix {
     }
   }
 
+  /** Freshened variables are integers tracking their original. */
   type Fresh[V] = Prov[V,Int]
 
+  /** Given a formula in NNF form (no unary operator), extract all binders,
+      freshening variables as necessary.
+    */
   def quantPull[V:Order,F,U,P](fof: FOF[V,F,(Option[Neg],P),Nothing,Binder]):
       (List[(Binder,Fresh[V])],
         Matrix[V \/ Fresh[V],F,(Option[Neg],P)],
@@ -197,6 +209,8 @@ object Matrix {
     (bnds,matrix,nfof)
   }
 
+  /** Given a binding list and its matrix, skolemise to a matrix which is implicitly
+      universally quantified. */
   def skolemize[V:Order,F,P](
     binders: List[(Binder,V)],
     fof:     Matrix[V,V,P]): Matrix[V,V,P] = {
@@ -295,6 +309,8 @@ object CNF {
       case Bnding(void,_,_)           => void
     }
   }
+
+  /** Convert an implicitly universally quantified matrix into CNF form. */
   def cnf[V,F,P](fof: Matrix[V,F,(Option[Neg],P)]): Set[Clause[V,F,P]] =
     cnf_(fof).map(Clause(_))
 }
