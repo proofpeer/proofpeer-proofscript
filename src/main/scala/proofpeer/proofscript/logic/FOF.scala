@@ -284,6 +284,8 @@ object CNF {
       case And(p,q)                   => cnf_(p) |+| cnf_(q)
       case Or(p,q)                    =>
         for (ps <- cnf_(p); qs <- cnf_(q)) yield ps |+| qs
+      case Unary(void,_)              => void
+      case Bnding(void,_,_)           => void
     }
   }
   def cnf[V,F,P](fof: Matrix[V,F,(Option[Neg],P)]): Set[Clause[V,F,P]] =
