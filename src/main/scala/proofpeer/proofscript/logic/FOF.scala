@@ -2,7 +2,8 @@ package proofpeer.proofscript.logic
 
 import KernelUtils._
 import KernelInstances._
-import proofpeer.metis.{ Term => MTerm, Fun => MFun, Var => MVar, Subst }
+import proofpeer.metis.{ Term => MTerm, Fun => MFun, Var => MVar, Subst,
+  Literal, Pred => MPred, Clause }
 import proofpeer.metis.TermInstances._
 import scala.language.higherKinds
 import scalaz._
@@ -271,4 +272,20 @@ object TermFunctions {
       case _                     => None
     }
   }
+}
+
+object CNF {
+  import Matrix.Matrix
+  import FOF.Neg
+  def cnf_[V,F,P](fof: Matrix[V,F,(Option[Neg],P)]): Set[Set[Literal[V,F,P]]] = {
+    fof match {
+      case Pred((None,p),args)        => Set(Set(Literal(true,MPred(p,args))))
+      case Pred((Some(Neg()),p),args) => Set(Set(Literal(false,MPred(p,args))))
+      case And(p,q)                   => cnf_(p) |+| cnf_(q)
+      case Or(p,q)                    =>
+        for (ps <- cnf_(p); qs <- cnf_(q)) yield ps |+| qs
+    }
+  }
+  def cnf[V,F,P](fof: Matrix[V,F,(Option[Neg],P)]): Set[Clause[V,F,P]] =
+    cnf_(fof).map(Clause(_))
 }
