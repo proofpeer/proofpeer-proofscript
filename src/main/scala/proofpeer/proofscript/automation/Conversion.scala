@@ -1,4 +1,4 @@
-package proofpeer.proofscript.metis
+package proofpeer.proofscript.automation
 
 import proofpeer.proofscript.logic._
 import proofpeer.proofscript.naiveinterpreter._

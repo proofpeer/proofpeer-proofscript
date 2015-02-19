@@ -1,4 +1,4 @@
-package proofpeer.proofscript.metis
+package proofpeer.proofscript.automation
 
 import scalaz._
 import Scalaz._

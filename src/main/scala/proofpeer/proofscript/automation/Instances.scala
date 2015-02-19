@@ -1,7 +1,8 @@
-package proofpeer.proofscript.logic
+package proofpeer.proofscript.automation
 
+import proofpeer.proofscript.logic._
 import scala.language.implicitConversions
-import scalaz._
+import scalaz.{ Name => _, _}
 import Scalaz._
 
 object KernelInstances {
