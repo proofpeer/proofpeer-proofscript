@@ -138,56 +138,62 @@ object Matrix {
     }
   }
 
-  private type QPS[A]     = State[Int,A]
-  private type WT[M[_],A] = WriterT[M,List[(Binder,Int)],A]
-  private type QPM[A]     = WT[QPS,A]
+  type Fresh[V] = Prov[V,Int]
 
-  private def substFresh[V:Equal,F,U,P,B](v: V \/ Int,fof: FOF[V \/ Int,F,U,P,B]):
-      QPM[(Int,FOF[V \/ Int,F,U,P,B])] = {
-    def subst(n: Int, fof: FOF[V \/ Int,F,U,P,B]): FOF[V \/ Int,F,U,P,B] = {
-      fof match {
-        case Pred(p,args)         => Pred(p,args.map(_.map { v_ =>
-          if (v_ === v)
-            n.right
-          else v_
-        }))
-        case And(p,q)             => And(subst(n,p),subst(n,q))
-        case Or(p,q)              => Or(subst(n,p),subst(n,q))
-        case Unary(u,p)           => Unary(u,subst(n,p))
-        case Bnding(bnd,bndv,bod) if bndv === v => Bnding(bnd,bndv,bod)
-        case Bnding(bnd,bndv,bod) => Bnding(bnd,bndv,subst(n,bod))
-      }
+  def quantPull[V:Order,F,U,P](fof: FOF[V,F,(Option[Neg],P),Nothing,Binder]):
+      (List[(Binder,Fresh[V])],
+        Matrix[V \/ Fresh[V],F,(Option[Neg],P)],
+        FOF[V \/ Fresh[V],F,(Option[Neg],P),Nothing,Binder]) = {
+    type QPS[A]     = State[(Int,V ==>> Fresh[V]),A]
+    type WT[M[_],A] = WriterT[M,List[(Binder,Fresh[V])],A]
+    type QPM[A]     = WT[QPS,A]
+    type FOFIn  = FOF[V,F,(Option[Neg],P),Nothing,Binder]
+    type FOFOut = FOF[V \/ Fresh[V],F,(Option[Neg],P),Nothing,Binder]
+    type Mat_   = Matrix[V \/ Fresh[V],F,(Option[Neg],P)]
+
+    def getSubst : QPM[(V ==>> Fresh[V])] =
+      get[(Int,V ==>> Fresh[V])].map(_._2).liftM[WT]
+
+    def bindFresh(v: V): QPM[Fresh[V]] = {
+      for (
+        nθ    <- get[(Int,V ==>> Fresh[V])].liftM[WT];
+        (n,θ) =  nθ;
+        fresh =  Prov(v,n);
+        _  <- put((n+1, θ + (v → Prov(v,n)))).liftM[WT])
+      yield fresh
     }
-    for (
-      n <- get[Int].liftM[WT];
-      _ <- modify[Int](_+1).liftM[WT])
-    yield (n,subst(n, fof))
-  }
 
-  private def get_ : QPM[Int] = get[Int].liftM[WT]
-  def quantPull[V:Equal,F,P,U](fof: FOF[V,F,(Option[Neg],P),Nothing,Binder]):
-      (List[(Binder,Int)],Matrix[V \/ Int,F,(Option[Neg],P)]) = {
-    def qp(fof: FOF[V \/ Int,F,(Option[Neg],P),Nothing,Binder]):
-        QPM[Matrix[V \/ Int,F,(Option[Neg],P)]] = {
+    def qp(fof: FOFIn): QPM[(Mat_,FOFOut)] = {
       fof match {
-        case And(p,q)      => (qp(p) |@| qp(q)) {And(_,_)}
-        case Or(p,q)       => (qp(p) |@| qp(q)) {Or(_,_)}
+        // Ugh. This is just biapplicative
+        case And(p,q)      => for (
+          qpp <- qp(p);
+          qpq <- qp(q);
+          (pmatrix,pfof) = qpp;
+          (qmatrix,qfof) = qpq)
+        yield (And(pmatrix,qmatrix),And(pfof,qfof))
+        case Or(p,q)       => for (
+          qpp <- qp(p);
+          qpq <- qp(q);
+          (pmatrix,pfof) = qpp;
+          (qmatrix,qfof) = qpq)
+        yield (Or(pmatrix,qmatrix),Or(pfof,qfof))
         case Unary(void,_) => void
-        case Bnding(b,v,p) => substFresh(v,p) >>= {
-          nfof : (Int,FOF[V \/ Int,F,(Option[Neg],P),Nothing,Binder]) => nfof match {
-          case (n,fof) =>
-              qp(fof) >>= { case qfof =>
-                qfof.point[QPM] :++> (List((b,n)))
-              }
+        case Bnding(b,v,p) => bindFresh(v) >>= {
+          v:Fresh[V] => qp(p) >>= { case (qfof,nfof) =>
+            (qfof,nfof).point[QPM] :++> (List((b,v)))
           }
         }
-        case Pred(p,args) =>
-          val fof_ :Matrix[V \/ Int,F,(Option[Neg],P)] = Pred(p,args)
-          fof_.point[QPM]
+        case pred@Pred(p,args) =>
+          getSubst map { θ =>
+            val newargs = args.map(_.map(v =>
+              θ.lookup(v).map(_.right).getOrElse(v.left)))
+            (Pred(p,newargs),Pred(p,newargs))
+          }
       }
     }
-    import FOF.Instances.FOFIsFunctor
-    qp(FOFIsFunctor.map(fof)(_.left)).run.eval(0).bimap({_.reverse},{x => x})
+    val (bnds,(matrix,nfof)) = qp(fof).run.eval((0,==>>.empty))
+    (bnds,matrix,nfof)
   }
 
   def skolemize[V:Order,F,P](
