@@ -1,11 +1,12 @@
-package proofpeer.proofscript.logic
+package proofpeer.proofscript.metis
 
+import proofpeer.proofscript.logic._
 import proofpeer.proofscript.naiveinterpreter._
 import KernelUtils._
 import Utils.KernelException
 import scala.language.higherKinds
 import scala.language.implicitConversions
-import scalaz._
+import scalaz. { Name => _, _ }
 import Scalaz._
 import Kleisli._
 import KernelInstances._

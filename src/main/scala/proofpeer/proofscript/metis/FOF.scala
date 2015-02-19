@@ -1,12 +1,13 @@
-package proofpeer.proofscript.logic
+package proofpeer.proofscript.metis
 
+import proofpeer.proofscript.logic._
 import KernelUtils._
 import KernelInstances._
 import proofpeer.metis.{ Term => MTerm, Fun => MFun, Var => MVar, Subst,
   Literal, Pred => MPred, Clause }
 import proofpeer.metis.TermInstances._
 import scala.language.higherKinds
-import scalaz._
+import scalaz.{ Name => _ , _}
 import Scalaz._
 
 sealed abstract class FOF[V,F,P,+U,+B]
