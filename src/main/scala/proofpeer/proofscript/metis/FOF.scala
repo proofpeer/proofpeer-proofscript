@@ -69,7 +69,7 @@ object FOF {
     }
   }
 
-  /*
+  /** FOF terms are functors in every type-variable. */
   def pentamap[V,F,P,Un,B,V_,F_,P_,Un_,B_](fof: FOF[V,F,P,Un,B])(
     f: V => V_, g: F => F_, h: P => P_, i: Un => Un_, j: B => B_):
       FOF[V_,F_,P_,Un_,B_] = {
