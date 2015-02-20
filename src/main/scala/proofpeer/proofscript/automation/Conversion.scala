@@ -1,14 +1,15 @@
-// package proofpeer.proofscript.logic
+// package proofpeer.proofscript.automation
 
+// import proofpeer.proofscript.logic._
 // import proofpeer.proofscript.naiveinterpreter._
 // import KernelUtils._
 // import Utils.KernelException
 // import scala.language.higherKinds
 // import scala.language.implicitConversions
-// import scalaz._
+// import scalaz. { Name => _, _ }
 // import Scalaz._
 // import Kleisli._
-// import EqualsInstances._
+// import KernelInstances._
 
 // /** Conversions are Kleisli arrows Term => Thy[E,Theorem]. The intended semantics of
 //     conversions is given by its `thenMonoid`. */
