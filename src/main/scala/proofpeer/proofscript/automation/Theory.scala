@@ -35,13 +35,15 @@ trait Theory[F[_,_],E] {
   // of F). We hide the arrows to keep them out of reach of client code and those
   // extending Theory. The intention here is that all uses of Context.lift will
   // go through.
-  private type ContT[A] = ContsT[Identity,FE,Thm,A]
-  private type KE[A]    = Kleisli[ContT,Context,A]
+  private type K[E,A]   = Kleisli[({type λ[A] = F[E,A]})#λ,Context,A]
+  private type KE[A]    = Kleisli[FE,Context,A]
+  private implicit def KEisM: Monad[KE] = Kleisli.kleisliMonadReader
+  private type ContT[A] = ContsT[Identity,KE,Thm,A]
   sealed class Thy[E,A] private[Theory] (
-    private[Theory] val k: Kleisli[ContT,Context,A])
+    private[Theory] val k: ContsT[Identity,({type λ[A] = K[E,A]})#λ,Thm,A])
 
   def run(mthm: Thy[E,Thm])(ctx: Context): F[E,Theorem] =
-    mthm.k.run(ctx).run_.map{_.get}
+    mthm.k.run_.run(ctx).map{_.get}
 
   type ThyE[A] = Thy[E,A]
 
@@ -55,70 +57,90 @@ trait Theory[F[_,_],E] {
 
   // // Boiler plate makes me sad
   trait ThyIsMonad extends Monad[({type λ[A] = Thy[E,A]})#λ] {
-    private implicit val ev: Monad[KE] = Kleisli.kleisliMonadReader
+    private implicit val ev: Monad[ContT] = ContsT.ContsTMonad
+    private implicit def KEisM: Monad[KE] = Kleisli.kleisliMonadReader
     import ev.monadSyntax._
     override def point[A](a: => A) = new Thy(ev.point(a))
     override def bind[A,B](fa: Thy[E,A])(f: A => Thy[E,B]) =
       new Thy(fa.k >>= (f(_).k))
 
-    def liftF[A](x: FE[A]): Thy[E,A] = {
-      val c: ContT[A] = IndexedContsT.liftM[Identity,FE,Thm,A](x)
-      new Thy(Kleisli.kleisliMonadTrans.liftM(c))
+    def liftF[A](x: F[E,A]): Thy[E,A] = {
+      val k = Kleisli.kleisliU { ctx: Context => x }
+      val c: ContT[A] = IndexedContsT.liftM[Identity,KE,Thm,A](k)(
+        implicitly[Comonad[Identity]],implicitly(KEisM))
+      new Thy(c)
     }
 
-    def bindF[A,B](x: Thy[E,A])(f: F[E,A] => Thy[E,B]) = //: Thy[E,B] =
-      IndexedContsT.apply[Identity,FE,Thm,Thm,A] { k =>
-        Kleisli.kleisli { ctx: Context =>
-          f(x.k.run(ctx).run_).k.run(ctx).run(k)
+    def bindF[A,B](thyA: Thy[E,A])(f: F[E,A] => Thy[E,B]): Thy[E,B] =
+      new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,B] { k =>
+        Kleisli[FE,Context,Thm] { ctx: Context =>
+          def arrow(x:A): Kleisli[FE,Context,Thm] =
+            Kleisli[FE,Context,Thm] {
+              ctx: Context => f(FEisME.point(x)).k.run(k).run(ctx)
+            }
+          def idArrow: Identity[A => Kleisli[FE,Context,Thm]] = Value(arrow)
+          thyA.k.run(idArrow).run(ctx)
         }
-      }
+      })
   }
+
+  trait ThyIsMonadPlus
+      extends ThyIsMonad with MonadPlus[({type λ[A] = Thy[E,A]})#λ] {
+    def FEisPE: PlusEmpty[({ type λ[A] = F[E,A]})#λ]
+
+    private type KE[A] = Kleisli[FE,Context,A]
+    private implicit val ev: PlusEmpty[KE] =
+      Kleisli.kleisliPlusEmpty[FE,Context](FEisPE)
+    override def empty[A] =
+      new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A] { _ => ev.empty })
+    override def plus[A](x: Thy[E,A], y: => Thy[E,A]) =
+      new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A] {
+        k => ev.plus(x.k.run(k),y.k.run(k))
+      })
+  }
+
+  trait ThyIsMonadError extends MonadError[Thy,E] {
+    override def raiseError[A](e: E) =
+      new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
+        Kleisli[FE,Context,Thm] (_ => FEisME.raiseError[Thm](e) )
+      })
+    override def handleError[A](fa: Thy[E,A])(handler: E => Thy[E,A]) =
+      new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
+        Kleisli[FE,Context,Thm] { ctx =>
+          FEisME.handleError(fa.k.run(k).run(ctx)){ e =>
+            handler(e).k.run(k).run(ctx)
+          }
+        }
+      })
+  }
+
+  /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Context]].
+    */
+  def run[Fold[_]:Foldable](mthm: Thy[E,Thm])(ctx: Context) =
+    mthm.k.run_.run(ctx).map{_.get}
+
+  // Context access.
+  private def ask_ : Thy[E,Context] =
+    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Context]{ k =>
+      Kleisli[FE,Context,Thm] { ctx => k.value(ctx).run(ctx) }
+    })
+
+  // def block[A](fa: Thy[E,Thm]): Thy[E,Thm] =
+  //   new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
+  //     Kleisli[FE,Context,Thm] { ctx =>
+  //       fa.k.run(k).run(
+  //     }
+  //   })
+
+   def let(name: IndexedName, ty: Type): Thy[E,Term] =
+    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Term]{ k =>
+      Kleisli[FE,Context,Thm] { ctx =>
+        val n = Name(None,name)
+        val newCtx = ctx.introduce(n,ty)
+        k.value(Term.Const(n)).run(newCtx)
+      }
+    })
 }
-//          f(x.k.run(ctx).run_).k.run(ctx)
-
-//        Kleisli.kleisli { ctx =>
-//          f(x.k.run(ctx).run_)
-//        }
-
-//      IndexedContsT { k => Kleisli.kleisli { ctx => 
-//      kleisli_ { ctx => f(x.k.run(ctx)).k.run(ctx) }
-  // trait ThyIsMonadPlus
-  //     extends ThyIsMonad with MonadPlus[({type λ[A] = Thy[E,A]})#λ] {
-  //   def FEisMP: MonadPlus[({ type λ[A] = F[E,A]})#λ]
-
-  //   private type KE[A] = Kleisli[FE,Context,A]
-  //   private implicit val ev: MonadPlus[KE] =
-  //     Kleisli.kleisliMonadPlus[FE,Context](FEisMP)
-  //   override def empty[A] = new Thy(ev.empty)
-  //   override def plus[A](x: Thy[E,A], y: => Thy[E,A]) = new Thy(ev.plus(x.k,y.k))
-  // }
-  // trait ThyIsMonadError extends MonadError[Thy,E] {
-  //   override def raiseError[A](e: E) =
-  //     new Thy(FEisME.raiseError[A](e).liftKleisli[Context])
-  //   override def handleError[A](fa: Thy[E,A])(handler: E => Thy[E,A]) =
-  //     new Thy(kleisli_ { ctx =>
-  //       FEisME.handleError(fa.k.run(ctx))(e => handler(e).k.run(ctx))
-  //     })
-  //  }
-
-  // /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Namespace]].
-  //   */
-  // def run[Fold[_]:Foldable](mthm: Thy[E,Thm])(
-  //   namespace: Namespace, parents: Fold[Namespace]): F[E,Theorem] = {
-  //   val parentSet = parents.foldLeft[Set[Namespace]](Set()) { _ + _ }
-  //   val ctx = kernel.createNewNamespace(
-  //     namespace,
-  //     parentSet,
-  //     new Aliases(namespace, List()))
-  //   mthm(ctx).map{_.get}
-  // }
-
-  // // Context access.
-  // private def ask_ : Thy[E,Context] =
-  //   new Thy(kleisli_(ctx => FEisM.point(ctx)))
-
-  // private def scope_[A](ctx: Context)(fa: Thy[E,A]) =
-  //   new Thy(kleisli_(_ => fa.k.run(ctx)))
 
   // // Put KernelExceptions into MonadError. Could skip this when specialising
   // // MonadError on this exception type.
