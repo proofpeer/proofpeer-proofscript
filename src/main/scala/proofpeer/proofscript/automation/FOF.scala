@@ -9,7 +9,15 @@ import proofpeer.metis.TermInstances._
 import scala.language.higherKinds
 import scalaz.{ Name => _ , _}
 import Scalaz._
+import Prov._
 
+/** First order term.
+  * @tparam V Type of variables
+  * @tparam F Type of functors
+  * @tparam P Type of predicate-functors
+  * @tparam U Type of unary connectives (either Neg or Nothing)
+  * @tparam B Type of binders (either Binder or Nothing)
+  */
 sealed abstract class FOF[V,F,P,+U,+B]
 case class Pred[V,F,P,U,B](p: P, args: List[MTerm[V,F]])    extends FOF[V,F,P,U,B]
 case class And[V,F,P,U,B](
@@ -25,6 +33,9 @@ object FOF {
   case class Exists() extends Binder
 
   sealed case class Neg()
+
+  /** Freshened variables are integers tracking their original. */
+  type Fresh[V] = Prov[V,Int]
 
   /** Naive conversion from first-order Proofpeer terms:
         p → q   becomes   ~p ∨ q
@@ -69,16 +80,15 @@ object FOF {
     }
   }
 
-  /** FOF terms are functors in every type-variable. */
-  def pentamap[V,F,P,Un,B,V_,F_,P_,Un_,B_](fof: FOF[V,F,P,Un,B])(
-    f: V => V_, g: F => F_, h: P => P_, i: Un => Un_, j: B => B_):
-      FOF[V_,F_,P_,Un_,B_] = {
+  /** FOF terms are functors in their (syntactic) functors. */
+  def trimap[V,F,P,V_,F_,P_,U,B](fof: FOF[V,F,P,U,B])(
+    f: V => V_, g: F => F_, h: P => P_): FOF[V_,F_,P_,U,B] = {
     fof match {
       case Pred(p,args)  => Pred(h(p),args.map(_.bimap(f,g)))
-      case And(p,q)      => And(pentamap(p)(f,g,h,i,j),pentamap(q)(f,g,h,i,j))
-      case Or(p,q)       => Or(pentamap(p)(f,g,h,i,j),pentamap(q)(f,g,h,i,j))
-      case Unary(u,p)    => Unary(i(u),pentamap(p)(f,g,h,i,j))
-      case Bnding(b,v,p) => Bnding(j(b),f(v),pentamap(p)(f,g,h,i,j))
+      case And(p,q)      => And(trimap(p)(f,g,h),trimap(q)(f,g,h))
+      case Or(p,q)       => Or(trimap(p)(f,g,h),trimap(q)(f,g,h))
+      case Unary(u,p)    => Unary(u,trimap(p)(f,g,h))
+      case Bnding(b,v,p) => Bnding(b,f(v),trimap(p)(f,g,h))
     }
   }
 
@@ -101,8 +111,8 @@ object FOF {
     }
   }
 
-  def toNNF[V,F,P](fof: FOF[V,F,P,Neg,Binder]):
-      FOF[V,F,(Option[Neg],P),Nothing,Binder] = {
+  def toNNF[V,F,P,U](fof: FOF[V,F,P,Neg,Binder]):
+      FOF[V,F,(Option[Neg],P),U,Binder] = {
     fof match {
       case Pred(p,args)           => Pred((None,p),args)
       case And(p,q)               => And(toNNF(p),toNNF(q))
@@ -113,8 +123,8 @@ object FOF {
     }
   }
 
-  private def notnnf[V,F,P](fof: FOF[V,F,P,Neg,Binder]):
-      FOF[V,F,(Option[Neg],P),Nothing,Binder] = {
+  private def notnnf[V,F,P,U](fof: FOF[V,F,P,Neg,Binder]):
+      FOF[V,F,(Option[Neg],P),U,Binder] = {
     fof match {
       case Pred(p,args)           => Pred((Some(Neg()),p),args)
       case And(p,q)               => Or(notnnf(p),notnnf(q))
@@ -147,9 +157,7 @@ object Matrix {
     }
   }
 
-  /** Freshened variables are integers tracking their original. */
-  type Fresh[V] = Prov[V,Int]
-
+  import FOF.Fresh
   /** Given a formula in NNF form (no unary operator), extract all binders,
       freshening variables as necessary.
     */
@@ -171,8 +179,8 @@ object Matrix {
       for (
         nθ    <- get[(Int,V ==>> Fresh[V])].liftM[WT];
         (n,θ) =  nθ;
-        fresh =  Prov(v,n);
-        _  <- put((n+1, θ + (v → Prov(v,n)))).liftM[WT])
+        fresh =  originate(v).map(_ => n);
+        _  <- put((n+1, θ + (v → Prov.originate(v).map {_ => n}))).liftM[WT])
       yield fresh
     }
 
@@ -213,7 +221,7 @@ object Matrix {
       universally quantified. */
   def skolemize[V:Order,F,P](
     binders: List[(Binder,V)],
-    fof:     Matrix[V,V,P]): Matrix[V,V,P] = {
+    fof:     Matrix[V,F,P]): Matrix[V,V \/ F,P] = {
 
     def setToMap[A:Order](xs: Set[A]): A ==>> Unit = {
       xs.foldLeft(==>>.empty[A,Unit]) {
@@ -238,19 +246,22 @@ object Matrix {
 
     val groups = vsets.foldLeft(initSets)(groupSet)
 
-    val (_,θ) = binders.foldLeft((List[V](),(==>>.empty[V,MTerm[V,V]]))) {
+    val (_,θ) = binders.foldLeft((List[V](),(==>>.empty[V,MTerm[V,V \/ F]]))) {
       case ((deps,θ),(All(),v))    => (deps :+ v,θ)
       case ((deps,θ),(Exists(),v)) =>
         val neededDeps = for (
           u <- deps;
           if groups.lookup(v).get.contains(u))
-        yield MVar[V,V](u)
-        (deps, θ + (v → MFun(v,neededDeps)))
+        yield MVar[V,V \/ F](u)
+        (deps, θ + (v → MFun(v.left,neededDeps)))
     }
-
-    def applySubst(fof: Matrix[V,V,P]): Matrix[V,V,P] =
+    def applySubst(fof: Matrix[V,F,P]): Matrix[V,V \/ F,P] =
       fof match {
-        case Pred(p,args)     => Pred(p,args.map(_.subst(Subst(θ))))
+        case Pred(p,args)     => Pred(p,args.map { _.bimap(
+          { v => θ.lookup(v).getOrElse(MVar[V,V \/ F](v)) },
+          {_.right[V]}).
+            join
+        })
         case And(p,q)         => And(applySubst(p),applySubst(q))
         case Or(p,q)          => Or(applySubst(p),applySubst(q))
         case Unary(void,_)    => void
@@ -313,4 +324,67 @@ object CNF {
   /** Convert an implicitly universally quantified matrix into CNF form. */
   def cnf[V,F,P](fof: Matrix[V,F,(Option[Neg],P)]): Set[Clause[V,F,P]] =
     cnf_(fof).map(Clause(_))
+}
+
+object METIS {
+  import proofpeer.metis._
+  type V = IndexedName \/ FOF.Fresh[IndexedName]
+  type F = V \/ Name
+  type P = Name
+  type PPClause = Clause[V, F, F]
+
+  private def ThmToCNF(thm: Theorem): Option[Set[PPClause]] =
+    FOF.unapply(thm.proposition).map { fof =>
+        val nnf = FOF.toNNF(fof)
+        val (quants,matrix,_) = Matrix.quantPull(nnf)
+        val quants_ = quants.map { case (b,v) => (b,v.right[IndexedName]) }
+        val univMatrix = Matrix.skolemize(quants_,matrix)
+        // Identify functors with predicates
+        // TODO: Check that there is no overloading issues here
+        val univMatrix_ =
+          FOF.trimap(univMatrix)(
+            {v => v},
+            {f => f},
+            {case (neg,p) => (neg,p.right[V])})
+        CNF.cnf(univMatrix_)
+    }
+
+  def solve(conjecture: Theorem, assumptions: List[Theorem]): Option[Theorem] = {
+    (conjecture :: assumptions).foldMapM(ThmToCNF(_)) >>= { cls =>
+
+      // All Fresh variables indices
+      val freshes: Set[Int] =
+        cls.foldMap { cl =>
+          for ( \/-(Prov(_,f)) <- cl.frees )
+          yield f }
+
+      val nextFresh: Int = freshes.max + 1
+
+      implicit val ordFun = KnuthBendix.precedenceOrder[V,F]
+      implicit val kbo = KnuthBendix.kbo[V,F]
+      val kernel = new Kernel[V,F,F]
+      val factor = new Factor[V,F,F]
+      val litOrd = new MetisLiteralOrdering(kbo)
+      val fin = FinOrd(8)
+      val vals = Valuations[V](fin)
+      val ithmF  = new IThmFactory[V,F,F,Int,kernel.type](
+        kernel,
+        nextFresh,
+        { case (n,v) =>
+          (n+1, (v match {
+            case -\/(v)    => Prov.originate(v).map(_ => n)
+            case \/-(free) => free.map(_ => n)
+          }).right)
+        },
+        litOrd,
+        factor)
+      val interpretation = Interpretation[V,F,F](1000,vals)
+      val sys = new Resolution(0,cls.toList,ithmF,interpretation)
+      val allThms = sys.distance_nextThms.map(_._2).takeWhile(_.isDefined).flatten
+      val limitThms = allThms.take(2000)
+      limitThms.lastOption.filter { _.isContradiction }.map { _ =>
+        null // Problem solved! Use magic to create theorem.
+      }
+    }
+  }
 }
