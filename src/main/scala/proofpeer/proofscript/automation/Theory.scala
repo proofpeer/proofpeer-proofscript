@@ -47,15 +47,15 @@ trait Theory[F[_,_],E] {
 
   type ThyE[A] = Thy[E,A]
 
-  // implicit object ThyIsMonad extends ThyIsMonad
-  // object ThyIsMonadError extends ThyIsMonadError with ThyIsMonad
+  implicit object ThyIsMonad extends ThyIsMonad
+  object ThyIsMonadError extends ThyIsMonadError with ThyIsMonad
 
-  // implicit def ThyIsMonadPlus(implicit ev: MonadPlus[({type λ[A] = F[E,A]})#λ]) =
-  //   new ThyIsMonadPlus {
-  //     override def FEisMP = ev
-  //   }
+  implicit def ThyIsMonadPlus(implicit ev: PlusEmpty[({type λ[A] = F[E,A]})#λ]) =
+    new ThyIsMonadPlus {
+      override def FEisPE = ev
+    }
 
-  // // Boiler plate makes me sad
+  // Boiler plate makes me sad
   trait ThyIsMonad extends Monad[({type λ[A] = Thy[E,A]})#λ] {
     private implicit val ev: Monad[ContT] = ContsT.ContsTMonad
     private implicit def KEisM: Monad[KE] = Kleisli.kleisliMonadReader
@@ -125,6 +125,13 @@ trait Theory[F[_,_],E] {
       Kleisli[FE,Context,Thm] { ctx => k.value(ctx).run(ctx) }
     })
 
+  // Set context.
+  private def inContext(ctx: Context): Thy[E,Unit] = {
+    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Unit]{ k =>
+      Kleisli[FE,Context,Thm] { _ => k.value(()).run(ctx) }
+    })
+  }
+
   /** Run theory in a local context. */
   def block[A](fa: Thy[E,A]): Thy[E,A] =
     new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
@@ -135,97 +142,79 @@ trait Theory[F[_,_],E] {
         fa.k.run(idArrow).run(ctx)
     }})
 
-   def let(name: IndexedName, ty: Type): Thy[E,Term] =
-    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Term]{ k =>
-      Kleisli[FE,Context,Thm] { ctx =>
-        val n = Name(None,name)
-        val newCtx = ctx.introduce(n,ty)
-        k.value(Term.Const(n)).run(newCtx)
-      }
-    })
+  // Put KernelExceptions into MonadError. Could skip this when specialising
+  // MonadError on this exception type.
+  def except[A](x: => A): Thy[E,A] =
+    try {
+      val theX = x
+      theX.point[ThyE]
+    }
+    catch {
+      case exc: Utils.KernelException =>
+        ThyIsMonadError.raiseError[A](kernelError(exc))
+    }
 
-  // // Put KernelExceptions into MonadError. Could skip this when specialising
-  // // MonadError on this exception type.
-  // def except[A](x: => A): Thy[E,A] =
-  //   try {
-  //     val theX = x
-  //     theX.point[ThyE]
-  //   }
-  //   catch {
-  //     case exc: Utils.KernelException =>
-  //       ThyIsMonadError.raiseError[A](kernelError(exc))
-  //   }
+  def typeOfConst(constName: Name): Thy[E,Option[Type]] =
+    ask_.map(_.typeOfConst(constName))
+
+  def typeOfTerm(term: Term): Thy[E,Type] =
+    ask_ >>= { _.typeOfTerm(term) match {
+      case Some(ty) => ty.point[ThyE]
+      case None     => ThyIsMonadError.raiseError[Type](
+        kernelError(new KernelException("term not valid")))
+    }}
+
+  // NB: The following functions should not throw any exceptions concerning invalid
+  // contexts.
+  private def lift(thm: Thm): Thy[E,Thm] = ask_ map { ctx =>
+    new Thm(ctx.lift(thm.get,true)) }
+
+  def let(name: IndexedName, ty: Type): Thy[E,Term] =
+    for (
+      ctx    <- ask_;
+      _      <- inContext(ctx);
+      n      =  Name(None,name);
+      newCtx =  ctx.introduce(n,ty))
+    yield Term.Const(n)
+
+  def assume(tm: Term): Thy[E,Thm] =
+    for (
+      ctx <- ask_;
+      asm <- except(ctx.assume(tm));
+      _   <- inContext(asm.context))
+    yield new Thm(asm)
+
+  def defining(name: IndexedName, tm: Term): Thy[E,(Term.Const,Thm)] =
+    for (
+      ctx  <- ask_;
+      n    =  Name(None,name);
+      defn <- except(ctx.define(Name(None,name), tm));
+      _    <- inContext(defn.context))
+    yield (Term.Const(n),new Thm(defn))
+
+  def choosing(name: IndexedName, tm: Term)(mthm: Thy[E,Thm]): Thy[E,Thm] =
+    for (
+      ctx  <- ask_;
+      defn <- except(ctx.define(Name(None,name), tm));
+      _    <- inContext(defn.context))
+    yield new Thm(defn)
+
+  def destAbs[A](tm: Term): Thy[E,(Term,Term)] = ask_ >>= { ctx =>
+    ctx.destAbs(tm) match {
+      case None => ThyIsMonadError.raiseError[(Term,Term)](
+        kernelError(new KernelException("Not an abstraction.")))
+      case Some((newCtx,x,bod)) =>
+        inContext(newCtx) map (_ => (x,bod))
+    }
+  }
+
+  private def askThm(f: Context => Theorem): Thy[E,Thm] =
+    ask_ map { ctx => new Thm(f(ctx)) }
+  private def askThmExceptM(f: Context => Thy[E,Theorem]): Thy[E,Thm] =
+    ask_ >>= { ctx => except(f(ctx)).join map { thm => new Thm(thm) } }
+  private def askThmExcept(f: Context => Theorem): Thy[E,Thm] =
+    askThmExceptM { ctx => f(ctx).point[ThyE] }
 }
-
-
-  // def typeOfConst(constName: Name): Thy[E,Option[Type]] =
-  //   ask_.map(_.typeOfConst(constName))
-
-  // def typeOfTerm(term: Term): Thy[E,Type] =
-  //   ask_ >>= { _.typeOfTerm(term) match {
-  //     case Some(ty) => ty.point[ThyE]
-  //     case None     => ThyIsMonadError.raiseError[Type](
-  //       kernelError(new KernelException("term not valid")))
-  //   }}
-
-  // // NB: The following functions should not throw any exceptions concerning invalid
-  // // contexts.
-  // def lift(thm: Thm): Thy[E,Thm] = ask_ map { ctx =>
-  //   new Thm(ctx.lift(thm.get,true)) }
-
-  // def introducing(name: IndexedName, ty: Type)(mthm: Term.Const => Thy[E,Thm]):
-  //     Thy[E,Thm] =
-  //   for (
-  //     ctx    <- ask_;
-  //     n       = Name(None,name);
-  //     newCtx  = ctx.introduce(n,ty);
-  //     thm    <- scope_[Thm](newCtx)(mthm(Term.Const(n)) >>= (lift(_))) >>= (lift(_))
-  //   )
-  //   yield thm
-
-  // def assuming(tm: Term)(mthm: Thm => Thy[E,Thm]): Thy[E,Thm] =
-  //   for (
-  //     ctx <- ask_;
-  //     asm <- except(ctx.assume(tm));
-  //     thm <- scope_[Thm](asm.context)(mthm(new Thm(asm))) >>= (lift(_))
-  //   )
-  //   yield thm
-
-  // def defining(name: IndexedName, tm: Term)(mthm: Term.Const => Thy[E,Thm]):
-  //     Thy[E,Thm] =
-  //   for (
-  //     ctx  <- ask_;
-  //     n     = Name(None,name);
-  //     defn <- except(ctx.define(Name(None,name), tm));
-  //     thm  <- scope_[Thm](defn.context)(mthm(Term.Const(n))) >>= (lift(_))
-  //   )
-  //   yield thm
-
-  // def choosing(name: IndexedName, tm: Term)(mthm: Thy[E,Thm]): Thy[E,Thm] =
-  //   for (
-  //     ctx  <- ask_;
-  //     defn <- except(ctx.define(Name(None,name), tm));
-  //     thm  <- scope_[Thm](defn.context)(mthm) >>= (lift(_))
-  //   )
-  //   yield thm
-
-
-  // def destAbs[A](tm: Term)(f: (Term,Term) => Thy[E,A]) = ask_ map { ctx =>
-  //   ctx.destAbs(tm) match {
-  //     case None => ThyIsMonadError.raiseError[Type](
-  //       kernelError(new KernelException("Not an abstraction.")))
-  //     case Some((newCtx,x,bod)) =>
-  //       scope_[A](newCtx)(f(x,bod))
-  //   }
-  // }
-
-  // private def askThm(f: Context => Theorem): Thy[E,Thm] =
-  //   ask_ map { ctx => new Thm(f(ctx)) }
-  // private def askThmExceptM(f: Context => Thy[E,Theorem]): Thy[E,Thm] =
-  //   ask_ >>= { ctx => except(f(ctx)).join map { thm => new Thm(thm) } }
-  // private def askThmExcept(f: Context => Theorem): Thy[E,Thm] =
-  //   askThmExceptM { ctx => f(ctx).point[ThyE] }
-
   // /** The following rules do not lift theorems. If this is necessary,
   //     lift must be used manually.
   //   */
