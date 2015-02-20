@@ -1,12 +1,13 @@
-package proofpeer.proofscript.logic
+package proofpeer.proofscript.automation
 
-import KernelUtils._
 import scala.language.higherKinds
 import scala.language.implicitConversions
-import scalaz._
+import scalaz.{ Name => _, _ }
 import Scalaz._
 import Kleisli._
-import EqualsInstances._
+import KernelInstances._
+import proofpeer.proofscript.logic._
+import KernelUtils._
 import Utils.KernelException
 
 /** `Theory` exposes inference rules without reference to contexts. The core type is
