@@ -1,0 +1,12 @@
+import proofpeer.proofscript.logic._
+val k = Kernel.createDefaultKernel
+val ctx = k.createNewNamespace(Kernel.root_namespace, Set(), new Aliases(Kernel.root_namespace, List()))
+
+import scalaz._
+import Scalaz._
+
+type MyEither[E,A] = EitherT[List,E,A]
+val conversions = new Conversions[MyEither]
+
+val jam = proofpeer.proofscript.logic.Name(None,IndexedName("jam",None))
+val newCtx = ctx.introduce(jam,Type.Universe)
