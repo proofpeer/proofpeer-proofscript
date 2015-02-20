@@ -125,12 +125,15 @@ trait Theory[F[_,_],E] {
       Kleisli[FE,Context,Thm] { ctx => k.value(ctx).run(ctx) }
     })
 
-  // def block[A](fa: Thy[E,Thm]): Thy[E,Thm] =
-  //   new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
-  //     Kleisli[FE,Context,Thm] { ctx =>
-  //       fa.k.run(k).run(
-  //     }
-  //   })
+  /** Run theory in a local context. */
+  def block[A](fa: Thy[E,A]): Thy[E,A] =
+    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
+      Kleisli[FE,Context,Thm] { ctx =>
+        def arrow(x:A): Kleisli[FE,Context,Thm] =
+          Kleisli[FE,Context,Thm] { _ => k.value(x).run(ctx) }
+        def idArrow: Identity[A => Kleisli[FE,Context,Thm]] = Value(arrow)
+        fa.k.run(idArrow).run(ctx)
+    }})
 
    def let(name: IndexedName, ty: Type): Thy[E,Term] =
     new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Term]{ k =>
@@ -140,7 +143,6 @@ trait Theory[F[_,_],E] {
         k.value(Term.Const(n)).run(newCtx)
       }
     })
-}
 
   // // Put KernelExceptions into MonadError. Could skip this when specialising
   // // MonadError on this exception type.
@@ -153,6 +155,8 @@ trait Theory[F[_,_],E] {
   //     case exc: Utils.KernelException =>
   //       ThyIsMonadError.raiseError[A](kernelError(exc))
   //   }
+}
+
 
   // def typeOfConst(constName: Name): Thy[E,Option[Type]] =
   //   ask_.map(_.typeOfConst(constName))
