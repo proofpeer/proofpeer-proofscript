@@ -9,17 +9,21 @@ object KernelInstances {
   implicit object TermIsEqual extends Equal[Term] {
     override def equal(l: Term, r: Term) = l == r
   }
-  implicit object NameIsOrdered extends Order[Name] with Show[Name]{
-    override def equal(l: Name, r: Name) = l == r
-    override def order(l: Name, r: Name) = l ?|? r
-    override def show(n: Name) = n.name.show
+  implicit object NamespaceIsOrdered extends Order[Namespace] {
+    override def equal(l: Namespace, r: Namespace) = l == r
+    override def order(l: Namespace, r: Namespace) =
+      (l.isAbsolute ?|? r.isAbsolute) |+| (l.components ?|? r.components)
   }
   implicit object IndexedNameIsOrdered
-      extends Order[IndexedName] with Show[IndexedName]{
+      extends Order[IndexedName]{
     override def equal(l: IndexedName, r: IndexedName) = l == r
     override def order(l: IndexedName, r: IndexedName) = {
       (l.name ?|? r.name) |+| (l.index ?|? r.index)
     }
-    override def show(n: IndexedName) = n.name
+  }
+  implicit object NameIsOrdered extends Order[Name] {
+    override def equal(l: Name, r: Name) = l == r
+    override def order(l: Name, r: Name) =
+      (l.namespace ?|? r.namespace) |+| (l.name ?|? r.name)
   }
 }
