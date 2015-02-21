@@ -37,9 +37,6 @@ trait Theory[F[_,_],E] {
   sealed class Thy[E,A] private[Theory] (
     private[Theory] val k: ContsT[Identity,({type λ[A] = K[E,A]})#λ,Thm,A])
 
-  def run(mthm: Thy[E,Thm])(ctx: Context): F[E,Theorem] =
-    mthm.k.run_.run(ctx).map{_.get}
-
   type ThyE[A] = Thy[E,A]
 
   implicit object ThyIsMonad extends ThyIsMonad
@@ -115,11 +112,6 @@ trait Theory[F[_,_],E] {
       lift(this).map(_.proposition)
   }
 
-  /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Context]].
-    */
-  def run[Fold[_]:Foldable](mthm: Thy[E,Thm])(ctx: Context) =
-    mthm.k.run_.run(ctx).map{_.get}
-
   // Context access.
   private def ask_ : Thy[E,Context] =
     new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Context]{ k =>
@@ -134,18 +126,20 @@ trait Theory[F[_,_],E] {
   }
 
   /** Run theory in a local context. */
-  def block[A](fa: Thy[E,A]): Thy[E,A] =
-    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,A]{ k =>
+  def block[A](fa: Thy[E,Thm]): Thy[E,Thm] =
+    new Thy(IndexedContsT.apply[Identity,KE,Thm,Thm,Thm]{ k =>
       Kleisli[FE,Context,Thm] { ctx =>
-        def arrow(x:A): Kleisli[FE,Context,Thm] =
-          Kleisli[FE,Context,Thm] { _ => k.value(x).run(ctx) }
-        def idArrow: Identity[A => Kleisli[FE,Context,Thm]] = Value(arrow)
+        def arrow(thm:Thm): Kleisli[FE,Context,Thm] =
+          Kleisli[FE,Context,Thm] { innerCtx =>
+            val icthm = innerCtx.lift(thm.get,true)
+            val cthm  = ctx.lift(icthm,true)
+            k.value(new Thm(cthm)).run(ctx) }
+        def idArrow: Identity[Thm => Kleisli[FE,Context,Thm]] = Value(arrow)
         fa.k.run(idArrow).run(ctx)
       }})
 
-  // Put KernelExceptions into MonadError. Could skip this when specialising
-  // MonadError on this exception type.
-  def except[A](x: => A): Thy[E,A] =
+  // Raise an exception as a KernelException.
+  private def except[A](x: => A): Thy[E,A] =
     try {
       val theX = x
       theX.point[ThyE]
@@ -154,6 +148,11 @@ trait Theory[F[_,_],E] {
       case exc: Utils.KernelException =>
         ThyIsMonadError.raiseError[A](kernelError(exc))
     }
+
+  /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Context]].
+    */
+  def run(mthm: Thy[E,Thm])(ctx: Context) =
+    block(mthm).k.run_.run(ctx).map{_.get}
 
   def typeOfConst(constName: Name): Thy[E,Option[Type]] =
     ask_.map(_.typeOfConst(constName))
@@ -237,8 +236,6 @@ trait Theory[F[_,_],E] {
   def instantiate(thm: Thm, insts: List[Option[Term]]) =
     for (thm_ <- lift(thm); inst_ <- askThmExcept(_.instantiate(thm_, insts)))
     yield inst_
-
-  val emptyRes = new NamespaceResolution((_ => Set()), (_ => Set[IndexedName]()))
 
   def parse(str: String): Thy[E,Term] = {
     for (
