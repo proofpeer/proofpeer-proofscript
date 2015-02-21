@@ -539,30 +539,37 @@ val g_choose =
                   c.Block)) 
 
 val g_theorem = 
-  arule("ST", "Theorem OptAssign PrimitiveExpr Block",
+  arule("TheoremOptAssign", "Colon", CS.First("Colon"), c => None) ++
+  arule("TheoremOptAssign", "IndexedName Colon", CS.Line("IndexedName", "Colon"), c => Some(c.text("IndexedName"))) ++
+  arule("TheoremOptAssign", "Theorem OptAssign", CS.Indent("Theorem", "OptAssign"), c => c.OptAssign[Any]) ++
+  arule("ST", "TheoremOptAssign PrimitiveExpr Block",
     CS.and(
-      CS.Indent("Theorem", "OptAssign"),
-      CS.Indent("Theorem", "PrimitiveExpr"),
-      CS.Indent("Theorem", "Block")),
-    c => STTheorem(c.OptAssign,
+      CS.Indent("TheoremOptAssign", "PrimitiveExpr"),
+      CS.Indent("TheoremOptAssign", "Block")),
+    c => STTheorem(c.TheoremOptAssign,
                    c.PrimitiveExpr,
                    c.Block)) ++
-  arule("ST", "Theorem OptAssign PrimitiveExpr_1 By PrimitiveExpr_2",
+  arule("ST", "TheoremOptAssign Block",
     CS.and(
-      CS.Indent("Theorem", "OptAssign"),
-      CS.Indent("Theorem", "PrimitiveExpr_1"),
-      CS.ifThenElse(CS.Line("Theorem", "By"),
-        CS.Indent("Theorem", "PrimitiveExpr_2"),
-        CS.and(Subalign("Theorem", "By"), CS.Indent("By", "PrimitiveExpr_2")))),
-    c => STTheoremBy(c.OptAssign,
+      CS.Indent("TheoremOptAssign", "Block"),
+      CS.not(CS.SameLine("TheoremOptAssign", "Block"))),
+    c => STTheorem(c.TheoremOptAssign,
+                   ParseTree.NilExpr,
+                   c.Block)) ++
+  arule("ST", "TheoremOptAssign PrimitiveExpr_1 By PrimitiveExpr_2",
+    CS.and(
+      CS.Indent("TheoremOptAssign", "PrimitiveExpr_1"),
+      CS.ifThenElse(CS.Line("TheoremOptAssign", "By"),
+        CS.Indent("TheoremOptAssign", "PrimitiveExpr_2"),
+        CS.and(Subalign("TheoremOptAssign", "By"), CS.Indent("By", "PrimitiveExpr_2")))),
+    c => STTheoremBy(c.TheoremOptAssign,
                      c.PrimitiveExpr_1,
                      c.PrimitiveExpr_2)) ++
-  arule("ST", "Theorem OptAssign PrimitiveExpr Dot",
+  arule("ST", "TheoremOptAssign PrimitiveExpr Dot",
     CS.and(
-      CS.Indent("Theorem", "OptAssign"),
-      CS.Indent("Theorem", "PrimitiveExpr"),
+      CS.Indent("TheoremOptAssign", "PrimitiveExpr"),
       CS.SameLine("PrimitiveExpr", "Dot")),
-    c => STTheoremBy(c.OptAssign,
+    c => STTheoremBy(c.TheoremOptAssign,
                      c.PrimitiveExpr,
                      ParseTree.NilExpr)) 
 
