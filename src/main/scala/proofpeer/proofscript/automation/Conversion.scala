@@ -147,6 +147,5 @@ object Test extends Conversions[({type λ[E,A] = EitherT[Id,E,A]})#λ,String] {
     () =  System.out.println(printTerm(tm)))
   yield eq
 
-  val thm = run[List](theory)(foo)
-//  val thm = run[List](bar)(foo)
+  val thm = run(theory)(foo)
 }

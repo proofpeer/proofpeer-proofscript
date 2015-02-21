@@ -237,6 +237,8 @@ trait Theory[F[_,_],E] {
     for (thm_ <- lift(thm); inst_ <- askThmExcept(_.instantiate(thm_, insts)))
     yield inst_
 
+  val emptyRes = new NamespaceResolution((_ => Set()), (_ => Set[IndexedName]()))
+
   def parse(str: String): Thy[E,Term] = {
     for (
       ctx     <- ask_;
