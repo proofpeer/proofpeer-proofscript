@@ -110,7 +110,8 @@ def g_literals =
   keyword("Theorem", "theorem") ++ 
   keyword("Assert", "assert") ++ 
   keyword("Failure", "failure") ++ 
-  keyword("As", "as")  
+  keyword("As", "as") ++
+  keyword("By", "by") 
 
 def optspan(span : Span) : Option[Span] = {
   if (span == null) None else Some(span)
@@ -545,7 +546,25 @@ val g_theorem =
       CS.Indent("Theorem", "Block")),
     c => STTheorem(c.OptAssign,
                    c.PrimitiveExpr,
-                   c.Block))
+                   c.Block)) ++
+  arule("ST", "Theorem OptAssign PrimitiveExpr_1 By PrimitiveExpr_2",
+    CS.and(
+      CS.Indent("Theorem", "OptAssign"),
+      CS.Indent("Theorem", "PrimitiveExpr_1"),
+      CS.ifThenElse(CS.Line("Theorem", "By"),
+        CS.Indent("Theorem", "PrimitiveExpr_2"),
+        CS.and(Subalign("Theorem", "By"), CS.Indent("By", "PrimitiveExpr_2")))),
+    c => STTheoremBy(c.OptAssign,
+                     c.PrimitiveExpr_1,
+                     c.PrimitiveExpr_2)) ++
+  arule("ST", "Theorem OptAssign PrimitiveExpr Dot",
+    CS.and(
+      CS.Indent("Theorem", "OptAssign"),
+      CS.Indent("Theorem", "PrimitiveExpr"),
+      CS.SameLine("PrimitiveExpr", "Dot")),
+    c => STTheoremBy(c.OptAssign,
+                     c.PrimitiveExpr,
+                     ParseTree.NilExpr)) 
 
 
 val g_logic_statements = 

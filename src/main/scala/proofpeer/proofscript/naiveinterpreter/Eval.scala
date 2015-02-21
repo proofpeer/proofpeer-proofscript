@@ -3,6 +3,7 @@ package proofpeer.proofscript.naiveinterpreter
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import proofpeer.indent.Span
+import proofpeer.proofscript.automation.Automation
 import ParseTree._
 
 sealed trait SourceLabel
@@ -390,6 +391,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case _ : STLet => true
 			case _ : STChoose => true
 			case _ : STTheorem => true
+			case _ : STTheoremBy => true
 			case _ => false
 		}
 	}
@@ -490,6 +492,38 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										case ex: Utils.KernelException => cont(fail(st, "theorem: " + ex.reason))
 									}
 								case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
+							})
+						}
+				})
+			case STTheoremBy(thm_name, tm, thms) =>
+				val frozenState = state.freeze
+				evalTermExpr(frozenState, tm, {
+					case f : Failed[_] => cont(fail(f))
+					case Success(prop, _) =>
+						if (state.context.typeOfTerm(prop) != Some(Type.Prop)) 
+							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop))))
+						else {
+							def prove(thms : Vector[Theorem]) : Thunk[T] = {
+								try {
+									Automation.prove(state.context, prop, thms) match {
+										case None =>
+											cont(fail(st, "cannot prove theorem automatically: " + display(state, TermValue(prop))))
+										case Some(thm) => 
+											cont(success((state, thm_name, TheoremValue(thm))))
+									}
+								} catch {
+									case ex: Utils.KernelException => cont(fail(st, "theorem (by): " + ex.reason))
+								}
+							}
+							evalExpr(frozenState, thms, {
+								case f : Failed[_] => cont(fail(f))
+								case Success(TupleValue(thms), _) if thms.forall(StateValue.isTheoremValue _) =>
+									prove(thms.map(th => th.asInstanceOf[TheoremValue].value))
+								case Success(NilValue, _) =>
+									prove(Vector())
+								case Success(TheoremValue(thm), _) =>
+									prove(Vector(thm))
+								case Success(v, _) => cont(fail(thms, "Tuple of theorems expected, found: " + display(state, v)))
 							})
 						}
 				})

@@ -143,8 +143,9 @@ extends Serializer[ParseTree]
       val STLET = 35
       val STCHOOSE = -35
       val STTHEOREM = 36
-      val STTHEORY = -36
-      val BLOCK = 37
+      val STTHEOREMBY = -36
+      val STTHEORY = 37
+      val BLOCK = -37
     }
 
     object Serializers {
@@ -197,6 +198,7 @@ extends Serializer[ParseTree]
       val STLET = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
       val STCHOOSE = TripleSerializer(OptionSerializer(StringSerializer),ExprSerializer,BlockSerializer)
       val STTHEOREM = TripleSerializer(OptionSerializer(StringSerializer),ExprSerializer,BlockSerializer)
+      val STTHEOREMBY = TripleSerializer(OptionSerializer(StringSerializer),ExprSerializer,ExprSerializer)
       val STTHEORY = TripleSerializer(NamespaceSerializer,ListSerializer(PairSerializer(IdSerializer,NamespaceSerializer)),ListSerializer(NamespaceSerializer))
       val BLOCK = VectorSerializer(StatementSerializer)
     }
@@ -347,6 +349,8 @@ extends Serializer[ParseTree]
           (Kind.STCHOOSE, Some(Serializers.STCHOOSE.serialize(STChoose.unapply(t).get)))
         case t : STTheorem =>
           (Kind.STTHEOREM, Some(Serializers.STTHEOREM.serialize(STTheorem.unapply(t).get)))
+        case t : STTheoremBy =>
+          (Kind.STTHEOREMBY, Some(Serializers.STTHEOREMBY.serialize(STTheoremBy.unapply(t).get)))
         case t : STTheory =>
           (Kind.STTHEORY, Some(Serializers.STTHEORY.serialize(STTheory.unapply(t).get)))
         case Block(x) =>
@@ -501,6 +505,8 @@ extends Serializer[ParseTree]
           STChoose.tupled(Serializers.STCHOOSE.deserialize(args.get))
         case Kind.STTHEOREM if args.isDefined => 
           STTheorem.tupled(Serializers.STTHEOREM.deserialize(args.get))
+        case Kind.STTHEOREMBY if args.isDefined => 
+          STTheoremBy.tupled(Serializers.STTHEOREMBY.deserialize(args.get))
         case Kind.STTHEORY if args.isDefined => 
           STTheory.tupled(Serializers.STTHEORY.deserialize(args.get))
         case Kind.BLOCK if args.isDefined => 
@@ -510,7 +516,6 @@ extends Serializer[ParseTree]
     }
 
   }
-
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -624,6 +629,7 @@ object ParseTreeSerializerGenerator {
     ("STLet", "OptionSerializer(StringSerializer)", "ExprSerializer"),
     ("STChoose", "OptionSerializer(StringSerializer)", "ExprSerializer", "BlockSerializer"),
     ("STTheorem", "OptionSerializer(StringSerializer)", "ExprSerializer", "BlockSerializer"),
+    ("STTheoremBy", "OptionSerializer(StringSerializer)", "ExprSerializer", "ExprSerializer"),    
     ("STTheory", "NamespaceSerializer", "ListSerializer(PairSerializer(IdSerializer,NamespaceSerializer))", "ListSerializer(NamespaceSerializer)"),
     ("Block", "VectorSerializer(StatementSerializer)")
   )

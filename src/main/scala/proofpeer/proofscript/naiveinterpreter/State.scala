@@ -71,6 +71,13 @@ object StateValue {
 		}
 	}
 
+	def isTheoremValue(v : StateValue) : Boolean = {
+		v match {
+			case _ : TheoremValue => true
+			case _ => false
+		}
+	}
+
 	def display(context : Context) : String = {
 		context.kind match {
 			case ContextKind.Complete => context.namespace.toString
