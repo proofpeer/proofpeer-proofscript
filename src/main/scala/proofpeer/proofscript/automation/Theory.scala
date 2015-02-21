@@ -26,11 +26,6 @@ trait Theory[F[_,_],E] {
   type FE[A]  = F[E,A]
   implicit def FEisM: Monad[FE] = FEisME
 
-  // Wrap theorems to limit access to contexts.
-  class Thm private[Theory](private[Theory] val get: Theorem) {
-    val proposition = get.proposition
-  }
-
   // Context is automatically threaded through computations (using Kleisli arrows
   // of F). We hide the arrows to keep them out of reach of client code and those
   // extending Theory. The intention here is that all uses of Context.lift will
@@ -114,6 +109,12 @@ trait Theory[F[_,_],E] {
       })
   }
 
+  // Wrap theorems to limit access to contexts.
+  class Thm private[Theory](private[Theory] val get: Theorem) {
+    def proposition: Thy[E,Term] =
+      lift(this).map(_.proposition)
+  }
+
   /** Run this `Theory` in the supplied [[proofpeer.proofscript.logic.Context]].
     */
   def run[Fold[_]:Foldable](mthm: Thy[E,Thm])(ctx: Context) =
@@ -140,7 +141,7 @@ trait Theory[F[_,_],E] {
           Kleisli[FE,Context,Thm] { _ => k.value(x).run(ctx) }
         def idArrow: Identity[A => Kleisli[FE,Context,Thm]] = Value(arrow)
         fa.k.run(idArrow).run(ctx)
-    }})
+      }})
 
   // Put KernelExceptions into MonadError. Could skip this when specialising
   // MonadError on this exception type.
@@ -164,17 +165,12 @@ trait Theory[F[_,_],E] {
         kernelError(new KernelException("term not valid")))
     }}
 
-  // NB: The following functions should not throw any exceptions concerning invalid
-  // contexts.
-  private def lift(thm: Thm): Thy[E,Thm] = ask_ map { ctx =>
-    new Thm(ctx.lift(thm.get,true)) }
-
-  def let(name: IndexedName, ty: Type): Thy[E,Term] =
+  def introduce(name: IndexedName, ty: Type): Thy[E,Term] =
     for (
       ctx    <- ask_;
-      _      <- inContext(ctx);
       n      =  Name(None,name);
-      newCtx =  ctx.introduce(n,ty))
+      newCtx =  ctx.introduce(n,ty);
+      _      <- inContext(newCtx))
     yield Term.Const(n)
 
   def assume(tm: Term): Thy[E,Thm] =
@@ -214,32 +210,41 @@ trait Theory[F[_,_],E] {
     ask_ >>= { ctx => except(f(ctx)).join map { thm => new Thm(thm) } }
   private def askThmExcept(f: Context => Theorem): Thy[E,Thm] =
     askThmExceptM { ctx => f(ctx).point[ThyE] }
+
+  private def lift(thm: Thm): Thy[E,Theorem] = ask_ map { ctx =>
+    ctx.lift(thm.get,true) }
+
+  def reflexive(x: Term): Thy[E,Thm] = askThm(_.reflexive(x))
+  def beta(tm: Term): Thy[E,Thm] = askThmExcept(_.beta(tm))
+  def eta(tm: Term): Thy[E,Thm] = askThmExcept(_.eta(tm))
+  def normalize(tm: Term): Thy[E,Thm] = askThm(_.normalize(tm))
+  def mkFresh(name: IndexedName) = ask_ map (_.mkFresh(name))
+  def transitive(xy: Thm, yz: Thm): Thy[E,Thm] =
+    for (xy_ <- lift(xy);yz_ <- lift(yz);xz_ <- askThmExcept(_.transitive(xy_,yz_)))
+    yield xz_
+  def comb(fg: Thm, xy: Thm): Thy[E,Thm] =
+    for (fg_ <- lift(fg); xy_ <- lift(xy); fxgy_ <- askThmExcept(_.comb(fg_,xy_)))
+    yield fxgy_
+  def modusponens(p: Thm, qr: Thm) =
+    for (p_ <- lift(p); qr_ <- lift(qr); r_ <- askThmExcept(_.modusponens(p_,qr_)))
+    yield r_
+  def abs(eq: Thm) =
+    for (eq_ <- lift(eq); abs_ <- askThmExcept(_.abs(eq_)))
+    yield abs_
+  def equiv(l: Thm, r: Thm) =
+    for (l_ <- lift(l); r_ <- lift(r); eq_ <- askThmExcept(_.equiv(l_,r_)))
+    yield eq_
+  def instantiate(thm: Thm, insts: List[Option[Term]]) =
+    for (thm_ <- lift(thm); inst_ <- askThmExcept(_.instantiate(thm_, insts)))
+    yield inst_
+
+  val emptyRes = new NamespaceResolution((_ => Set()), (_ => Set[IndexedName]()))
+
+  def parse(str: String): Thy[E,Term] = {
+    for (
+      ctx     <- ask_;
+      aliases = new Aliases(ctx.namespace, List());
+      tm      <- except(Syntax.parseTerm(aliases,emptyRes,ctx,str)))
+    yield tm
+  }
 }
-  // /** The following rules do not lift theorems. If this is necessary,
-  //     lift must be used manually.
-  //   */
-  // // TODO: Should probably provide versions which do lifting automatically.
-  // def reflexive(x: Term): Thy[E,Thm] = askThm(_.reflexive(x))
-  // def beta(tm: Term): Thy[E,Thm] = askThmExcept(_.beta(tm))
-  // def eta(tm: Term): Thy[E,Thm] = askThmExcept(_.eta(tm))
-  // def normalize(tm: Term): Thy[E,Thm] = askThm(_.normalize(tm))
-  // def mkFresh(name: IndexedName) = ask_ map (_.mkFresh(name))
-  // def transitive(xy: Thm, yz: Thm): Thy[E,Thm] =
-  //   askThmExcept(_.transitive(xy.get,yz.get))
-  // def comb(fg: Thm, xy: Thm): Thy[E,Thm] =
-  //   askThmExcept(_.comb(fg.get,xy.get))
-  // def modusponens(p: Thm, qr: Thm) = askThmExcept(_.modusponens(p.get,qr.get))
-  // def abs(eq: Thm) = askThmExcept(_.abs(eq.get))
-  // def equiv(l: Thm, r: Thm) = askThmExcept(_.equiv(l.get,r.get))
-  // def instantiate(thm: Thm, insts: List[Option[Term]]) =
-  //   askThmExcept(_.instantiate(thm.get, insts))
-
-  // val emptyRes = new NamespaceResolution((_ => Set()), (_ => Set[IndexedName]()))
-
-  // def parse(str: String): Thy[E,Term] = {
-  //   for (
-  //     ctx     <- ask_;
-  //     aliases = new Aliases(ctx.namespace, List());
-  //     tm      <- except(Syntax.parseTerm(aliases,emptyRes,ctx,str)))
-  //   yield tm
-  // }
