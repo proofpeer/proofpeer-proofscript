@@ -156,6 +156,9 @@ trait Context extends UniquelyIdentifiable {
 
   // All constants of this context which are NOT constants of a parent namespace.
   def localConstants : Set[Name]  
+
+  // Yep. Exactly. Don't use this.
+  def magic(term : Term) : Theorem
 }
 
 trait KernelSerializers {

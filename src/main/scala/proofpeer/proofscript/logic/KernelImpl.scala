@@ -111,6 +111,12 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       mk_theorem(context, assumption)
     }
 
+    def magic(term : Term) : Theorem = {
+      if (typeOfTerm(term) != Some(Prop))
+        failwith("term is not a valid proposition in this context")
+      mk_theorem(this, term)      
+    }
+
     def hasAssumptions : Boolean = {
       var context : Context = this
       do {

@@ -118,6 +118,45 @@ context
   assert term trivial == '∀ p. p → p'
   assert w == 2
 
+# theorems without explicitly stating the proposition
+context 
+  theorem t: nil
+    let 'p : ℙ'
+    assume p: 'p'
+    let 'a'
+    p
+  assert term t == '∀ p. p → p'
+  theorem  
+    let 'p : ℙ'
+    assume p: 'p'
+    let 'a'
+    p
+  assert term t == '∀ p. p → p'
+  theorem t: true
+    let 'p : ℙ'
+    assume p: 'p'
+    let 'a'
+    p
+  assert term t == '∀ p. p → (∀ a. p)'
+
+# theorems without the theorem keyword
+context 
+  t: '∀ p. p → p'
+    let 'p : ℙ'
+    assume p: 'p'
+    let 'a'
+    p
+  : '∀ p. p → p' 
+    let 'p : ℙ'
+    assume p: 'p'
+    let 'a'
+    p
+  : '∀ p. p → (∀ a. p)'
+    let 'p : ℙ'
+    assume p: 'p'
+    let 'a'
+    p
+
 
 # context
   ------------------------------------
