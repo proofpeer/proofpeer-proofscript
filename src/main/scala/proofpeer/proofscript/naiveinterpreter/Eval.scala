@@ -150,7 +150,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
-	def evalOptionalTheoremExpr[T](state : State, expr : Expr, cont : RC[Either[Term, Boolean], T]) : Thunk[T] = {
+	def evalOptionalTheoremExpr[T](state : State, expr : Expr, cont : RC[Either[Term, Either[Boolean, Theorem]], T]) : Thunk[T] = {
 		evalExpr[T](state, expr, {
 			case failed : Failed[_] => cont(fail(failed))
 			case Success(TermValue(tm),_) => cont(success(Left(tm)))
@@ -162,8 +162,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case ex : Utils.KernelException =>
 							fail(expr, "parse error: " + ex.reason)	
 					})
-			case Success(NilValue, _) => cont(success(Right(false)))
-			case Success(BoolValue(b), _) => cont(success(Right(b)))
+			case Success(NilValue, _) => cont(success(Right(Left(false))))
+			case Success(BoolValue(b), _) => cont(success(Right(Left(b))))
+			case Success(TheoremValue(t), _) => cont(success(Right(Right(t))))
 			case Success(v, _) => cont(fail(expr, "Term expected, found: "+display(state, v)))
 		})		
 	}
@@ -512,7 +513,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
 							})
 						}
-					case Success(Right(preserve_structure), _) =>
+					case Success(Right(Left(preserve_structure)), _) =>
 						evalProof(state, proof, {
 							case f : Failed[_] => cont(fail(f))
 							case Success(value, true) => 
@@ -526,7 +527,19 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 									case ex: Utils.KernelException => cont(fail(st, "theorem: " + ex.reason))
 								}
 							case Success(v, _) => cont(fail(proof, "Theorem expected, found: " + display(state, v)))
-						})					
+						})			
+					case Success(Right(Right(thm)), _) =>
+						if (!proof.isEmpty)
+							cont(fail(tm, "cannot be a theorem here because it is followed by a proof"))
+						else {
+							try {
+								val ctx = state.context
+								val liftedThm = ctx.lift(thm, false)
+								cont(success((state, thm_name, TheoremValue(liftedThm))))
+							} catch {
+								case ex: Utils.KernelException => cont(fail(st, "theorem: " + ex.reason))
+							}							
+						}		
 				})
 			case STTheoremBy(thm_name, tm, thms) =>
 				val frozenState = state.freeze
