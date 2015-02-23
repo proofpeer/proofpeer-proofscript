@@ -161,16 +161,16 @@ object Matrix {
   /** Given a formula in NNF form (no unary operator), extract all binders,
       freshening variables as necessary.
     */
-  def quantPull[V:Order,F,U,P](fof: FOF[V,F,(Option[Neg],P),Nothing,Binder]):
+  def quantPull[V:Order,F,U,P](fof: FOF[V,F,P,Nothing,Binder]):
       (List[(Binder,Fresh[V])],
-        Matrix[V \/ Fresh[V],F,(Option[Neg],P)],
-        FOF[V \/ Fresh[V],F,(Option[Neg],P),Nothing,Binder]) = {
+        Matrix[V \/ Fresh[V],F,P],
+        FOF[V \/ Fresh[V],F,P,Nothing,Binder]) = {
     type QPS[A]     = State[(Int,V ==>> Fresh[V]),A]
     type WT[M[_],A] = WriterT[M,List[(Binder,Fresh[V])],A]
     type QPM[A]     = WT[QPS,A]
-    type FOFIn  = FOF[V,F,(Option[Neg],P),Nothing,Binder]
-    type FOFOut = FOF[V \/ Fresh[V],F,(Option[Neg],P),Nothing,Binder]
-    type Mat_   = Matrix[V \/ Fresh[V],F,(Option[Neg],P)]
+    type FOFIn  = FOF[V,F,P,Nothing,Binder]
+    type FOFOut = FOF[V \/ Fresh[V],F,P,Nothing,Binder]
+    type Mat_   = Matrix[V \/ Fresh[V],F,P]
 
     def getSubst : QPM[(V ==>> Fresh[V])] =
       get[(Int,V ==>> Fresh[V])].map(_._2).liftM[WT]
