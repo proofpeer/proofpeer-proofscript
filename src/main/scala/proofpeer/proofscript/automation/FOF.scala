@@ -29,8 +29,8 @@ case class Bnding[V,F,P,U,B](b: B, v: V, p: FOF[V,F,P,U,B]) extends FOF[V,F,P,U,
 
 object FOF {
   sealed abstract class Binder
-  case class All()    extends Binder
-  case class Exists() extends Binder
+  case object All    extends Binder
+  case object Exists extends Binder
 
   sealed case class Neg()
 
@@ -65,10 +65,10 @@ object FOF {
             }
       case Term.Comb(Term.PolyConst(binder,_),Term.Abs(v,_,bod)) =>
         if (binder === Kernel.forall) {
-          unapply(bod) map { Bnding(All(),v,_) }
+          unapply(bod) map { Bnding(All,v,_) }
         }
         else if (binder === Kernel.exists) {
-          unapply(bod) map { Bnding(Exists(),v,_) }
+          unapply(bod) map { Bnding(Exists,v,_) }
         }
         else None
       case Term.Comb(rator,rand) =>
@@ -114,24 +114,24 @@ object FOF {
   def toNNF[V,F,P,U](fof: FOF[V,F,P,Neg,Binder]):
       FOF[V,F,(Option[Neg],P),U,Binder] = {
     fof match {
-      case Pred(p,args)           => Pred((None,p),args)
-      case And(p,q)               => And(toNNF(p),toNNF(q))
-      case Or(p,q)                => Or(toNNF(p),toNNF(q))
-      case Unary(Neg(),p)         => notnnf(p)
-      case Bnding(All(),v,bod)    => Bnding(All(),v,toNNF(bod))
-      case Bnding(Exists(),v,bod) => Bnding(Exists(),v,toNNF(bod))
+      case Pred(p,args)         => Pred((None,p),args)
+      case And(p,q)             => And(toNNF(p),toNNF(q))
+      case Or(p,q)              => Or(toNNF(p),toNNF(q))
+      case Unary(Neg(),p)       => notnnf(p)
+      case Bnding(All,v,bod)    => Bnding(All,v,toNNF(bod))
+      case Bnding(Exists,v,bod) => Bnding(Exists,v,toNNF(bod))
     }
   }
 
   private def notnnf[V,F,P,U](fof: FOF[V,F,P,Neg,Binder]):
       FOF[V,F,(Option[Neg],P),U,Binder] = {
     fof match {
-      case Pred(p,args)           => Pred((Some(Neg()),p),args)
-      case And(p,q)               => Or(notnnf(p),notnnf(q))
-      case Or(p,q)                => And(notnnf(p),notnnf(q))
-      case Unary(Neg(),p)         => toNNF(p)
-      case Bnding(All(),v,bod)    => Bnding(Exists(),v,notnnf(bod))
-      case Bnding(Exists(),v,bod) => Bnding(All(),v,notnnf(bod))
+      case Pred(p,args)         => Pred((Some(Neg()),p),args)
+      case And(p,q)             => Or(notnnf(p),notnnf(q))
+      case Or(p,q)              => And(notnnf(p),notnnf(q))
+      case Unary(Neg(),p)       => toNNF(p)
+      case Bnding(All,v,bod)    => Bnding(Exists,v,notnnf(bod))
+      case Bnding(Exists,v,bod) => Bnding(All,v,notnnf(bod))
     }
   }
 }
@@ -247,8 +247,8 @@ object Matrix {
     val groups = vsets.foldLeft(initSets)(groupSet)
 
     val (_,θ) = binders.foldLeft((List[V](),(==>>.empty[V,MTerm[V,V \/ F]]))) {
-      case ((deps,θ),(All(),v))    => (deps :+ v,θ)
-      case ((deps,θ),(Exists(),v)) =>
+      case ((deps,θ),(All,v))    => (deps :+ v,θ)
+      case ((deps,θ),(Exists,v)) =>
         val neededDeps = for (
           u <- deps;
           if groups.lookup(v).get.contains(u))
@@ -286,8 +286,8 @@ object Matrix {
 
   def showQuants[V:Show](quants: List[(FOF.Binder,V)]) =
     Cord.mkCord(" ",quants.map {
-      case (All(),v)    => Cord("∀") ++ v.show
-      case (Exists(),v) => Cord("∃") ++ v.show
+      case (All,v)    => Cord("∀") ++ v.show
+      case (Exists,v) => Cord("∃") ++ v.show
     }:_*)
 }
 
@@ -327,64 +327,22 @@ object CNF {
 }
 
 object METIS {
-  import proofpeer.metis._
-  type V = IndexedName \/ FOF.Fresh[IndexedName]
-  type F = V \/ Name
-  type P = Name
-  type PPClause = Clause[V, F, F]
+  import FOF._
 
-  private def ThmToCNF(thm: Theorem): Option[Set[PPClause]] =
-    FOF.unapply(thm.proposition).map { fof =>
-        val nnf = FOF.toNNF(fof)
-        val (quants,matrix,_) = Matrix.quantPull(nnf)
-        val quants_ = quants.map { case (b,v) => (b,v.right[IndexedName]) }
-        val univMatrix = Matrix.skolemize(quants_,matrix)
-        // Identify functors with predicates
-        // TODO: Check that there is no overloading issues here
-        val univMatrix_ =
-          FOF.trimap(univMatrix)(
-            {v => v},
-            {f => f},
-            {case (neg,p) => (neg,p.right[V])})
-        CNF.cnf(univMatrix_)
-    }
-
-  def solve(conjecture: Theorem, assumptions: List[Theorem]): Option[Theorem] = {
-    (conjecture :: assumptions).foldMapM(ThmToCNF(_)) >>= { cls =>
-
-      // All Fresh variables indices
-      val freshes: Set[Int] =
-        cls.foldMap { cl =>
-          for ( \/-(Prov(_,f)) <- cl.frees )
-          yield f }
-
-      val nextFresh: Int = freshes.max + 1
-
-      implicit val ordFun = KnuthBendix.precedenceOrder[V,F]
-      implicit val kbo = KnuthBendix.kbo[V,F]
-      val kernel = new Kernel[V,F,F]
-      val factor = new Factor[V,F,F]
-      val litOrd = new MetisLiteralOrdering(kbo)
-      val fin = FinOrd(8)
-      val vals = Valuations[V](fin)
-      val ithmF  = new IThmFactory[V,F,F,Int,kernel.type](
-        kernel,
-        nextFresh,
-        { case (n,v) =>
-          (n+1, (v match {
-            case -\/(v)    => Prov.originate(v).map(_ => n)
-            case \/-(free) => free.map(_ => n)
-          }).right)
-        },
-        litOrd,
-        factor)
-      val interpretation = Interpretation[V,F,F](1000,vals)
-      val sys = new Resolution(0,cls.toList,ithmF,interpretation)
-      val allThms = sys.distance_nextThms.map(_._2).takeWhile(_.isDefined).flatten
-      val limitThms = allThms.take(2000)
-      limitThms.lastOption.filter { _.isContradiction }.map { _ =>
-        null // Problem solved! Use magic to create theorem.
-      }
-    }
+  def TermToCNF[V:Order,F:Order](fof: FOF[V,F,F,Neg,Binder]):
+      Set[Clause[V \/ Fresh[V], (V \/ Fresh[V]) \/ F, (V \/ Fresh[V]) \/ F]] = {
+    val nnf = FOF.toNNF(fof)
+    val (quants,matrix,_) = Matrix.quantPull(nnf)
+    val quants_ = quants.map { case (b,v) => (b,v.right[V]) }
+    val univMatrix = Matrix.skolemize(quants_,matrix)
+    // Identify functors with predicates.
+    // TODO: Check that there are no overloading issues here. Typing should
+    // guarantee otherwise, right?
+    val univMatrix_ =
+      FOF.trimap(univMatrix)(
+        {v => v},
+        {f => f},
+        {case (neg,p) => (neg,p.right[V \/ Fresh[V]])})
+    CNF.cnf(univMatrix_)
   }
 }
