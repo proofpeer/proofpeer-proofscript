@@ -361,6 +361,7 @@ object ParseTree {
       }
       (frees, intros)
     }
+    def isEmpty : Boolean = statements.isEmpty
   }
   
 }
