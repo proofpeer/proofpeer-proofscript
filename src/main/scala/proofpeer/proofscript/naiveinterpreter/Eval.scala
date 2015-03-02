@@ -71,7 +71,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def success[T](result : T) : Success[T] = Success(result, false)
 
 	def fail[T](p : TracksSourcePosition, error : String) : Failed[T] = 
-		if (p != null)
+		if (p != null && p.sourcePosition != null)
 			Failed(List((p.sourcePosition, NoSourceLabel)), error)
 		else
 			Failed(List(), error)
