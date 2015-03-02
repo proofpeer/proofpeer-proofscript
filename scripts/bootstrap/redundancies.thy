@@ -8,7 +8,7 @@ theorem impliesAxRedundant:'∀ x, y. (x → y) = ((x ∧ y) = x)'
     assume imp:'x → y'
     theorem l:'x ∧ y → x'
       assume assum:'x ∧ y'
-      conjunct1 assum
+      conjuncts assum 0
     theorem r:'x → x ∧ y'
       assume x:'x'
       andIntro (x,modusponens (x,imp))
@@ -17,5 +17,5 @@ theorem impliesAxRedundant:'∀ x, y. (x → y) = ((x ∧ y) = x)'
     assume assum:'(x ∧ y) = x'
     theorem 'x → y'
       assume x:'x'
-      conjunct2 (modusponens (x,sym assum))
+      conjuncts (modusponens (x,sym assum)) 1
   equivalence (l,r)

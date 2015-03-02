@@ -2,7 +2,7 @@ theory Conversions
 extends List Syntax Equal Match
 
 # Identity for seqConv
-val idConv   = tm => [reflexive tm]
+val idConv = tm => [reflexive tm]
 
 # Zero for seqConv and identity for sumConv
 val zeroConv = tm => []
@@ -14,7 +14,7 @@ def combConv [ratorConv,randConv] =
       case [f,x] =>
         for fconvthm in ratorConv f do
           for xconvthm in randConv x do
-            combine (fconvthm,xconvthm)
+            assertNotNil (combine (fconvthm,xconvthm))
       case _         => []
 
 # Applies a conversion to the rator of a combination
@@ -37,7 +37,7 @@ def absConv conv =
           cthms = (for cthm in conv bod do
                      lift cthm)
         for cthm in cthms do
-          abstract (lift (cthm,true))
+          assertNotNil (abstract (lift (cthm,true)))
       case _ => []
 
 # Converts a term appearing as the left hand side of an equation in the given list of
@@ -50,17 +50,17 @@ def subsConv thms =
 
 def rewrConv thms =
   tm =>
-    concat (for thm in thms do
-              val matchedEqs =
-                matchAntThen (thm,tm,
-                  thm =>
-                    match thm
-                      case '‹_› = ‹_›' => [thm]
-                      case _           => [])
-              if matchedEqs == nil then
-                []
-              else
-                matchedEqs)
+    concat
+      (for thm in thms do
+         val matchedEqs =
+           matchAntThen (thm,tm,thm =>
+             match thm
+               case '‹_› = ‹_›' => [thm]
+               case _           => [])
+         if matchedEqs == nil then
+           []
+         else
+           matchedEqs)
 
 # Applies a list of conversions in sequence.
 def seqConv convs =
@@ -68,22 +68,14 @@ def seqConv convs =
     val thenConv = conv1 => conv2 => tm =>
       for '‹x› = ‹y›' as xy in conv1 tm do
         for yz in conv2 y do
-          trans (xy,yz)
+          assertNotNil (trans (xy,yz))
     foldl (thenConv,convs,idConv) tm
 
 # Applies a conversion as an inference rule.
 def convRule [conv,thm] =
-  val norm = normalize (term thm)
-  match norm
-    case '‹_› = ‹rhs›' =>
-      for cthm in conv rhs do
-        modusponens (thm, norm, cthm)
-
-# Rewrites an instance of 'x = x' to ⊤
-val reflConv = tm =>
-  match tm
-    case '‹x›=‹y›' if x == y => [eqTrueIntro (reflexive x)]
-    case _ => []
+  val '‹_› = ‹rhs›' as norm = normalize (term thm)
+  for cthm in conv rhs do
+    modusponens (thm, norm, cthm)
 
 # Attempt a conversion. If it has no results, just use idConv
 def tryConv conv =
@@ -104,7 +96,7 @@ def seqWhenChangedConv convs =
     val thenConv = conv1 => conv2 => tm =>
       for '‹x› = ‹y›' as xy if x <> y in conv1 tm do
         for yz in conv2 y do
-          trans (xy,yz)
+          assertNotNil (trans (xy,yz))
     match convs
       case []              => idConv
       case (conv <+ convs) => foldl (thenConv,convs,conv) tm
@@ -119,9 +111,19 @@ def treeConv conv =
                          absConv (treeConv conv)),
                 treeConv conv)) tm
 
+# Applies a conversion top-down through a term, without traversing a changed term.
+def onceTreeConv conv =
+  tm =>
+    tryConv (sumConv (conv,
+                      combConv (onceTreeConv conv,onceTreeConv conv),
+                      absConv (onceTreeConv conv))) tm
+
+def
+  reflConv '‹x› = ‹y›' if x == y = [eqTrueIntro (reflexive x)]
+  reflConv _ = []
+
 assert map (term,absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
 assert map (term,absConv idConv 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
 assert map (term,absConv (subsConv [reflexive '⊤']) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
-                

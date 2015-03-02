@@ -7,6 +7,10 @@ def map [f,xs] =
   for x in xs do
     f x
 
+def
+  reverse []        = []
+  reverse (x <+ xs) = reverse xs +> x
+
 def foldl [f,xs,b] =
   match xs
     case []      => b
@@ -33,3 +37,13 @@ def concat xss =
   for xs in xss do
     for x in xs do
       x
+
+# Recursively split a value and flatten until failure.
+def split [f,x] =
+  val ys = f x
+  if ys == nil then
+    [x]
+  else
+    for y in ys do
+      for s in split (f,y) do
+        s

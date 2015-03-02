@@ -1,59 +1,118 @@
 theory Connectives
 extends Conversions Match
 
-theorem trivImp:'∀ p. p → p'
+theorem topDef: '∀p. p → ⊤'
   let 'p:ℙ'
   assume 'p:ℙ'
+  truth
 
-theorem notFalse:'¬⊥'
-  modusponens [instantiate [trivImp,'⊥'],sym (apThm [\root\notDef,'⊥'])]
+theorem botDef: '∀p. ⊥ → p'
+  let 'p:ℙ'
+  assume bot:'⊥'
+  instantiate (modusponens (bot, falseDef), 'p:ℙ')
 
+theorem notDefEx: '∀p. (¬p) = (p → ⊥)'
+  let p:'p:ℙ'
+  apThm (notDef,p)
+
+theorem simpP:'∀p. p → (p = ⊤)'
+  let 'p:ℙ'
+  assume p:'p'
+  eqTrueIntro p
+
+theorem simpPNP: '∀p. p → ((¬p) = ⊥)'
+  let 'p:ℙ'
+  assume p:'p'
+  theorem nnp:
+    assume np:'¬p'
+    matchmp (matchmp (notDefEx,np), p)
+  equivalence (nnp, instantiate (botDef,'¬p:ℙ'))
+
+theorem simpNP:'∀p. ¬p → (p = ⊥)'
+  let 'p:ℙ'
+  assume asm:'¬p'
+  equivalence (matchmp (notDefEx,asm), instantiate (botDef,'p:ℙ'))
+
+theorem simpNPNP:'∀p. ¬p → ((¬p) = ⊤)'
+  let 'p:ℙ'
+  assume np:'¬p'
+  eqTrueIntro np
+
+theorem notFalseTrue:'(¬⊥) = ⊤'
+  eqTrueIntro notFalse
+
+theorem notTrueFalse:'(¬⊤) = ⊥'
+  matchmp (simpPNP, truth)
+
+theorem orDef: '∀x y. (x ∨ y) = (∀z. (x → z) → (y → z) → z)'
+  let x:'x:ℙ'
+  let y:'y:ℙ'
+  apThm (orDef,x,y)
+
+# ‹p› ↦ ‹p ∨ q›
 val orIntroL =
-  theorem orIntroL:'∀ p q. p → p ∨ q'
+  theorem orIntroL:
     let 'p:ℙ'
     let 'q:ℙ'
     assume p:'p'
-    theorem orElim:'∀ z. (p → z) → (q → z) → z'
+    theorem orElim:
       let 'z:ℙ'
       assume assum:'p → z'
       assume 'q → z'
       modusponens (p,assum)
-    modusponens (orElim,sym (apThm (orDef,'p:ℙ','q:ℙ')))
-  [lthm,rterm] => modusponens (lthm,instantiate (orIntroL,term lthm,rterm))
+    modusponens (orElim,sym (apThm (\root\orDef,'p:ℙ','q:ℙ')))
+  [lthm,rterm] =>
+    modusponens (lthm,instantiate (orIntroL,term lthm,rterm))
 
+# ‹q› ↦ ‹p ∨ q›
 val orIntroR =
-  theorem orIntroR:'∀ p, q. q → p ∨ q'
+  theorem orIntroR:
     let 'p:ℙ'
     let 'q:ℙ'
     assume q:'q'
-    theorem orElim:'∀ z. (p → z) → (q → z) → z'
+    theorem orElim:
       let 'z:ℙ'
       assume 'p → z'
       assume assum:'q → z'
       modusponens (q,assum)
-    modusponens (orElim,sym (apThm (orDef,'p:ℙ','q:ℙ')))
+    modusponens (orElim,sym (apThm (\root\orDef,'p:ℙ','q:ℙ')))
   [lterm,rthm] => modusponens (rthm,instantiate (orIntroR,lterm,term rthm))
 
-val conjunct1 =
-  theorem conjunct1:'∀ p, q. p ∧ q → p'
-    let 'p:ℙ'
-    let 'q:ℙ'
-    assume conj:'p ∧ q'
-    eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
-                       'x:ℙ ↦ y:ℙ ↦ x'))
-  '‹p› ∧ ‹q›' as thm => modusponens (thm,instantiate (conjunct1,p,q))
+val conjuncts =
+  val conjunct1 =
+    theorem conjunct1:
+      let 'p:ℙ'
+      let 'q:ℙ'
+      assume conj:'p ∧ q'
+      eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
+                         'x:ℙ ↦ y:ℙ ↦ x'))
+    thm =>
+      match thm
+        case '‹p› ∧ ‹q›' as thm => matchmp (conjunct1,thm)
+        case _                  => assertThm thm
 
-val conjunct2 =
-  theorem conjunct2:'∀ p, q. p ∧ q → q'
-    let 'p:ℙ'
-    let 'q:ℙ'
-    assume conj:'p ∧ q'
-    eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
-                       'x:ℙ ↦ y:ℙ ↦ y'))
-  '‹p› ∧ ‹q›' as thm => modusponens (thm,instantiate (conjunct2,p,q))
+  val conjunct2 =
+    theorem conjunct2:
+      let 'p:ℙ'
+      let 'q:ℙ'
+      assume conj:'p ∧ q'
+      eqTrueElim (apThm (modusponens (conj,apThm (andDef,'p:ℙ','q:ℙ')),
+                         'x:ℙ ↦ y:ℙ ↦ y'))
+    thm =>
+      match thm
+        case '‹p› ∧ ‹q›' as thm => matchmp (conjunct2,thm)
+        case _                  => nil
 
+  def conjs thm =
+    val c1 = conjunct1 thm
+    if c1 == nil
+      then [thm]
+      else c1 <+ conjs (conjunct2 thm)
+  conjs
+
+# [‹p›,‹q›,...‹r›] ↦ ‹p› ∧ ‹q› ∧ ... ∧ ‹r›
 val andIntro =
-  theorem andIntro:'∀ p:ℙ, q:ℙ. p → q → p ∧ q'
+  theorem andIntro:
     let 'p:ℙ'
     let 'q:ℙ'
     assume p:'p:ℙ'
@@ -63,23 +122,49 @@ val andIntro =
                          apThm (andDef,'p:ℙ','q:ℙ'))
     val [thm] = thms
     eqTrueElim thm
-  [l,r] => modusponens (r,modusponens (l,instantiate (andIntro,term l,term r)))
+  def
+    loop []        = truth
+    loop [p]       = p
+    loop (ls +> r) =
+      val conj = loop ls
+      matchmp (andIntro,conj,r)
+  loop
 
-theorem orDef: '∀x y. (x ∨ y) = (∀z. (x → z) → (y → z) → z)'
-  let x:'x:ℙ'
-  let y:'y:ℙ'
-  apThm (orDef,x,y)
-
-theorem notDef: '∀p. (¬p) = (p → ⊥)'
+theorem equivalenceGen:'∀f:ℙ → ℙ → ℙ. (∀p q. f p q → f q p) → (∀p q. f p q = f q p)'
+  let 'f:ℙ → ℙ → ℙ'
+  assume asm:'∀p q. f p q → f q p'
   let p:'p:ℙ'
-  apThm (notDef,p)
+  let q:'q:ℙ'
+  equivalence (instantiate (asm,p,q), instantiate (asm,q,p))
+
+theorem orComm: '∀p q. (p ∨ q) = (q ∨ p)'
+  theorem lemma:
+    let 'p:ℙ'
+    let 'q:ℙ'
+    assume asm:'p ∨ q'
+    theorem ifP:
+      assume p:'p:ℙ'
+      orIntroR ('q:ℙ',p)
+    theorem ifQ:
+      assume q:'q:ℙ'
+      orIntroL (q,'p:ℙ')
+    matchmp (orDef, asm, ifP, ifQ)
+  matchmp (equivalenceGen,lemma)
+
+theorem andComm: '∀p q. (p ∧ q) = (q ∧ p)'
+  theorem lemma:
+    let 'p:ℙ'
+    let 'q:ℙ'
+    assume pq: 'p ∧ q'
+    andIntro (reverse (conjuncts pq))
+  matchmp (equivalenceGen,lemma)
 
 theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
   let 'p:ℙ'
   let 'q:ℙ'
   let 'r:ℙ'
 
-  theorem leftThm:'p ∨ (q ∧ r) → (p ∨ q) ∧ (p ∨ r)'
+  theorem leftThm:
     assume asm:'p ∨ (q ∧ r)'
 
     theorem case1: 'p → (p ∨ q) ∧ (p ∨ r)'
@@ -88,58 +173,36 @@ theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
 
     theorem case2: 'q ∧ r → (p ∨ q) ∧ (p ∨ r)'
       assume qr:'q ∧ r'
-      andIntro (orIntroR ('p:ℙ',conjunct1 qr), orIntroR ('p:ℙ',conjunct2 qr))
+      andIntro (orIntroR ('p:ℙ',conjuncts qr 0), orIntroR ('p:ℙ',conjuncts qr 1))
 
     matchmp (orDef, asm, case1, case2)
 
-  theorem rightThm:'(p ∨ q) ∧ (p ∨ r) → p ∨ (q ∧ r)'
+  theorem rightThm:
     assume asm:'(p ∨ q) ∧ (p ∨ r)'
 
-    theorem ifP: 'p → p ∨ (q ∧ r)'
+    theorem ifP:
       assume p:'p:ℙ'
       orIntroL (p, '(q ∧ r)')
 
-    theorem ifQ: 'q → p ∨ (q ∧ r)'
+    theorem ifQ:
       assume q:'q:ℙ'
-      theorem ifP: 'p → p ∨ (q ∧ r)'
+      theorem ifP:
         assume p:'p:ℙ'
         orIntroL (p,'q ∧ r')
-      theorem ifR: 'r → p ∨ (q ∧ r)'
+      theorem ifR:
         assume r:'r:ℙ'
         orIntroR ('p:ℙ',andIntro (q,r))
-      matchmp (orDef, conjunct2 asm, ifP, ifR)
+      matchmp (orDef, conjuncts asm 1, ifP, ifR)
 
-    matchmp (orDef, conjunct1 asm, ifP, ifQ)
+    matchmp (orDef, conjuncts asm 0, ifP, ifQ)
 
   equivalence (leftThm,rightThm)
-
-theorem orComm: '∀p q. (p ∨ q) = (q ∨ p)'
-  theorem lemma: '∀p q. (p ∨ q) → (q ∨ p)'
-    let 'p:ℙ'
-    let 'q:ℙ'
-    assume asm:'p ∨ q'
-    theorem ifP:'p → q ∨ p'
-      assume p:'p:ℙ'
-      orIntroR ('q:ℙ',p)
-    theorem ifQ:'q → q ∨ p'
-      assume q:'q:ℙ'
-      orIntroL (q,'p:ℙ')
-    matchmp (orDef, asm, ifP, ifQ)
-  let 'p:ℙ'
-  let 'q:ℙ'
-  theorem left: '(p ∨ q) → (q ∨ p)'
-    assume asm:'p ∨ q'
-    matchmp (lemma,asm)
-  theorem right: '(q ∨ p) → (p ∨ q)'
-    assume asm:'q ∨ p'
-    matchmp (lemma, asm)
-  equivalence (left,right)
 
 theorem orAndDistrib2:'∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
   let 'p:ℙ'
   let 'q:ℙ'
   let 'r:ℙ'
-  theorem lemma:'∀p2 q2 r2. ((q2 ∧ r2) ∨ p2) = ((q2 ∨ p2) ∧ (r2 ∨ p2))'
+  theorem lemma:
     let 'p2:ℙ'
     let 'q2:ℙ'
     let 'r2:ℙ'
@@ -150,41 +213,141 @@ theorem orAndDistrib2:'∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
               instantiate (orAndDistrib1,'p2:ℙ','q2:ℙ','r2:ℙ')) 0
   instantiate (lemma,'r:ℙ','p:ℙ','q:ℙ')
 
+theorem andOrDistrib1:'∀ p q r. (p ∧ (q ∨ r)) = ((p ∧ q) ∨ (p ∧ r))'
+  let 'p:ℙ'
+  let 'q:ℙ'
+  let 'r:ℙ'
+  theorem leftThm:
+    assume asm:'p ∧ (q ∨ r)'
+    val p = conjuncts asm 0
+    theorem ifQ:
+      assume q:'q'
+      orIntroL (andIntro (p,q),'p ∧ r')
+    theorem ifR:
+      assume r:'r'
+      orIntroR ('p ∧ q',andIntro (p,r))
+    matchmp (orDef, conjuncts asm 1, ifQ, ifR)
+  theorem rightThm:
+    assume asm:'(p ∧ q) ∨ (p ∧ r)'
+    theorem ifPQ:
+      assume pq:'p ∧ q'
+      andIntro (conjuncts pq 0, orIntroL (conjuncts pq 1, 'r'))
+    theorem ifPR:
+      assume pr:'p ∧ r'
+      andIntro (conjuncts pr 0, orIntroR ('q', conjuncts pr 1))
+    matchmp (orDef, asm, ifPQ, ifPR)
+  equivalence (leftThm, rightThm)
+
+theorem andOrDistrib2:'∀ p q r. ((p ∨ q) ∧ r) = ((p ∧ r) ∨ (q ∧ r))'
+  let 'p:ℙ'
+  let 'q:ℙ'
+  let 'r:ℙ'
+  theorem lemma:
+    let 'p2:ℙ'
+    let 'q2:ℙ'
+    let 'r2:ℙ'
+    convRule
+      (binaryConv (subsConv [instantiate (andComm,'p2:ℙ','q2 ∨ r2')],
+                   binaryConv (subsConv [instantiate (andComm,'p2:ℙ','q2:ℙ')],
+                               subsConv [instantiate (andComm,'p2:ℙ','r2:ℙ')])),
+              instantiate (andOrDistrib1,'p2:ℙ','q2:ℙ','r2:ℙ')) 0
+  instantiate (lemma,'r:ℙ','p:ℙ','q:ℙ')
+
 theorem orRightZero: '∀p. (p ∨ ⊤) = ⊤'
   let 'p:ℙ'
-  theorem right: '⊤ → p ∨ ⊤'
+  theorem right:
     assume '⊤'
     orIntroR ['p:ℙ',truth]
   equivalence (instantiate (topDef,'p ∨ ⊤'),right)
 
-theorem impliesNot: '∀p. (p → ⊥) = (p = ⊥)'
-  let 'p:ℙ'
-  theorem left: '(p → ⊥) → (p = ⊥)'
-    assume asm:'p → ⊥'
-    equivalence (asm, instantiate (botDef,'p:ℙ'))
-  theorem right: '(p = ⊥) → (p → ⊥)'
-    assume asm:'p = ⊥'
-    convRule (randConv (rewrConv [asm]),instantiate (trivImp,'p:ℙ')) 0
+theorem orLeftZero: '∀p. (⊤ ∨ p) = ⊤'
+  convRule (onceTreeConv (rewrConv [orComm]), orRightZero) 0
+
+theorem orRightId: '∀p. (p ∨ ⊥) = p'
+  let p:'p:ℙ'
+  theorem left:
+    assume asm:'p ∨ ⊥'
+    matchmp (orDef, asm, instantiate (trivImp,p), instantiate (botDef,p))
+  theorem right:
+    assume p:'p:ℙ'
+    orIntroL (p,'⊥')
+  equivalence (left, right)
+
+theorem orLeftId: '∀p. (⊥ ∨ p) = p'
+  convRule (onceTreeConv (rewrConv [orComm]), orRightId) 0
+
+theorem andRightZero: '∀p. (p ∧ ⊥) = ⊥'
+  let p:'p:ℙ'
+  theorem left:
+    assume asm:'p ∧ ⊥'
+    conjuncts asm 1
+  theorem right:
+    assume asm:'⊥'
+    modusponens (asm, instantiate (botDef, 'p ∧ ⊥'))
   equivalence (left,right)
 
-theorem eqFalseWeak: '∀p. (¬p) → (p = ⊥)'
-  let 'p:ℙ'
-  assume asm:'¬p'
-  equivalence (matchmp (notDef,asm), instantiate (botDef,'p:ℙ'))
+theorem andLeftZero: '∀p. (⊥ ∧ p) = ⊥'
+  convRule (onceTreeConv (rewrConv [andComm]), andRightZero) 0
 
-val eqFalseIntro =
-  '¬‹p›' as thm => modusponens (thm,instantiate (eqFalseWeak,p))
-
-theorem eqFalseEq: '∀p. (p = ⊥) = (¬p)'
+theorem andRightId: '∀p. (p ∧ ⊤) = p'
   let 'p:ℙ'
-  theorem left: '(p = ⊥) → ¬p'
-    assume asm:'p = ⊥'
-    convRule (randConv (rewrConv [sym asm]), notFalse) 0
-  equivalence (left,instantiate (eqFalseWeak,'p:ℙ'))
+  theorem left:
+    assume asm:'p ∧ ⊤'
+    conjuncts asm 0
+  theorem right:
+    assume p:'p:ℙ'
+    andIntro (p,truth)
+  equivalence (left,right)
+
+theorem andLeftId: '∀p. (⊤ ∧ p) = p'
+  convRule (onceTreeConv (rewrConv [andComm]), andRightId) 0
+
+theorem orIdem: '∀p. (p ∨ p) = p'
+  let p:'p:ℙ'
+  theorem left:
+    assume asm:'p ∨ p'
+    val pp = instantiate(trivImp, p)
+    matchmp (orDef, asm, pp, pp)
+  theorem right:
+    assume p:'p:ℙ'
+    orIntroL (p,'p:ℙ')
+  equivalence (left,right)
+
+theorem andIdem: '∀p. (p ∧ p) = p'
+  let p:'p:ℙ'
+  theorem left:
+    assume asm:'p ∧ p'
+    conjuncts asm 0
+  theorem right:
+    assume asm:'p'
+    andIntro (asm,asm)
+  equivalence (left,right)
+
+theorem andComplement: '∀p. (p ∧ ¬p) = ⊥'
+  let p:'p:ℙ'
+  theorem left:
+    assume asm:'p ∧ ¬p'
+    matchmp (matchmp (notDefEx, conjuncts asm 1), conjuncts asm 0)
+  theorem right:
+    assume asm:'⊥'
+    modusponens (asm, instantiate (botDef, 'p ∧ ¬p'))
+  equivalence (left,right)
+
+theorem curry:'∀p q r. (p ∧ q → r) → p → q → r'
+  let 'p:ℙ'
+  let 'q:ℙ'
+  let 'r:ℙ'
+  assume imp:'p ∧ q → r'
+  assume p:'p'
+  assume q:'q'
+  modusponens (andIntro (p,q), imp)
 
 def
   gsym '‹x› = ‹y›' as thm = sym thm
-  gsym '∀x. ‹p› x' =
+  gsym '∀x. ‹p› x' as thm =
     val [ctx,x,eq] = destabs p
+    val symthm
     context <ctx>
-      return (gsym eq)
+      symthm = gsym (instantiate (thm,x))
+    lift (symthm,true)
+  gsym thm = assertThm thm
