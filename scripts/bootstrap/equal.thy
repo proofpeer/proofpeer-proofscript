@@ -91,3 +91,14 @@ val eqFalseElim =
       case '‹p› = ‹_›' =>
         modusponens (thm,instantiate (eqFalse,p))
       case thm => assertThm thm
+
+# As sym, but descends through universal quantifiers first.
+def
+  gsym '‹x› = ‹y›' as thm = sym thm
+  gsym '∀x. ‹p› x' as thm =
+    val [ctx,x,eq] = destabs p
+    val symthm
+    context <ctx>
+      symthm = gsym (instantiate (thm,x))
+    lift (symthm,true)
+  gsym thm = assertThm thm

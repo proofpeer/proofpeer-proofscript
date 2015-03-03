@@ -11,14 +11,49 @@ theorem botDef: '∀p. ⊥ → p'
   assume bot:'⊥'
   instantiate (modusponens (bot, falseDef), 'p:ℙ')
 
+theorem topDefEq: '∀p. (p → ⊤) = ⊤'
+  let p:'p:ℙ'
+  eqTrueIntro (instantiate (topDef,p))
+
+theorem point: '∀p. (⊤ → p) = p'
+  let p:'p:ℙ'
+  theorem left:
+    assume asm:'⊤ → p'
+    modusponens (truth,asm)
+  theorem right:
+    assume asm:'p:ℙ'
+    theorem triv:
+      assume '⊤'
+      asm
+  equivalence (left,right)
+
+theorem botDefEq: '∀p. (⊥ → p) = ⊤'
+  let p:'p:ℙ'
+  eqTrueIntro (instantiate (botDef,p))
+
 theorem notDefEx: '∀p. (¬p) = (p → ⊥)'
   let p:'p:ℙ'
   apThm (notDef,p)
 
-theorem simpP:'∀p. p → (p = ⊤)'
+theorem simpP:'∀p. p = (p = ⊤)'
   let 'p:ℙ'
-  assume p:'p'
-  eqTrueIntro p
+  theorem left:
+    assume p:'p'
+    eqTrueIntro p
+  theorem right:
+    assume pt:'p = ⊤'
+    eqTrueElim pt
+  equivalence (left,right)
+
+theorem simpNP:'∀p. (¬p) = (p = ⊥)'
+  let 'p:ℙ'
+  theorem left:
+    assume asm:'¬p'
+    equivalence (matchmp (notDefEx,asm), instantiate (botDef,'p:ℙ'))
+  theorem right:
+    assume asm:'p = ⊥'
+    eqFalseElim asm
+  equivalence (left,right)
 
 theorem simpPNP: '∀p. p → ((¬p) = ⊥)'
   let 'p:ℙ'
@@ -27,11 +62,6 @@ theorem simpPNP: '∀p. p → ((¬p) = ⊥)'
     assume np:'¬p'
     matchmp (matchmp (notDefEx,np), p)
   equivalence (nnp, instantiate (botDef,'¬p:ℙ'))
-
-theorem simpNP:'∀p. ¬p → (p = ⊥)'
-  let 'p:ℙ'
-  assume asm:'¬p'
-  equivalence (matchmp (notDefEx,asm), instantiate (botDef,'p:ℙ'))
 
 theorem simpNPNP:'∀p. ¬p → ((¬p) = ⊤)'
   let 'p:ℙ'
@@ -44,7 +74,7 @@ theorem notFalseTrue:'(¬⊥) = ⊤'
 theorem notTrueFalse:'(¬⊤) = ⊥'
   matchmp (simpPNP, truth)
 
-theorem orDef: '∀x y. (x ∨ y) = (∀z. (x → z) → (y → z) → z)'
+theorem orDefEx: '∀x y. (x ∨ y) = (∀z. (x → z) → (y → z) → z)'
   let x:'x:ℙ'
   let y:'y:ℙ'
   apThm (orDef,x,y)
@@ -148,7 +178,7 @@ theorem orComm: '∀p q. (p ∨ q) = (q ∨ p)'
     theorem ifQ:
       assume q:'q:ℙ'
       orIntroL (q,'p:ℙ')
-    matchmp (orDef, asm, ifP, ifQ)
+    matchmp (orDefEx, asm, ifP, ifQ)
   matchmp (equivalenceGen,lemma)
 
 theorem andComm: '∀p q. (p ∧ q) = (q ∧ p)'
@@ -175,7 +205,7 @@ theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
       assume qr:'q ∧ r'
       andIntro (orIntroR ('p:ℙ',conjuncts qr 0), orIntroR ('p:ℙ',conjuncts qr 1))
 
-    matchmp (orDef, asm, case1, case2)
+    matchmp (orDefEx, asm, case1, case2)
 
   theorem rightThm:
     assume asm:'(p ∨ q) ∧ (p ∨ r)'
@@ -192,9 +222,9 @@ theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
       theorem ifR:
         assume r:'r:ℙ'
         orIntroR ('p:ℙ',andIntro (q,r))
-      matchmp (orDef, conjuncts asm 1, ifP, ifR)
+      matchmp (orDefEx, conjuncts asm 1, ifP, ifR)
 
-    matchmp (orDef, conjuncts asm 0, ifP, ifQ)
+    matchmp (orDefEx, conjuncts asm 0, ifP, ifQ)
 
   equivalence (leftThm,rightThm)
 
@@ -226,7 +256,7 @@ theorem andOrDistrib1:'∀ p q r. (p ∧ (q ∨ r)) = ((p ∧ q) ∨ (p ∧ r))'
     theorem ifR:
       assume r:'r'
       orIntroR ('p ∧ q',andIntro (p,r))
-    matchmp (orDef, conjuncts asm 1, ifQ, ifR)
+    matchmp (orDefEx, conjuncts asm 1, ifQ, ifR)
   theorem rightThm:
     assume asm:'(p ∧ q) ∨ (p ∧ r)'
     theorem ifPQ:
@@ -235,7 +265,7 @@ theorem andOrDistrib1:'∀ p q r. (p ∧ (q ∨ r)) = ((p ∧ q) ∨ (p ∧ r))'
     theorem ifPR:
       assume pr:'p ∧ r'
       andIntro (conjuncts pr 0, orIntroR ('q', conjuncts pr 1))
-    matchmp (orDef, asm, ifPQ, ifPR)
+    matchmp (orDefEx, asm, ifPQ, ifPR)
   equivalence (leftThm, rightThm)
 
 theorem andOrDistrib2:'∀ p q r. ((p ∨ q) ∧ r) = ((p ∧ r) ∨ (q ∧ r))'
@@ -267,7 +297,7 @@ theorem orRightId: '∀p. (p ∨ ⊥) = p'
   let p:'p:ℙ'
   theorem left:
     assume asm:'p ∨ ⊥'
-    matchmp (orDef, asm, instantiate (trivImp,p), instantiate (botDef,p))
+    matchmp (orDefEx, asm, instantiate (trivImp,p), instantiate (botDef,p))
   theorem right:
     assume p:'p:ℙ'
     orIntroL (p,'⊥')
@@ -307,7 +337,7 @@ theorem orIdem: '∀p. (p ∨ p) = p'
   theorem left:
     assume asm:'p ∨ p'
     val pp = instantiate(trivImp, p)
-    matchmp (orDef, asm, pp, pp)
+    matchmp (orDefEx, asm, pp, pp)
   theorem right:
     assume p:'p:ℙ'
     orIntroL (p,'p:ℙ')
@@ -333,6 +363,55 @@ theorem andComplement: '∀p. (p ∧ ¬p) = ⊥'
     modusponens (asm, instantiate (botDef, 'p ∧ ¬p'))
   equivalence (left,right)
 
+theorem impliesNotEqFalse: '∀p. (p → ⊥) = (p = ⊥)'
+  let 'p:ℙ'
+  theorem left: '(p → ⊥) → (p = ⊥)'
+    assume asm:'p → ⊥'
+    equivalence (asm, instantiate (botDef,'p:ℙ'))
+  theorem right: '(p = ⊥) → (p → ⊥)'
+    assume asm:'p = ⊥'
+    convRule (randConv (rewrConv [asm]),instantiate (trivImp,'p:ℙ')) 0
+  equivalence (left,right)
+
+def
+  eqFalseIntro '¬‹p›' as thm = modusponens (thm,instantiate (simpNP,p))
+  eqFalseIntro thm           = assertThm thm
+
+theorem eqTrueEq: '∀p. (p = ⊤) = p'
+  gsym simpP
+
+theorem eqFalseEq: '∀p. (p = ⊥) = (¬p)'
+  gsym simpNP
+
+theorem impliesNot: '∀p. (p → ⊥) = (¬p)'
+  convRule (treeConv (rewrConv [eqFalseEq]), impliesNotEqFalse) 0
+
+theorem andDeMorgan: '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
+  let 'p:ℙ'
+  let 'q:ℙ'
+  theorem left:
+    assume asm:'¬(p ∨ q)'
+    theorem notP:
+      assume p:'p:ℙ'
+      matchmp (andComplement, andIntro (orIntroL (p, 'q:ℙ'), asm))
+    theorem notQ:
+      assume q:'q:ℙ'
+      matchmp (andComplement, andIntro (orIntroR ('p:ℙ',q),asm))
+    andIntro (matchmp (impliesNot,notP), matchmp (impliesNot,notQ))
+  theorem right:
+    assume asm:'¬p ∧ ¬q'
+    theorem notpq:
+      assume pq: 'p ∨ q'
+      theorem notP:
+        assume p:'p:ℙ'
+        matchmp (andComplement,andIntro (p, conjuncts asm 0))
+      theorem notQ:
+        assume q:'q:ℙ'
+        matchmp (andComplement,andIntro (q, conjuncts asm 1))
+      matchmp (orDefEx, pq, notP, notQ)
+    matchmp (impliesNot, notpq)
+  equivalence (left,right)
+
 theorem curry:'∀p q r. (p ∧ q → r) → p → q → r'
   let 'p:ℙ'
   let 'q:ℙ'
@@ -341,13 +420,3 @@ theorem curry:'∀p q r. (p ∧ q → r) → p → q → r'
   assume p:'p'
   assume q:'q'
   modusponens (andIntro (p,q), imp)
-
-def
-  gsym '‹x› = ‹y›' as thm = sym thm
-  gsym '∀x. ‹p› x' as thm =
-    val [ctx,x,eq] = destabs p
-    val symthm
-    context <ctx>
-      symthm = gsym (instantiate (thm,x))
-    lift (symthm,true)
-  gsym thm = assertThm thm

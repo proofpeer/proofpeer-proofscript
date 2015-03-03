@@ -23,7 +23,10 @@ def ratorConv conv = combConv (conv,idConv)
 # Applies a conversion to the rand of a combination
 def randConv conv  = combConv (idConv,conv)
 
-# Applies a conversion to the lhand and rand of a binary application
+# Applies a conversion to the land of a combination
+def landConv conv  = combConv (randConv conv,idConv)
+
+# Applies a conversion to the land and rand of a binary application
 def binaryConv [lconv,rconv] =
   combConv (randConv lconv,rconv)
 
@@ -66,15 +69,15 @@ def rewrConv thms =
 def seqConv convs =
   tm =>
     val thenConv = conv1 => conv2 => tm =>
-      for '‹x› = ‹y›' as xy in conv1 tm do
-        for yz in conv2 y do
+      for '‹_› = ‹y›' as xy in conv1 tm do
+        for '‹_› = ‹_›' as yz in conv2 y do
           assertNotNil (trans (xy,yz))
     foldl (thenConv,convs,idConv) tm
 
 # Applies a conversion as an inference rule.
 def convRule [conv,thm] =
   val '‹_› = ‹rhs›' as norm = normalize (term thm)
-  for cthm in conv rhs do
+  for '‹_› = ‹_›' as cthm in conv rhs do
     modusponens (thm, norm, cthm)
 
 # Attempt a conversion. If it has no results, just use idConv
@@ -88,14 +91,14 @@ def tryConv conv =
 def sumConv convs =
   tm =>
     for conv in convs do
-      for cthm in conv tm do
+      for '‹_› = ‹_›' as cthm in conv tm do
         cthm
 
 def seqWhenChangedConv convs =
   tm =>
     val thenConv = conv1 => conv2 => tm =>
       for '‹x› = ‹y›' as xy if x <> y in conv1 tm do
-        for yz in conv2 y do
+        for '‹_› = ‹_›' as yz in conv2 y do
           assertNotNil (trans (xy,yz))
     match convs
       case []              => idConv
