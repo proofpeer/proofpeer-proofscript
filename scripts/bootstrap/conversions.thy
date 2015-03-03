@@ -121,9 +121,20 @@ def onceTreeConv conv =
                       combConv (onceTreeConv conv,onceTreeConv conv),
                       absConv (onceTreeConv conv))) tm
 
+# Rewrite x = x to ⊤
 def
   reflConv '‹x› = ‹y›' if x == y = [eqTrueIntro (reflexive x)]
   reflConv _ = []
+
+# Rewrite x = y to y = x
+def symConv '‹x› = ‹y›' =
+  theorem left:
+    assume asm:'‹x› = ‹y›'
+    sym asm
+  theorem right:
+    assume asm:'‹y› = ‹x›'
+    sym asm
+  [equivalence (left,right)]
 
 assert map (term,absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 

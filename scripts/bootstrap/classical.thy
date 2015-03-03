@@ -66,29 +66,22 @@ def
         case [body]        => return [ctx,[x],body]
   stripForall '‹x›' = [x]
 
-def symConv '‹x› = ‹y›' =
-  theorem left:
-    assume asm:'‹x› = ‹y›'
-    sym asm
-  theorem right:
-    assume asm:'‹y› = ‹x›'
-    sym asm
-  [equivalence (left,right)]
+val basicRewrites =
+  [notFalseTrue,notTrueFalse,
+   orRightZero,orRightId,
+   convRule (onceTreeConv (rewrConv [orComm]), orRightZero) 0,
+   convRule (onceTreeConv (rewrConv [orComm]), orRightId) 0,
+   andRightZero,andRightId,
+   convRule (onceTreeConv (rewrConv [andComm]), andRightZero) 0,
+   convRule (onceTreeConv (rewrConv [andComm]), andRightId) 0,
+   eqTrueSimp,eqFalseSimp,
+   convRule (randConv (absConv (landConv symConv)), eqTrueSimp),
+   convRule (randConv (absConv (landConv symConv)), eqFalseSimp),
+   topDefEq,point,botDefEq,gsym notDefEx]
 
+# Tautology verifier.
 def taut tm =
   val [ctx,xs,body] = stripForall tm
-  val basicRewrites =
-    [notFalseTrue,notTrueFalse,
-     orRightZero,orRightId,
-     convRule (onceTreeConv (rewrConv [orComm]), orRightZero) 0,
-     convRule (onceTreeConv (rewrConv [orComm]), orRightId) 0,
-     andRightZero,andRightId,
-     convRule (onceTreeConv (rewrConv [andComm]), andRightZero) 0,
-     convRule (onceTreeConv (rewrConv [andComm]), andRightId) 0,
-     eqTrueSimp,eqFalseSimp,
-     convRule (randConv (absConv (landConv symConv)), eqTrueSimp),
-     convRule (randConv (absConv (landConv symConv)), eqFalseSimp),
-     topDefEq,point,botDefEq,gsym notDefEx]
   def
     tautAux [tm,(x <+ xs),rewrsAcc] =
       val '‹p› ∨ ‹notp›' as caseSplit = instantiate (boolCases,x)
