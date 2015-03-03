@@ -49,7 +49,8 @@ theorem orComplement: '∀p. (p ∨ ¬p) = ⊤'
   eqTrueIntro (instantiate (excludedMiddle,p))
 
 theorem boolCases: '∀p. p = ⊤ ∨ p = ⊥'
-  convRule (randConv (absConv (binaryConv (rewrConv [simpP], rewrConv [simpNP]))),
+  convRule (randConv (absConv (binaryConv (rewrConv [gsym eqTrueSimp],
+                                           rewrConv [gsym eqFalseSimp]))),
             excludedMiddle) 0
 
 # Remove all outer universal quantifiers, returning the variables and a context in
@@ -78,12 +79,16 @@ def taut tm =
   val [ctx,xs,body] = stripForall tm
   val basicRewrites =
     [notFalseTrue,notTrueFalse,
-     orRightZero,orLeftZero,orRightId,orLeftId,
-     andRightZero,andLeftZero,andRightId,orLeftId,
-     eqTrueEq,eqFalseEq,
-     convRule (randConv (absConv (landConv symConv)), eqTrueEq),
-     convRule (randConv (absConv (landConv symConv)), eqFalseEq),
-     topDefEq,impliesNotEqFalse,point,botDefEq]
+     orRightZero,orRightId,
+     convRule (onceTreeConv (rewrConv [orComm]), orRightZero) 0,
+     convRule (onceTreeConv (rewrConv [orComm]), orRightId) 0,
+     andRightZero,andRightId,
+     convRule (onceTreeConv (rewrConv [andComm]), andRightZero) 0,
+     convRule (onceTreeConv (rewrConv [andComm]), andRightId) 0,
+     eqTrueSimp,eqFalseSimp,
+     convRule (randConv (absConv (landConv symConv)), eqTrueSimp),
+     convRule (randConv (absConv (landConv symConv)), eqFalseSimp),
+     topDefEq,point,botDefEq,gsym notDefEx]
   def
     tautAux [tm,(x <+ xs),rewrsAcc] =
       val '‹p› ∨ ‹notp›' as caseSplit = instantiate (boolCases,x)
@@ -100,77 +105,16 @@ def taut tm =
   context <ctx>
     return tautAux (tm, xs, basicRewrites)
 
-show taut '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
+choose hilbertChoiceDef: 'epsilonU:(𝒰 → ℙ) → 𝒰'
+  let 'p:𝒰 → ℙ'
+  assume ex:'∃x. p x'
+  choose 'chosen' ex
 
-# theorem orDeMorgan: '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
-#   let 'p:ℙ'
-#   let 'q:ℙ'
-#   let 'r:ℙ'
-#   theorem left:
-#     assume asm:'¬(p ∧ q)'
-#     theorem qnotp:
-#       assume q:'q:ℙ'
-#       theorem notp:
-#         assume p:'p:ℙ'
-#         matchmp (andComplement,andIntro(andIntro (p,q),asm))
-#       matchmp (impliesNot,notp)
-#     # TODO: Need to intro disjunctions
-#     matchmp (orDefEx,
-#              instantiate (excludedMiddle,'q:ℙ'),
-#              qnotp,
-#              instantiate (trivImp,'¬q:ℙ'))
-#   theorem right:
-#     assume asm:'¬p ∨ ¬q'
-#     theorem notpq:
-#       assume pq:'p ∧ q'
-#       theorem notp:
-#         assume notp:'¬p'
-#         matchmp (andComplement,andIntro(conjuncts pq 0,notp))
-#       theorem notq:
-#         assume notp:'¬q'
-#         matchmp (andComplement,andIntro(conjuncts pq 1,notq))
-#       matchmp (orDef,asm,notp,notq)
-#     matchmp (impliesNot,notpq)
-
-# def
-#   transImp ['‹p› → ‹q›' as thm] =
-#     val _ = assertThm thm
-#     thm
-#   transImp (('‹p› → ‹q›' as imp) <+ imps) =
-#     theorem thm:
-#       assume p:'‹p›'
-#       modusponens (modusponens (p,imp),transImp imps)
-#     thm
-
-# theorem negInvolve: '∀p. (¬(¬p)) = p'
-#   let 'p:ℙ'
-#   theorem left:
-#     assume nnp:'¬(¬p)'
-#     theorem npp:
-#       assume np:'¬p'
-#       matchmp (andComplement, andIntro (np,nnp))
-#     matchmp (\bootstrap\Connectives\orDef,
-#              instantiate (excludedMiddle, 'p:ℙ'),
-#              instantiate (trivImp, 'p:ℙ'),
-#              transImp (npp, instantiate (botDef, 'p:ℙ')))
-#   theorem right:
-#     assume asm:'p:ℙ'
-#     theorem npp:
-#       assume np:'¬p'
-#       matchmp (andComplement, andIntro (asm,np))
-#     matchmp (gsym notDefEx, npp)
-#   equivalence (left,right)
-
-# choose hilbertChoiceDef: 'epsilonU:(𝒰 → ℙ) → 𝒰'
-#   let 'p:𝒰 → ℙ'
-#   assume ex:'∃x. p x'
-#   choose 'chosen' ex
-
-# theorem hilbertChoice:'∀ p x. p x → p (epsilonU p)'
-#   let p:'p:𝒰 → ℙ'
-#   let 'x'
-#   assume assum:'p x'
-#   theorem pExists:'∃ x. p x'
-#     let ydef:'y = x'
-#     modusponens (assum,combine (reflexive p,sym ydef))
-#   modusponens (pExists,instantiate (hilbertChoiceDef,'p'))
+theorem hilbertChoice:'∀ p x. p x → p (epsilonU p)'
+  let p:'p:𝒰 → ℙ'
+  let 'x'
+  assume assum:'p x'
+  theorem pExists:'∃ x. p x'
+    let ydef:'y = x'
+    modusponens (assum,combine (reflexive p,sym ydef))
+  modusponens (pExists,instantiate (hilbertChoiceDef,'p'))
