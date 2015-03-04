@@ -22,6 +22,103 @@ theorem equalCNF: '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
 theorem contra: '∀p q. ¬p → p → q'
   taut '∀p q. ¬p → p → q'
 
+theorem existsDeMorgan: '∀P. (¬(∃x. P x)) = (∀x. ¬(P x))'
+  let 'P : 𝒰 → ℙ'
+  theorem left: '(¬(∃x. P x)) → (∀x. ¬(P x))'
+    assume asm:'¬(∃x. P x)'
+    let x:'x'
+    theorem notPx:
+      assume px:'P x'
+      theorem pExists:
+        val y = fresh "y"
+        val asm = let 'y = x'
+        convRule (onceTreeConv (rewrConv [sym asm]), px) 0
+      modusponens (pExists, matchmp (notDefEx, asm))
+    matchmp (impliesNot, notPx)
+  theorem right:
+    assume asm:'∀x. ¬(P x)'
+    theorem notExP:
+      assume exP:'∃x. P x'
+      val px = choose 'x' exP
+      matchmp (notDefEx, instantiate (asm,'x'), px)
+    matchmp (impliesNot, notExP)
+  equivalence (left,right)
+
+theorem allDeMorgan: '∀P. (¬(∀x. P x)) = (∃x. ¬(P x))'
+  let 'P : 𝒰 → ℙ'
+  val existsDeMorganInst =
+    instantiate(existsDeMorgan,'x ↦ ¬(P x)')
+  seqConv [randConv (randConv (absConv (rewrConv [gsym negInvolve]))),
+           onceTreeConv (rewrConv [gsym existsDeMorganInst]),
+           rewrConv [negInvolve]] '¬(∀x. P x)' 0
+
+# As conversions, so that we can exploit higher-order matching.
+def
+  existsDeMorganConv '(¬(∃x. ‹P› x))' =
+    [instantiate (existsDeMorgan, P)]
+  existsDeMorganConv _ = []
+
+def
+  allDeMorganConv '¬(∀x. ‹P› x)' =
+    [instantiate (allDeMorgan, P)]
+  allDeMorganConv _ = []
+
+theorem disjExists: '∀P Q. ((∃x. P x) ∨ (∃x. Q x)) = (∃x. P x ∨ Q x)'
+  let 'P : 𝒰 → ℙ'
+  let 'Q : 𝒰 → ℙ'
+  theorem left: '((∃x. P x) ∨ (∃x. Q x)) → (∃x. P x ∨ Q x)'
+    assume asm:'(∃x. P x) ∨ (∃x. Q x)'
+    theorem case1: '(∃x. P x) → (∃x. P x ∨ Q x)'
+      assume asm:'∃x. P x'
+      val xIsP = choose 'x' asm
+      orIntroL (xIsP, 'Q x')
+    theorem case2: '(∃x. Q x) → (∃x. P x ∨ Q x)'
+      assume asm:'∃x. Q x'
+      val xIsQ = choose 'x' asm
+      orIntroR ('P x', xIsQ)
+    matchmp (orDefEx,asm,case1,case2)
+  theorem right:
+    assume asm:'∃x. P x ∨ Q x'
+    val xIsPorQ = choose 'x' asm
+    theorem case1:
+      assume xIsP:'P x'
+      theorem thereIsAP:
+        val yIsX = let 'y = x'
+        convRule (randConv (subsConv [sym yIsX]),xIsP) 0
+      orIntroL (thereIsAP, '(∃x. Q x)')
+    theorem case2:
+      assume xIsQ:'Q x'
+      theorem thereIsAQ:
+        val yIsX = let 'y = x'
+        convRule (randConv (subsConv [sym yIsX]),xIsQ) 0
+      orIntroR ('∃x. P x', thereIsAQ)
+    matchmp (orDefEx,xIsPorQ,case1,case2)
+  equivalence (left,right)
+
+theorem conjAll: '∀P Q. ((∀x. P x) ∧ (∀x. Q x)) = (∀x. P x ∧ Q x)'
+  let P:'P : 𝒰 → ℙ'
+  let Q:'Q : 𝒰 → ℙ'
+  val disjExistsInst = combine (reflexive 'p ↦ ¬p',
+                                instantiate (disjExists,'x ↦ ¬‹P› x','x ↦ ¬‹Q› x'))
+  convRule
+    (seqConv
+      [binaryConv
+        (seqConv [rewrConv [orDeMorgan],
+                  onceTreeConv existsDeMorganConv],
+        (seqConv [existsDeMorganConv, onceTreeConv (rewrConv [orDeMorgan])])),
+       onceTreeConv (rewrConv [negInvolve])], disjExistsInst) 0
+
+# As conversions, so that we can exploit higher-order matching.
+def
+  disjExistsConv '(∃x. ‹P› x) ∨ (∃x. ‹Q› x)' =
+    [instantiate (disjExists,P,Q)]
+  disjExistsConv _ = []
+
+def
+  conjAllConv '(∀x. ‹P› x) ∧ (∀x. ‹Q› x)' =
+    [instantiate (conjAll,P,Q)]
+  conjAllConv _ = []
+
 # Quantifier rules as conversions, since we need to be "polymorphic" in P and Q.
 def
   existsDeMorganConv '(¬(∃x. ‹P› x))' =
@@ -157,7 +254,7 @@ theorem trivAll: '∀p. p = (∀x. p)'
   equivalence (left,right)
 
 def
-  raiseQuantifier '(∃x. ‹P› x) ∧ ‹Q›' =
+  raiseQuantifiers '(∃x. ‹P› x) ∧ ‹Q›' =
     theorem thm: '((∃x. ‹P› x) ∧ ‹Q›) = (∃x. ‹P› x ∧ ‹Q›)'
       val x = fresh "x"
       theorem left: '((∃x. ‹P› x) ∧ ‹Q›) → (∃x. ‹P› x ∧ ‹Q›)'
@@ -176,7 +273,7 @@ def
         andIntro (thereIsAP,q)
       equivalence (left,right)
     [thm]
-  raiseQuantifier '(∀x. ‹P› x) ∨ ‹Q›' =
+  raiseQuantifiers '(∀x. ‹P› x) ∨ ‹Q›' =
     theorem thm: '((∀x. ‹P› x) ∨ ‹Q›) = (∀x. ‹P› x ∨ ‹Q›)'
       val x = fresh "x"
       theorem left: '((∀x. ‹P› x) ∨ ‹Q›) → (∀x. ‹P› x ∨ ‹Q›)'
@@ -210,11 +307,19 @@ def
                  ifNotQ)
       equivalence (left,right)
     [thm]
-  raiseQuantifier ('(∃x. ‹P› x) ∨ ‹Q›' as tm) =
+  raiseQuantifiers ('(∃x. ‹P› x) ∨ ‹Q›' as tm) =
     seqConv (randConv (rewrConv [trivExists]), disjExistsConv) tm
-  raiseQuantifier ('(∀x. ‹P› x) ∧ ‹Q›' as tm) =
+  raiseQuantifiers ('(∀x. ‹P› x) ∧ ‹Q›' as tm) =
     seqConv (randConv (rewrConv [trivAll]), conjAllConv) tm
-  raiseQuantifier _ = []
+  raiseQuantifiers ('‹Q› ∧ (∀x. ‹P› x)' as tm) =
+    (seqConv [rewrConv [andComm], raiseQuantifiers]) tm
+  raiseQuantifiers ('‹Q› ∧ (∃x. ‹P› x)' as tm) =
+    (seqConv [rewrConv [andComm], raiseQuantifiers]) tm
+  raiseQuantifiers ('‹Q› ∨ (∀x. ‹P› x)' as tm) =
+    (seqConv [rewrConv [orComm], raiseQuantifiers]) tm
+  raiseQuantifiers ('‹Q› ∨ (∃x. ‹P› x)' as tm) =
+    (seqConv [rewrConv [orComm], raiseQuantifiers]) tm
+  raiseQuantifiers _ = []
 
 context
   let 'P:𝒰 → ℙ'
@@ -223,7 +328,11 @@ context
   show disjExistsConv '(∃x. P x) ∨ (∃x. Q x)'
   show existsDeMorganConv '¬(∃x. P x)'
   show allDeMorganConv '¬(∀x. P x)'
-  show (rhs (normalize (term (raiseQuantifier '(∃x. P x) ∧ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifier '(∀x. P x) ∨ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifier '(∃x. P x) ∨ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifier '(∀x. P x) ∧ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifiers '(∃x. P x) ∧ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifiers '(∀x. P x) ∨ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifiers '(∃x. P x) ∨ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifiers '(∀x. P x) ∧ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∧ (∃x. P x)' 0))))
+  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∨ (∀x. P x)' 0))))
+  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∨ (∃x. P x)' 0))))
+  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∧ (∀x. P x)' 0))))
