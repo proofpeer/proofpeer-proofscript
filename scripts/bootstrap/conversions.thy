@@ -51,7 +51,8 @@ def subsConv thms =
       for ([l,_] if l == tm) in [desteq thm] do
         thm
 
-def rewrConv thms =
+# Non-deterministic rewriter.
+def rewrConvND thms =
   tm =>
     concat
       (for thm in thms do
@@ -94,6 +95,7 @@ def sumConv convs =
       for '‹_› = ‹_›' as cthm in conv tm do
         cthm
 
+# Applies a list of conversions in sequence, requiring each to succed.
 def seqWhenChangedConv convs =
   tm =>
     val thenConv = conv1 => conv2 => tm =>
@@ -103,6 +105,16 @@ def seqWhenChangedConv convs =
     match convs
       case []              => idConv
       case (conv <+ convs) => foldl (thenConv,convs,conv) tm
+
+# Only succeeds if the conversion changes the theorem
+def changedConv conv = seqWhenChangedConv [conv, idConv]
+
+# Deterministic rewriter.
+def rewrConv thms =
+  val rewrs =
+    for thm in thms do
+      tryConv (rewrConvND [thm])
+  changedConv (seqConv rewrs)
 
 # Applies a conversion top-down through a term, immediately retraversing a changed
 # term.
