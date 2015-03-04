@@ -23,49 +23,39 @@ def matcher [tm,pattern,inst] =
     insert inst
   def
     matcher [tm,pattern,inst,env] =
-      match pattern
-        case '∀ x. ‹p› x' =>
-          match tm
-            case '∀ x. ‹q› x' => matcher (q,p,inst,env)
-            case _            => nil
-        case '∃ x. ‹p› x' =>
-          match tm
-            case '∃ x. ‹q› x' => matcher (q,p,inst,env)
-            case _            => nil
+      match destcomb pattern
+        case [f,x] =>
+          match destcomb tm
+            case [g,y] =>
+              match matcher (g,f,inst,env)
+                case nil   => nil
+                case finst => matcher (y,x,finst,env)
+            case _ => nil
         case _ =>
-          match destcomb pattern
-            case [f,x] =>
-              match destcomb tm
-                case [g,y] =>
-                  match matcher (g,f,inst,env)
-                    case nil   => nil
-                    case finst => matcher (y,x,finst,env)
-                case _ => nil
-            case _ =>
-              match destabs pattern
-                case [patternCtx,x,patternBod] =>
-                  val newInst
-                  context <patternCtx>
-                    match destabs tm
-                      case [ctx,y,bod] =>
-                        context <ctx>
-                          newInst = matcher (bod,patternBod,inst,[y,x] <+ env)
-                      case _ => nil
-                  newInst
+          match destabs pattern
+            case [patternCtx,x,patternBod] =>
+              val newInst
+              context <patternCtx>
+                match destabs tm
+                  case [ctx,y,bod] =>
+                    context <ctx>
+                      newInst = matcher (bod,patternBod,inst,[y,x] <+ env)
+                  case _ => nil
+              newInst
+            case nil =>
+              match assoc [tm,env]
                 case nil =>
-                  match assoc [tm,env]
-                    case nil =>
-                      match insertNew (tm,pattern,inst)
-                        case "Constant" =>
-                          if tm == pattern then
-                            inst
-                          else nil
-                        case nil  => nil
-                        case inst => inst
-                    case [v] =>
-                      if pattern == v then
+                  match insertNew (tm,pattern,inst)
+                    case "Constant" =>
+                      if tm == pattern then
                         inst
                       else nil
+                    case nil  => nil
+                    case inst => inst
+                case [v] =>
+                  if pattern == v then
+                    inst
+                  else nil
   matcher (tm,pattern,inst,[])
 
 def matchAntThen [imp,ant,f] =
