@@ -44,10 +44,6 @@ theorem excludedMiddle: '∀p. p ∨ ¬p'
                    matchmp (instantiate (choice,v), orIntroL (notFalse,'p:ℙ'))))
   matchmp (orDefEx, factored, lemma2, lemma3)
 
-theorem orComplement: '∀p. (p ∨ ¬p) = ⊤'
-  let p:'p:ℙ'
-  eqTrueIntro (instantiate (excludedMiddle,p))
-
 theorem boolCases: '∀p. p = ⊤ ∨ p = ⊥'
   convRule (randConv (absConv (binaryConv (rewrConv [gsym eqTrueSimp],
                                            rewrConv [gsym eqFalseSimp]))),
