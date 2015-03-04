@@ -142,60 +142,64 @@ theorem trivAll: '∀p. p = (∀x. p)'
     instantiate (asm,'∅')
   equivalence (left,right)
 
+theorem raiseExistential: '∀P Q. ((∃x. P x) ∧ Q) = (∃x. P x ∧ Q)'
+  let 'P : 𝒰 → ℙ'
+  let 'Q : ℙ'
+  theorem left: '((∃x. P x) ∧ Q) → (∃x. P x ∧ Q)'
+    assume asm:'(∃x. P x) ∧ Q'
+    val [thereIsAP,q] = conjuncts asm
+    val xIsP = choose 'x' thereIsAP
+    andIntro (xIsP,q)
+  theorem right: '(∃x. P x ∧ Q) → ((∃x. P x) ∧ Q)'
+    assume asm:'(∃x. P x ∧ Q)'
+    theorem thereIsAP:'∃x. P x'
+      val conj = choose 'x' asm
+      conjuncts conj 0
+    theorem q: 'Q'
+      val conj = choose 'x' asm
+      conjuncts conj 1
+    andIntro (thereIsAP,q)
+  equivalence (left,right)
+
+theorem raiseUniversal: '∀P Q. ((∀x. P x) ∨ Q) = (∀x. P x ∨ Q)'
+  let 'P : 𝒰 → ℙ'
+  let 'Q : ℙ'
+  theorem left: '((∀x. P x) ∨ Q) → (∀x. P x ∨ Q)'
+    assume asm:'(∀x. P x) ∨ Q'
+    let 'x'
+    theorem case1:
+      assume px:'∀x. P x'
+      orIntroL (instantiate (px,'x'), 'Q')
+    theorem case2:
+      assume q:'Q'
+      orIntroR ('P x',q)
+    matchmp (orDefEx,asm,case1,case2)
+  theorem right: '(∀x. P x ∨ Q) → ((∀x. P x) ∨ Q)'
+    assume asm: '∀x. P x ∨ Q'
+    theorem ifNotQ:
+      assume notq:'¬Q'
+      theorem allP:'(∀x. P x)'
+        let 'x'
+        matchmp (orDefEx,
+                 instantiate (asm,'x'),
+                 instantiate (trivImp, 'P x'),
+                 modusponens (notq,
+                              instantiate (contra, 'Q', 'P x')))
+      orIntroL (allP,'Q')
+    theorem ifQ:
+      assume q:'Q'
+      orIntroR ('∀x. P x',q)
+    matchmp (orDefEx,
+             instantiate (excludedMiddle,'Q'),
+             ifQ,
+             ifNotQ)
+  equivalence (left,right)
+
 def
   raiseQuantifiers '(∃x. ‹P› x) ∧ ‹Q›' =
-    theorem thm: '((∃x. ‹P› x) ∧ ‹Q›) = (∃x. ‹P› x ∧ ‹Q›)'
-      val x = fresh "x"
-      theorem left: '((∃x. ‹P› x) ∧ ‹Q›) → (∃x. ‹P› x ∧ ‹Q›)'
-        assume asm:'(∃x. ‹P› x) ∧ ‹Q›'
-        val [thereIsAP,q] = conjuncts asm
-        val xIsP = choose '‹x›' thereIsAP
-        andIntro (xIsP,q)
-      theorem right: '(∃x. ‹P› x ∧ ‹Q›) → ((∃x. ‹P› x) ∧ ‹Q›)'
-        assume asm:'(∃x. ‹P› x ∧ ‹Q›)'
-        theorem thereIsAP:'∃x. ‹P› x'
-          val conj = choose '‹x›' asm
-          conjuncts conj 0
-        theorem q: '‹Q›'
-          val conj = choose '‹x›' asm
-          conjuncts conj 1
-        andIntro (thereIsAP,q)
-      equivalence (left,right)
-    [thm]
+    [instantiate (raiseExistential,P,Q)]
   raiseQuantifiers '(∀x. ‹P› x) ∨ ‹Q›' =
-    theorem thm: '((∀x. ‹P› x) ∨ ‹Q›) = (∀x. ‹P› x ∨ ‹Q›)'
-      val x = fresh "x"
-      theorem left: '((∀x. ‹P› x) ∨ ‹Q›) → (∀x. ‹P› x ∨ ‹Q›)'
-        assume asm:'(∀x. ‹P› x) ∨ ‹Q›'
-        let '‹x›'
-        theorem case1:
-          assume px:'∀x. ‹P› x'
-          orIntroL (instantiate (px,'‹x›'), '‹Q›')
-        theorem case2:
-          assume q:'‹Q›'
-          orIntroR ('‹P› ‹x›',q)
-        matchmp (orDefEx,asm,case1,case2)
-      theorem right: '(∀x. ‹P› x ∨ ‹Q›) → ((∀x. ‹P› x) ∨ ‹Q›)'
-        assume asm: '∀x. ‹P› x ∨ ‹Q›'
-        theorem ifNotQ:
-          assume notq:'¬‹Q›'
-          theorem allP:'(∀x. ‹P› x)'
-            let '‹x›'
-            matchmp (orDefEx,
-                     instantiate (asm,'‹x›'),
-                     instantiate (trivImp, '‹P› ‹x›'),
-                     modusponens (notq,
-                                  instantiate (contra, '‹Q›', '‹P› ‹x›')))
-          orIntroL (allP,'‹Q›')
-        theorem ifQ:
-          assume q:'‹Q›'
-          orIntroR ('∀x. ‹P› ‹x›',q)
-        matchmp (orDefEx,
-                 instantiate (excludedMiddle,'‹Q›'),
-                 ifQ,
-                 ifNotQ)
-      equivalence (left,right)
-    [thm]
+    [instantiate (raiseUniversal,P,Q)]
   raiseQuantifiers ('(∃x. ‹P› x) ∨ ‹Q›' as tm) =
     seqConv (randConv (rewrConv [trivExists]), disjExistsConv) tm
   raiseQuantifiers ('(∀x. ‹P› x) ∧ ‹Q›' as tm) =
