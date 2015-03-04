@@ -19,6 +19,9 @@ theorem impliesCNF: '∀p q. (p → q) = (¬p ∨ q)'
 theorem equalCNF: '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
   taut '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
 
+theorem contra: '∀p q. ¬p → p → q'
+  taut '∀p q. ¬p → p → q'
+
 # Quantifier rules as conversions, since we need to be "polymorphic" in P and Q.
 def
   existsDeMorganConv '(¬(∃x. ‹P› x))' =
@@ -85,13 +88,14 @@ def
         theorem allp:
           let '‹x›'
           conjuncts (instantiate (asm,'‹x›')) 0
-        theorem allq:
+        theorem allq: '∀x. ‹Q› x'
           let '‹x›'
           conjuncts (instantiate (asm,'‹x›')) 1
         andIntro (allp,allq)
       equivalence (left,right)
     [thm]
   conjAllConv _ = []
+
 
 def
   disjExistsConv '(∃x. ‹P› x) ∨ (∃x. ‹Q› x)' =
@@ -129,6 +133,89 @@ def
     [thm]
   disjExistsConv _ = []
 
+theorem trivExists: '∀p. p = (∃x. p)'
+  let 'p:ℙ'
+  theorem left:'p → (∃x. p)'
+    assume p:'p'
+    let 'x = ∅'
+    p
+  theorem right:'(∃x. p) → p'
+    assume asm:'∃x. p'
+    val p = choose 'x' asm
+    p
+  equivalence (left,right)
+
+theorem trivAll: '∀p. p = (∀x. p)'
+  let 'p:ℙ'
+  theorem left:'p → (∀x. p)'
+    assume p:'p'
+    let 'x'
+    p
+  theorem right:'(∀x. p) → p'
+    assume asm:'∀x. p'
+    instantiate (asm,'∅')
+  equivalence (left,right)
+
+def
+  raiseQuantifier '(∃x. ‹P› x) ∧ ‹Q›' =
+    theorem thm: '((∃x. ‹P› x) ∧ ‹Q›) = (∃x. ‹P› x ∧ ‹Q›)'
+      val x = fresh "x"
+      theorem left: '((∃x. ‹P› x) ∧ ‹Q›) → (∃x. ‹P› x ∧ ‹Q›)'
+        assume asm:'(∃x. ‹P› x) ∧ ‹Q›'
+        val [thereIsAP,q] = conjuncts asm
+        val xIsP = choose '‹x›' thereIsAP
+        andIntro (xIsP,q)
+      theorem right: '(∃x. ‹P› x ∧ ‹Q›) → ((∃x. ‹P› x) ∧ ‹Q›)'
+        assume asm:'(∃x. ‹P› x ∧ ‹Q›)'
+        theorem thereIsAP:'∃x. ‹P› x'
+          val conj = choose '‹x›' asm
+          conjuncts conj 0
+        theorem q: '‹Q›'
+          val conj = choose '‹x›' asm
+          conjuncts conj 1
+        andIntro (thereIsAP,q)
+      equivalence (left,right)
+    [thm]
+  raiseQuantifier '(∀x. ‹P› x) ∨ ‹Q›' =
+    theorem thm: '((∀x. ‹P› x) ∨ ‹Q›) = (∀x. ‹P› x ∨ ‹Q›)'
+      val x = fresh "x"
+      theorem left: '((∀x. ‹P› x) ∨ ‹Q›) → (∀x. ‹P› x ∨ ‹Q›)'
+        assume asm:'(∀x. ‹P› x) ∨ ‹Q›'
+        let '‹x›'
+        theorem case1:
+          assume px:'∀x. ‹P› x'
+          orIntroL (instantiate (px,'‹x›'), '‹Q›')
+        theorem case2:
+          assume q:'‹Q›'
+          orIntroR ('‹P› ‹x›',q)
+        matchmp (orDefEx,asm,case1,case2)
+      theorem right: '(∀x. ‹P› x ∨ ‹Q›) → ((∀x. ‹P› x) ∨ ‹Q›)'
+        assume asm: '∀x. ‹P› x ∨ ‹Q›'
+        theorem ifNotQ:
+          assume notq:'¬‹Q›'
+          theorem allP:'(∀x. ‹P› x)'
+            let '‹x›'
+            matchmp (orDefEx,
+                     instantiate (asm,'‹x›'),
+                     instantiate (trivImp, '‹P› ‹x›'),
+                     modusponens (notq,
+                                  instantiate (contra, '‹Q›', '‹P› ‹x›')))
+          orIntroL (allP,'‹Q›')
+        theorem ifQ:
+          assume q:'‹Q›'
+          orIntroR ('∀x. ‹P› ‹x›',q)
+        matchmp (orDefEx,
+                 instantiate (excludedMiddle,'‹Q›'),
+                 ifQ,
+                 ifNotQ)
+      equivalence (left,right)
+    [thm]
+  raiseQuantifier ('(∃x. ‹P› x) ∨ ‹Q›' as tm) =
+    seqConv (randConv (rewrConv [trivExists]), disjExistsConv) tm
+  raiseQuantifier ('(∀x. ‹P› x) ∧ ‹Q›' as tm) =
+    seqConv (randConv (rewrConv [trivAll]), conjAllConv) tm
+  raiseQuantifier _ = []
+
 context
   let 'P:𝒰 → ℙ'
   let 'Q:𝒰 → ℙ'
@@ -136,3 +223,7 @@ context
   show disjExistsConv '(∃x. P x) ∨ (∃x. Q x)'
   show existsDeMorganConv '¬(∃x. P x)'
   show allDeMorganConv '¬(∀x. P x)'
+  show (rhs (normalize (term (raiseQuantifier '(∃x. P x) ∧ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifier '(∀x. P x) ∨ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifier '(∃x. P x) ∨ Q = Q' 0))))
+  show (rhs (normalize (term (raiseQuantifier '(∀x. P x) ∧ Q = Q' 0))))
