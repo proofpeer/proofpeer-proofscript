@@ -77,9 +77,8 @@ def seqConv convs =
 
 # Applies a conversion as an inference rule.
 def convRule [conv,thm] =
-  val '‹_› = ‹rhs›' as norm = normalize (term thm)
-  for '‹_› = ‹_›' as cthm in conv rhs do
-    modusponens (thm, norm, cthm)
+  for '‹_› = ‹_›' as cthm in conv (term thm) do
+    modusponens (thm, cthm)
 
 # Attempt a conversion. If it has no results, just use idConv
 def tryConv conv =
