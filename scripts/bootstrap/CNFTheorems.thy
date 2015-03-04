@@ -4,20 +4,20 @@ extends Classical
 theorem negInvolve: '∀p. (¬(¬p)) = p'
   taut '∀p. (¬(¬p)) = p'
 
-# theorem andDeMorgan: '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
-#   taut '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
+theorem andDeMorgan: '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
+  taut '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
 
-# theorem orDeMorgan: '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
-#   taut '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
+theorem orDeMorgan: '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
+  taut '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
 
-# theorem notImplies: '∀p q. (¬(p → q)) = (p ∧ ¬q)'
-#   taut '∀p q. (¬(p → q)) = (p ∧ ¬q)'
+theorem notImplies: '∀p q. (¬(p → q)) = (p ∧ ¬q)'
+  taut '∀p q. (¬(p → q)) = (p ∧ ¬q)'
 
-# theorem impliesCNF: '∀p q. (p → q) = (¬p ∨ q)'
-#   taut '∀p q. (p → q) = (¬p ∨ q)'
+theorem impliesCNF: '∀p q. (p → q) = (¬p ∨ q)'
+  taut '∀p q. (p → q) = (¬p ∨ q)'
 
-# theorem equalCNF: '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
-#   taut '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
+theorem equalCNF: '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
+  taut '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
 
 # Quantifier rules as conversions, since we need to be "polymorphic" in P and Q.
 def
@@ -54,7 +54,7 @@ def
           val contra =
             convRule (onceTreeConv (rewrConv [negInvolve]),
                       modusponens (notExNotP,
-                                   existsDeMorganConv '¬(∃x. ‹P› x)' 0))
+                                   existsDeMorganConv '¬(∃x. ¬‹P› x)' 0)) 0
           modusponens (contra, matchmp (notDefEx, asm))
         convRule (treeConv (rewrConv [negInvolve,impliesNot]), notnotExists) 0
       theorem right: '(∃x. ¬(‹P› x)) → ¬(∀x. ‹P› x)'
@@ -129,4 +129,4 @@ context
   show conjAllConv '(∀x. P x) ∧ (∀x. Q x)'
   show disjExistsConv '(∃x. P x) ∨ (∃x. Q x)'
   show existsDeMorganConv '¬(∃x. P x)'
-  show allDeMorganConv '¬(∃x. P x)'
+  show allDeMorganConv '¬(∀x. P x)'
