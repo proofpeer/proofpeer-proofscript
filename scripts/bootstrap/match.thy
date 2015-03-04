@@ -1,7 +1,8 @@
 theory Match
 extends Syntax List
 
-def matcher [tm,target,inst] =
+# Very simple matching.
+def matcher [tm,pattern,inst] =
   def insertNew [t,v,inst] =
     def
       insert []                        = "Constant"
@@ -21,18 +22,18 @@ def matcher [tm,target,inst] =
           case inst       => u <+ inst
     insert inst
   def
-    matcher [tm,target,inst,env] =
-      match target
+    matcher [tm,pattern,inst,env] =
+      match pattern
         case '∀ x. ‹p› x' =>
           match tm
             case '∀ x. ‹q› x' => matcher (q,p,inst,env)
             case _            => nil
         case '∃ x. ‹p› x' =>
           match tm
-            case '∀ x. ‹q› x' => matcher (q,p,inst,env)
+            case '∃ x. ‹q› x' => matcher (q,p,inst,env)
             case _            => nil
         case _ =>
-          match destcomb target
+          match destcomb pattern
             case [f,x] =>
               match destcomb tm
                 case [g,y] =>
@@ -41,31 +42,31 @@ def matcher [tm,target,inst] =
                     case finst => matcher (y,x,finst,env)
                 case _ => nil
             case _ =>
-              match destabs target
-                case [targetCtx,x,targetBod] =>
+              match destabs pattern
+                case [patternCtx,x,patternBod] =>
                   val newInst
-                  context <targetCtx>
+                  context <patternCtx>
                     match destabs tm
                       case [ctx,y,bod] =>
                         context <ctx>
-                          newInst = matcher (bod,targetBod,inst,[y,x] <+ env)
+                          newInst = matcher (bod,patternBod,inst,[y,x] <+ env)
                       case _ => nil
                   newInst
                 case nil =>
                   match assoc [tm,env]
                     case nil =>
-                      match insertNew (tm,target,inst)
+                      match insertNew (tm,pattern,inst)
                         case "Constant" =>
-                          if tm == target then
+                          if tm == pattern then
                             inst
                           else nil
                         case nil  => nil
                         case inst => inst
                     case [v] =>
-                      if target == v then
+                      if pattern == v then
                         inst
                       else nil
-  matcher (tm,target,inst,[])
+  matcher (tm,pattern,inst,[])
 
 def matchAntThen [imp,ant,f] =
   def
@@ -77,7 +78,7 @@ def matchAntThen [imp,ant,f] =
       val bnds = matcher (term ant,p,vs)
       if bnds == nil then return nil
       val inst =
-        for bnd in matcher (term ant,p,vs) do
+        for bnd in bnds do
           match bnd
             case [x,v] => x
             case v     => v
@@ -86,7 +87,7 @@ def matchAntThen [imp,ant,f] =
       val bnds = matcher (term ant,p,vs)
       if bnds == nil then return nil
       val inst =
-        for bnd in matcher (term ant,p,vs) do
+        for bnd in bnds do
           match bnd
             case [x,v] => x
             case v     => v
