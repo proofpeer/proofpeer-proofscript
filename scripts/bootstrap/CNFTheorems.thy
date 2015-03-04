@@ -60,3 +60,66 @@ theorem allDeMorgan: '∀P. (¬(∀x. P x)) = (∃x. ¬(P x))'
       matchmp (notDefEx, notPy, instantiate (allPx, 'y'))
     matchmp (impliesNot, notAll)
   equivalence (left,right)
+
+# Conjunction and disjunction rules as conversions, since we need to be
+# "polymorphic" in P and Q.
+def
+  conjAllConv '(∀x. ‹P› x) ∧ (∀x. ‹Q› x)' =
+    theorem thm: '((∀x. ‹P› x) ∧ (∀x. ‹Q› x)) = (∀x. ‹P› x ∧ ‹Q› x)'
+      theorem left: '((∀x. ‹P› x) ∧ (∀x. ‹Q› x)) → (∀x. ‹P› x ∧ ‹Q› x)'
+        assume asm:'(∀x. ‹P› x) ∧ (∀x. ‹Q› x)'
+        val [asm1,asm2] = conjuncts asm
+        let 'x'
+        andIntro (instantiate (asm1,'x'),instantiate (asm2,'x'))
+      theorem right:
+        assume asm:'(∀x. ‹P› x ∧ ‹Q› x)'
+        theorem allp:
+          let 'x'
+          conjuncts (instantiate (asm,'x')) 0
+        theorem allq:
+          let 'x'
+          conjuncts (instantiate (asm,'x')) 1
+        andIntro (allp,allq)
+      equivalence (left,right)
+    [thm]
+  conjAllConv _ = []
+
+def
+  disjExistsConv '(∃x. ‹P› x) ∨ (∃x. ‹Q› x)' =
+    theorem thm: '((∃x. ‹P› x) ∨ (∃x. ‹Q› x)) = (∃x. ‹P› x ∨ ‹Q› x)'
+      theorem left: '((∃x. ‹P› x) ∨ (∃x. ‹Q› x)) → (∃x. ‹P› x ∨ ‹Q› x)'
+        assume asm:'(∃x. ‹P› x) ∨ (∃x. ‹Q› x)'
+        theorem case1: '(∃x. ‹P› x) → (∃x. ‹P› x ∨ ‹Q› x)'
+          assume asm:'∃x. ‹P› x'
+          val xIsP = choose 'x' asm
+          orIntroL (xIsP, '‹Q› x')
+        theorem case2: '(∃x. ‹Q› x) → (∃x. ‹P› x ∨ ‹Q› x)'
+          assume asm:'∃x. ‹Q› x'
+          val xIsQ = choose 'x' asm
+          orIntroR ('‹P› x', xIsQ)
+        matchmp (orDefEx,asm,case1,case2)
+      theorem right:
+        assume asm:'∃x. ‹P› x ∨ ‹Q› x'
+        val xIsPorQ = choose 'x' asm
+        theorem case1:
+          assume xIsP:'‹P› x'
+          theorem thereIsAP:
+            val yIsX = let 'y = x'
+            convRule (randConv (subsConv [sym yIsX]),xIsP) 0
+          orIntroL (thereIsAP, '(∃x. ‹Q› x)')
+        theorem case2:
+          assume xIsQ:'‹Q› x'
+          theorem thereIsAQ:
+            val yIsX = let 'y = x'
+            convRule (randConv (subsConv [sym yIsX]),xIsQ) 0
+          orIntroR ('∃x. ‹P› x', thereIsAQ)
+        matchmp (orDefEx,xIsPorQ,case1,case2)
+      equivalence (left,right)
+    [thm]
+  disjExistsConv _ = []
+
+context
+  let 'P:𝒰 → ℙ'
+  let 'Q:𝒰 → ℙ'
+  show conjAllConv '(∀x. P x) ∧ (∀x. Q x)'
+  show disjExistsConv '(∃x. P x) ∨ (∃x. Q x)'
