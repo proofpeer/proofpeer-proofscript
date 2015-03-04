@@ -88,11 +88,17 @@ def tryConv conv =
       case cthms => cthms
 
 # Applies a list of conversions non-deterministically.
-def sumConv convs =
+def sumConvND convs =
   tm =>
     for conv in convs do
       for '‹_› = ‹_›' as cthm in conv tm do
         cthm
+
+def sumConv convs =
+  tm =>
+    match sumConvND convs tm
+      case []          => []
+      case (cthm <+ _) => [cthm]
 
 # Applies a list of conversions in sequence, requiring each to succed.
 def seqWhenChangedConv convs =
