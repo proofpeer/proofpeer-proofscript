@@ -19,6 +19,12 @@ theorem impliesCNF: '∀p q. (p → q) = (¬p ∨ q)'
 theorem equalCNF: '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
   taut '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
 
+theorem orDistribRight: '∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
+  taut '∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
+
+theorem orDistribLeft: '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
+  taut '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
+
 theorem contra: '∀p q. ¬p → p → q'
   taut '∀p q. ¬p → p → q'
 
@@ -213,6 +219,17 @@ def
   raiseQuantifiers ('‹Q› ∨ (∃x. ‹P› x)' as tm) =
     (seqConv [rewrConv [orComm], raiseQuantifiers]) tm
   raiseQuantifiers _ = []
+
+def
+  cnfConv '‹p› ∧ ‹q›' as tm = binaryConv (cnfConv,cnfConv) tm
+  cnfConv '‹p› ∨ ‹q›' as tm =
+    seqConv [binaryConv (cnfConv,cnfConv), disjConv] tm
+  cnfConv tm = idConv tm
+  disjConv '(‹p› ∧ ‹q›) ∨ ‹r›' as tm =
+    seqConv [rewrConv [orDistribRight], binaryConv (disjConv, disjConv), disjConv] tm
+  disjConv '‹p› ∨ (‹q› ∧ ‹r›)' as tm =
+    seqConv [rewrConv [orDistribLeft], binaryConv (disjConv, disjConv), disjConv] tm
+  disjConv tm = idConv tm
 
 context
   let 'P:𝒰 → ℙ'

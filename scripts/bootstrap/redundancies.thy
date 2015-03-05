@@ -19,3 +19,16 @@ theorem impliesAxRedundant:'∀ x, y. (x → y) = ((x ∧ y) = x)'
       assume x:'x'
       conjuncts (modusponens (x,sym assum)) 1
   equivalence (l,r)
+
+# Useful for certain redudancies.
+choose anonymous: 'anonymous: 𝒰'
+  let x:'x'
+  let 'y = x'
+  reflexive 'y'
+
+theorem foo: true
+  let x:'x'
+  let 'y = x'
+  reflexive 'y'
+
+show foo
