@@ -64,11 +64,11 @@ def
   cnfConv '‹_› ∧ ‹_›' as tm = binaryConv (cnfConv,cnfConv) tm
   cnfConv '‹_› ∨ ‹_›' as tm =
     seqConv [binaryConv (cnfConv,cnfConv), disjConv] tm
-  cnfConv tm = idConv tm
+  cnfConv tm = tryConv (binderConv cnfConv) tm
   disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
-    seqConv [rewrConv [orDistribRight], binaryConv (disjConv, disjConv), disjConv] tm
+    seqConv [rewrConv orDistribRight, binaryConv (disjConv, disjConv)] tm
   disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
-    seqConv [rewrConv [orDistribLeft], binaryConv (disjConv, disjConv), disjConv] tm
+    seqConv [rewrConv orDistribLeft, binaryConv (disjConv, disjConv)] tm
   disjConv tm = idConv tm
 
-show seqConv [nnf,raiseQuantifiers] '∀p q. (∃x y. p x y) = (∃z. q z)' 0
+show seqConv [nnf,raiseQuantifiers,cnfConv] '∀p q. (∃x y. p x y) = (∃z. q z)' 0
