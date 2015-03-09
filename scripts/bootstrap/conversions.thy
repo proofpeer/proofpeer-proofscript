@@ -158,6 +158,8 @@ def symConv '‹x› = ‹y›' =
   [equivalence (left,right)]
 
 def repeatConv  c     = tm => tryConv (seqConv [c, repeatConv c]) tm
+
+# Repeat a conversional.
 def repeatConvl [k,c] = tm => sumConv [seqConv [c, repeatConvl [k,k c]], c] tm
 
 assert map (term,absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
