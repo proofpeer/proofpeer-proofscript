@@ -120,129 +120,115 @@ def
     [instantiate (disjExists,P,Q)]
   disjExistsConv _ = []
 
-def
-  conjAllConv '(∀x. ‹P› x) ∧ (∀x. ‹Q› x)' =
-    [instantiate (conjAll,P,Q)]
-  conjAllConv _ = []
-
-theorem trivExists: '∀p. p = (∃x. p)'
+theorem trivAll: '∀p. (∀x. p) = p'
   let 'p:ℙ'
-  theorem left:'p → (∃x. p)'
-    assume p:'p'
-    let 'x = ∅'
-    p
-  theorem right:'(∃x. p) → p'
-    assume asm:'∃x. p'
-    val p = choose 'x' asm
-    p
-  equivalence (left,right)
-
-theorem trivAll: '∀p. p = (∀x. p)'
-  let 'p:ℙ'
-  theorem left:'p → (∀x. p)'
-    assume p:'p'
-    let 'x'
-    p
-  theorem right:'(∀x. p) → p'
+  theorem left:'(∀x. p) → p'
     assume asm:'∀x. p'
     instantiate (asm,'∅')
-  equivalence (left,right)
-
-theorem raiseExistential: '∀P Q. ((∃x. P x) ∧ Q) = (∃x. P x ∧ Q)'
-  let 'P : 𝒰 → ℙ'
-  let 'Q : ℙ'
-  theorem left: '((∃x. P x) ∧ Q) → (∃x. P x ∧ Q)'
-    assume asm:'(∃x. P x) ∧ Q'
-    val [thereIsAP,q] = conjuncts asm
-    val xIsP = choose 'x' thereIsAP
-    andIntro (xIsP,q)
-  theorem right: '(∃x. P x ∧ Q) → ((∃x. P x) ∧ Q)'
-    assume asm:'(∃x. P x ∧ Q)'
-    theorem thereIsAP:'∃x. P x'
-      val conj = choose 'x' asm
-      conjuncts conj 0
-    theorem q: 'Q'
-      val conj = choose 'x' asm
-      conjuncts conj 1
-    andIntro (thereIsAP,q)
-  equivalence (left,right)
-
-theorem raiseUniversal: '∀P Q. ((∀x. P x) ∨ Q) = (∀x. P x ∨ Q)'
-  let 'P : 𝒰 → ℙ'
-  let 'Q : ℙ'
-  theorem left: '((∀x. P x) ∨ Q) → (∀x. P x ∨ Q)'
-    assume asm:'(∀x. P x) ∨ Q'
+  theorem right:'p → (∀x. p)'
+    assume p:'p'
     let 'x'
-    theorem case1:
-      assume px:'∀x. P x'
-      orIntroL (instantiate (px,'x'), 'Q')
-    theorem case2:
-      assume q:'Q'
-      orIntroR ('P x',q)
-    matchmp (orDefEx,asm,case1,case2)
-  theorem right: '(∀x. P x ∨ Q) → ((∀x. P x) ∨ Q)'
-    assume asm: '∀x. P x ∨ Q'
-    theorem ifNotQ:
-      assume notq:'¬Q'
-      theorem allP:'(∀x. P x)'
-        let 'x'
-        matchmp (orDefEx,
-                 instantiate (asm,'x'),
-                 instantiate (trivImp, 'P x'),
-                 modusponens (notq,
-                              instantiate (contra, 'Q', 'P x')))
-      orIntroL (allP,'Q')
-    theorem ifQ:
-      assume q:'Q'
-      orIntroR ('∀x. P x',q)
-    matchmp (orDefEx,
-             instantiate (excludedMiddle,'Q'),
-             ifQ,
-             ifNotQ)
+    p
   equivalence (left,right)
 
 def
-  raiseQuantifiers '(∃x. ‹P› x) ∧ ‹Q›' =
-    [instantiate (raiseExistential,P,Q)]
-  raiseQuantifiers '(∀x. ‹P› x) ∨ ‹Q›' =
-    [instantiate (raiseUniversal,P,Q)]
-  raiseQuantifiers ('(∃x. ‹P› x) ∨ ‹Q›' as tm) =
-    seqConv (randConv (rewrConv [trivExists]), disjExistsConv) tm
-  raiseQuantifiers ('(∀x. ‹P› x) ∧ ‹Q›' as tm) =
-    seqConv (randConv (rewrConv [trivAll]), conjAllConv) tm
-  raiseQuantifiers ('‹Q› ∧ (∀x. ‹P› x)' as tm) =
-    (seqConv [rewrConv [andComm], raiseQuantifiers]) tm
-  raiseQuantifiers ('‹Q› ∧ (∃x. ‹P› x)' as tm) =
-    (seqConv [rewrConv [andComm], raiseQuantifiers]) tm
-  raiseQuantifiers ('‹Q› ∨ (∀x. ‹P› x)' as tm) =
-    (seqConv [rewrConv [orComm], raiseQuantifiers]) tm
-  raiseQuantifiers ('‹Q› ∨ (∃x. ‹P› x)' as tm) =
-    (seqConv [rewrConv [orComm], raiseQuantifiers]) tm
-  raiseQuantifiers _ = []
+  trivAllConv '(∀x. ‹p›)' =
+    [instantiate (trivAll,p)]
+  trivAllConv _ = []
 
 def
-  cnfConv '‹p› ∧ ‹q›' as tm = binaryConv (cnfConv,cnfConv) tm
-  cnfConv '‹p› ∨ ‹q›' as tm =
-    seqConv [binaryConv (cnfConv,cnfConv), disjConv] tm
-  cnfConv tm = idConv tm
-  disjConv '(‹p› ∧ ‹q›) ∨ ‹r›' as tm =
-    seqConv [rewrConv [orDistribRight], binaryConv (disjConv, disjConv), disjConv] tm
-  disjConv '‹p› ∨ (‹q› ∧ ‹r›)' as tm =
-    seqConv [rewrConv [orDistribLeft], binaryConv (disjConv, disjConv), disjConv] tm
-  disjConv tm = idConv tm
+  trivUnAllConv '‹p› : ℙ' =
+    [sym (instantiate (trivAll,p))]
+  trivUnAllConv _ = []
 
-context
+# In case we lose the emptyset.
+choose anonymous: 'anonymous: 𝒰'
+  let x:'x'
+  let 'y = x'
+  reflexive 'y'
+
+theorem conjExistsAll: '∀P Q. ((∃x. P x) ∧ (∀x. Q x)) = (∃x. ∀y. P x ∧ Q y)'
+  let 'P: 𝒰 → ℙ'
+  let 'Q: 𝒰 → ℙ'
+  theorem left: true
+    assume asm:'(∃x. P x) ∧ (∀x. Q x)'
+    val xIsP = choose 'x' (conjuncts asm 0)
+    let 'y'
+    andIntro [xIsP,instantiate (conjuncts asm 1,'y')]
+  theorem right: true
+    assume asm:'∃x. ∀y. P x ∧ Q y'
+    theorem thereIsAP:
+      val conj = choose 'x' asm
+      conjuncts (instantiate (conj,'anonymous')) 0
+    theorem allAreQ:
+      val conj = choose 'x' asm
+      let 'y'
+      conjuncts (instantiate (conj,'y')) 1
+    andIntro (thereIsAP, allAreQ)
+  equivalence (left,right)
+
+theorem disjExistsAll: '∀P Q. ((∃x. P x) ∨ (∀x. Q x)) = (∃x. ∀y. P x ∨ Q y)'
+  let 'P: 𝒰 → ℙ'
+  let 'Q: 𝒰 → ℙ'
+  theorem left: true
+    assume asm:'(∃x. P x) ∨ (∀x. Q x)'
+    theorem case1: true
+      assume case:'∃x. P x'
+      val thereIsAP = choose 'x' case
+      let 'y:𝒰'
+      orIntroL (thereIsAP, 'Q y')
+    theorem case2: true
+      assume case:'∀x. Q x'
+      let 'x = anonymous'
+      let 'y'
+      orIntroR ('P x', instantiate (case,'y'))
+    matchmp (orDefEx,asm,case1,case2)
+  theorem right:
+    assume asm:'∃x. ∀y. P x ∨ Q y'
+    val porq = choose 'x' asm
+    theorem case1:
+      assume noP:'∀x. ¬(P x)'
+      val noPRule = convRule (onceTreeConv (rewrConv (gsym eqFalseSimp)), noP) 0
+      val allQ = convRule (treeConv (rewrConv (noPRule <+ basicRewrites)),
+                           porq) 0
+      orIntroR ('∃x. P x',allQ)
+    theorem case2:
+      assume noNonP:'¬(∀x. ¬(P x))'
+      orIntroL (convRule (treeConv (sumConv [allDeMorganConv,
+                                             rewrConv negInvolve]),
+                          noNonP) 0,
+                '∀y. Q y')
+    matchmp (orDefEx,
+             instantiate (excludedMiddle, '∀x. ¬(P x)'),
+             case1,
+             case2)
+  equivalence (left,right)
+
+theorem conjExists: '∀P Q. ((∃x. P x) ∧ (∃x. Q x)) = (∃x y. P x ∧ Q y)'
   let 'P:𝒰 → ℙ'
   let 'Q:𝒰 → ℙ'
-  show conjAllConv '(∀x. P x) ∧ (∀x. Q x)'
-  show disjExistsConv '(∃x. P x) ∨ (∃x. Q x)'
-  show existsDeMorganConv '¬(∃x. P x)'
-  show allDeMorganConv '¬(∀x. P x)'
-  show (rhs (normalize (term (raiseQuantifiers '(∃x. P x) ∧ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifiers '(∀x. P x) ∨ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifiers '(∃x. P x) ∨ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifiers '(∀x. P x) ∧ Q = Q' 0))))
-  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∧ (∃x. P x)' 0))))
-  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∨ (∀x. P x)' 0))))
-  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∨ (∃x. P x)' 0))))
-  show (rhs (normalize (term (raiseQuantifiers 'Q = Q ∧ (∀x. P x)' 0))))
+  theorem left: true
+    assume asm:'(∃x. P x) ∧ (∃x. Q x)'
+    val aP = choose 'x' (conjuncts asm 0)
+    val aQ = choose 'y' (conjuncts asm 1)
+    andIntro [aP,aQ]
+  theorem right:
+    assume asm:'(∃x y. P x ∧ Q y)'
+    val ex   = choose 'x' asm
+    val conj = choose 'y' ex
+    theorem l: '∃z. P z'
+      let zx:'z = x'
+      convRule (treeConv (rewrConv (gsym zx)), conjuncts conj 0) 0
+    theorem r: '∃z. Q z'
+      let zy:'z = y'
+      convRule (treeConv (rewrConv (gsym zy)), conjuncts conj 1) 0
+    andIntro (l,r)
+  equivalence (left,right)
+
+theorem disjAll: '∀P Q. ((∀x. P x) ∨ (∀x. Q x)) = (∀x y. P x ∨ Q y)'
+  let p:'P:𝒰 → ℙ'
+  let q:'Q:𝒰 → ℙ'
+  val neged = instantiate (conjExists,'x ↦ ¬(P x)','x ↦ ¬(Q x)')
+  convRule (treeConv (sumConv [existsDeMorganConv,
+                               rewrConv [andDeMorgan, negInvolve]]),
+            combine (reflexive 'p ↦ ¬p', neged)) 0

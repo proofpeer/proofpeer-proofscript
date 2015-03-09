@@ -84,7 +84,7 @@ def convRule [conv,thm] =
 def tryConv conv =
   tm =>
     match conv tm
-      case []    => [reflexive tm]
+      case []    => idConv tm
       case cthms => cthms
 
 # Applies a list of conversions non-deterministically.
@@ -94,11 +94,12 @@ def sumConvND convs =
       for '‹_› = ‹_›' as cthm in conv tm do
         cthm
 
-def sumConv convs =
-  tm =>
-    match sumConvND convs tm
-      case []          => []
-      case (cthm <+ _) => [cthm]
+def
+  sumConv [] = zeroConv
+  sumConv (conv <+ convs) = tm =>
+    match conv tm
+      case []    => sumConv convs tm
+      case cthms => cthms
 
 # Applies a list of conversions in sequence, requiring each to succed.
 def seqWhenChangedConv convs =
@@ -115,11 +116,14 @@ def seqWhenChangedConv convs =
 def changedConv conv = seqWhenChangedConv [conv, idConv]
 
 # Deterministic rewriter.
-def rewrConv thms =
-  val rewrs =
-    for thm in thms do
-      tryConv (rewrConvND [thm])
-  changedConv (seqConv rewrs)
+def
+  rewrConv []                 = zeroConv
+  rewrConv (thm <+ _) as thms =
+    val rewrs =
+      for thm in thms do
+        tryConv (rewrConvND [thm])
+    changedConv (seqConv rewrs)
+  rewrConv thm = rewrConv [thm]
 
 # Applies a conversion top-down through a term, immediately retraversing a changed
 # term.
@@ -152,6 +156,9 @@ def symConv '‹x› = ‹y›' =
     assume asm:'‹y› = ‹x›'
     sym asm
   [equivalence (left,right)]
+
+def repeatConv  c     = tm => tryConv (seqConv [c, repeatConv c]) tm
+def repeatConvl [k,c] = tm => sumConv [seqConv [c, repeatConvl [k,k c]], c] tm
 
 assert map (term,absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
