@@ -43,6 +43,7 @@ case object NilValue extends StateValue
 case class ContextValue(value : Context) extends StateValue 
 case class TheoremValue(value : Theorem) extends StateValue
 case class TermValue(value : Term) extends StateValue
+case class TypeValue(value : Type) extends StateValue
 case class BoolValue(value : Boolean) extends StateValue
 case class IntValue(value : BigInt) extends StateValue
 case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
@@ -139,6 +140,8 @@ object StateValue {
 					case _ : Utils.KernelException =>
 						"{invalid in current context, raw term is: '" + displayRaw(tm) + "'} : Term"
 				}
+			case TypeValue(ty) =>
+				"': " + Syntax.printType(ty) + "'"
 			case s : StringValue => "\"" + s + "\""
 			case _ => "?@" + value.hashCode
 		}

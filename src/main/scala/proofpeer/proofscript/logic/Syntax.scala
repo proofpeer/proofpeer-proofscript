@@ -233,13 +233,23 @@ object Syntax {
     lex("SetBigUnion", char(0x22C3)) ++
     lex("SetBigIntersection", char(0x22C2)) 
       
-  val g_type = 
-    rule("AtomicType", "Universe", c => PTyUniverse) ++
-    rule("AtomicType", "Prop", c => PTyProp) ++
-    rule("AtomicType", "Underscore", c => PTyAny) ++
-    rule("AtomicType", "RoundBracketOpen Type RoundBracketClose", _.Type[Any]) ++
-    rule("Type", "AtomicType", _.AtomicType[Any]) ++
-    rule("Type", "AtomicType RightArrow Type", c => PTyFun(c.AtomicType, c.Type))
+  val g_Value_type = 
+    rule("ValueAtomicType", "Universe", c => PTyUniverse) ++
+    rule("ValueAtomicType", "Prop", c => PTyProp) ++
+    rule("ValueAtomicType", "Underscore", c => PTyAny) ++
+    rule("ValueAtomicType", "RoundBracketOpen ValueType RoundBracketClose", _.ValueType[Any]) ++
+    rule("ValueAtomicType", "QuoteOpen ValueQuotedType QuoteClose", c => PTyQuote(c.ValueQuotedType)) ++
+    rule("ValueType", "ValueAtomicType", _.ValueAtomicType[Any]) ++
+    rule("ValueType", "ValueAtomicType RightArrow ValueType", c => PTyFun(c.ValueAtomicType, c.ValueType)) 
+
+  val g_Pattern_type = 
+    rule("PatternAtomicType", "Universe", c => PTyUniverse) ++
+    rule("PatternAtomicType", "Prop", c => PTyProp) ++
+    rule("PatternAtomicType", "Underscore", c => PTyAny) ++
+    rule("PatternAtomicType", "RoundBracketOpen PatternType RoundBracketClose", _.PatternType[Any]) ++
+    rule("PatternAtomicType", "QuoteOpen PatternQuotedType QuoteClose", c => PTyQuote(c.PatternQuotedType)) ++
+    rule("PatternType", "PatternAtomicType", _.PatternAtomicType[Any]) ++
+    rule("PatternType", "PatternAtomicType RightArrow PatternType", c => PTyFun(c.PatternAtomicType, c.PatternType)) 
     
 val g_Value_term = 
     rule("ValueNameTerm", "Name", c => PTmName(parseName(c.text("Name")), Pretype.PTyAny)) ++
@@ -261,7 +271,7 @@ val g_Value_term =
     rule("ValueCombTerm", "ValueCombTerm ValueAtomicTerm", 
       c => PTmComb(c.ValueCombTerm, c.ValueAtomicTerm, None, Pretype.PTyAny)) ++
     rule("ValuePureBinding", "IndexedName", c => Binding(parseIndexedName(c.text("IndexedName")), None)) ++
-    rule("ValueAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.text("IndexedName")), Some(TypeDomain(c.Type)))) ++    
+    rule("ValueAnnotatedBinding", "IndexedName Colon ValueType", c => Binding(parseIndexedName(c.text("IndexedName")), Some(TypeDomain(c.ValueType)))) ++    
     rule("ValueAnnotatedBinding", "IndexedName Elem ValueTerm", c => Binding(parseIndexedName(c.text("IndexedName")), Some(SetDomain(c.ValueTerm)))) ++ 
     rule("ValueBinding", "ValuePureBinding", _.ValuePureBinding[Any]) ++
     rule("ValueBinding", "ValueAnnotatedBinding", _.ValueAnnotatedBinding[Any]) ++    
@@ -294,7 +304,7 @@ val g_Value_term =
     rule("ValueSetBinaryRelationTerm", "ValueSetTerm_1 NotSubset ValueSetTerm_2", 
       c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.ValueSetTerm_1, c.ValueSetTerm_2))) ++    
     rule("ValueTypedTerm", "ValueSetBinaryRelationTerm", _.ValueSetBinaryRelationTerm[Any]) ++
-    rule("ValueTypedTerm", "ValueTypedTerm Colon Type", c => PTmTyping(c.ValueTypedTerm, c.Type)) ++
+    rule("ValueTypedTerm", "ValueTypedTerm Colon ValueType", c => PTmTyping(c.ValueTypedTerm, c.ValueType)) ++
     rule("ValueEqTerm", "ValueTypedTerm", _.ValueTypedTerm[Any]) ++
     rule("ValueEqTerm", "ValueTypedTerm_1 Eq ValueTypedTerm_2", c => pTmEquals(c.ValueTypedTerm_1, c.ValueTypedTerm_2)) ++
     rule("ValueEqTerm", "ValueTypedTerm_1 NotEq ValueTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.ValueTypedTerm_1, c.ValueTypedTerm_2))) ++
@@ -340,7 +350,7 @@ val g_Pattern_term =
     rule("PatternCombTerm", "PatternCombTerm PatternAtomicTerm", 
       c => PTmComb(c.PatternCombTerm, c.PatternAtomicTerm, None, Pretype.PTyAny)) ++
     rule("PatternPureBinding", "IndexedName", c => Binding(parseIndexedName(c.text("IndexedName")), None)) ++
-    rule("PatternAnnotatedBinding", "IndexedName Colon Type", c => Binding(parseIndexedName(c.text("IndexedName")), Some(TypeDomain(c.Type)))) ++    
+    rule("PatternAnnotatedBinding", "IndexedName Colon PatternType", c => Binding(parseIndexedName(c.text("IndexedName")), Some(TypeDomain(c.PatternType)))) ++    
     rule("PatternAnnotatedBinding", "IndexedName Elem PatternTerm", c => Binding(parseIndexedName(c.text("IndexedName")), Some(SetDomain(c.PatternTerm)))) ++ 
     rule("PatternBinding", "PatternPureBinding", _.PatternPureBinding[Any]) ++
     rule("PatternBinding", "PatternAnnotatedBinding", _.PatternAnnotatedBinding[Any]) ++    
@@ -373,7 +383,7 @@ val g_Pattern_term =
     rule("PatternSetBinaryRelationTerm", "PatternSetTerm_1 NotSubset PatternSetTerm_2", 
       c => pTmUnaryOp(Kernel.logical_not, pTmBinaryOp(Kernel.set_subsetOf, c.PatternSetTerm_1, c.PatternSetTerm_2))) ++    
     rule("PatternTypedTerm", "PatternSetBinaryRelationTerm", _.PatternSetBinaryRelationTerm[Any]) ++
-    rule("PatternTypedTerm", "PatternTypedTerm Colon Type", c => PTmTyping(c.PatternTypedTerm, c.Type)) ++
+    rule("PatternTypedTerm", "PatternTypedTerm Colon PatternType", c => PTmTyping(c.PatternTypedTerm, c.PatternType)) ++
     rule("PatternEqTerm", "PatternTypedTerm", _.PatternTypedTerm[Any]) ++
     rule("PatternEqTerm", "PatternTypedTerm_1 Eq PatternTypedTerm_2", c => pTmEquals(c.PatternTypedTerm_1, c.PatternTypedTerm_2)) ++
     rule("PatternEqTerm", "PatternTypedTerm_1 NotEq PatternTypedTerm_2", c => pTmUnaryOp(Kernel.logical_not, pTmEquals(c.PatternTypedTerm_1, c.PatternTypedTerm_2))) ++
@@ -402,7 +412,8 @@ val g_Pattern_term =
 
   def grammar = 
     literals ++
-    g_type ++
+    g_Value_type ++
+    g_Pattern_type ++
     g_Value_term ++
     g_Pattern_term
  
@@ -434,8 +445,19 @@ val g_Pattern_term =
   def parsePreterm(input : String) : Option[Preterm] = {
     val d = Document.fromString(input, Some(2))
     proofpeer.proofscript.frontend.Parser.earleyParser.parse(d, "ValueTerm") match {
-      case Left(parsetree) if !parsetree.hasAmbiguities =>
-        Some(parsetree.getValue)
+      case Left(parsetree) if !parsetree.hasAmbiguities => 
+        val preterm = parsetree.getValue[Preterm]
+        if (Preterm.hasQuotes(preterm)) None else Some(preterm)
+      case _ => None
+    }
+  } 
+
+  def parsePretype(input : String) : Option[Pretype] = {
+    val d = Document.fromString(input, Some(2))
+    proofpeer.proofscript.frontend.Parser.earleyParser.parse(d, "ValueType") match {
+      case Left(parsetree) if !parsetree.hasAmbiguities => 
+        val pretype = parsetree.getValue[Pretype]
+        if (Pretype.hasQuotes(pretype)) None else Some(pretype)
       case _ => None
     }
   } 

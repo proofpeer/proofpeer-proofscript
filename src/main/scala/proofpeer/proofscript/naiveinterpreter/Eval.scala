@@ -110,7 +110,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					})    	
 			}
 		}
-		Preterm.instQuotes[Failed[StateValue], T](inst, tm.tm, {
+		Preterm.instQuotes[Failed[StateValue], T](inst, instType[T](state) _, tm.tm, {
 		  case Right(f) => cont(fail(f))
 			case Left(preterm) => cont(success((preterm, state)))
 		})
@@ -133,6 +133,39 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case Success((preterm, _), _) => cont(resolvePreterm(state.context, preterm))
 		})
 	} 
+
+	private def instType[T](state : State)(ty : Pretype.PTyQuote, cont : Continuation[Either[Pretype, Failed[StateValue]], T]) : Thunk[T] = 
+	{
+		ty.quoted match {
+			case expr : Expr =>
+				evalExpr[T](state.freeze, expr, {
+					case failed : Failed[_] => cont(Right(failed))
+					case Success(TypeValue(t), _) => cont(Left(Pretype.translate(t)))
+					case Success(s : StringValue, _) =>
+						Syntax.parsePretype(s.toString) match {
+							case None => cont(Right(fail(expr, "parse error")))
+							case Some(pretype) => cont(Left(pretype))
+						}
+					case Success(v, _) => cont(Right(fail(expr, "type value expected, found: " + display(state, v))))
+				})    	
+		}
+	}
+
+	def evalLogicPretype[T](_state : State, ty : LogicType, cont : RC[(Pretype, State), T]) : Thunk[T] = 
+	{
+		var state = _state
+		Pretype.instQuotes[Failed[StateValue], T](instType[T](state) _, ty.ty, {
+		  case Right(f) => cont(fail(f))
+			case Left(pretype) => cont(success((pretype, state)))
+		})
+	}
+
+	def evalLogicType[T](state : State, ty : LogicType, cont : RC[Type, T]) : Thunk[T] = {
+		evalLogicPretype[T](state, ty, {
+			case failed: Failed[_] => cont(fail(failed))
+			case Success((pretype, _), _) => cont(success(Pretype.forceTranslate(pretype)))
+		})
+	}
 
 	def evalTermExpr[T](state : State, expr : Expr, cont : RC[Term, T]) : Thunk[T] = {
 		evalExpr[T](state, expr, {
@@ -732,6 +765,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					Some(IsEq)
 				else
 					Some(IsNEq)
+			case (TypeValue(u), TypeValue(v)) =>
+				if (u == v)
+					Some(IsEq)
+				else
+					Some(IsNEq)
 			case (TheoremValue(p), TheoremValue(q)) => 
 				import KernelUtils._
 				try { 
@@ -1027,6 +1065,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case f : Failed[_] => cont(fail(f))
 						case Success(tm, _) => cont(success(TermValue(tm)))
 					})
+				case ty : LogicType =>
+					evalLogicType(state, ty, {
+						case f : Failed[_] => cont(fail(f))
+						case Success(ty, _) => cont(success(TypeValue(ty)))
+					})
 				case Lazy(_) => cont(fail(expr, "lazy evaluation is not available (yet)"))
 				case _ => cont(fail(expr, "don't know how to evaluate this expression"))
 			}	
@@ -1319,7 +1362,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 					case r => cont(r)
 				})
-			case PLogic(_preterm) =>
+			case PLogicTerm(_preterm) =>
 				val term = 
 					value match {
 						case TermValue(value) => value

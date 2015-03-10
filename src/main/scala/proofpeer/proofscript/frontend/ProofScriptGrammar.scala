@@ -214,6 +214,7 @@ val g_expr =
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm)) ++
+  arule("PrimitiveExpr", "Apostrophe Colon ValueType Apostrophe", c => LogicType(c.ValueType)) ++
   arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2"))) ++
   arule("OrExpr", "OrExpr ScriptOr AndExpr", 
       c => BinaryOperation(annotateBinop(Or, c.span("ScriptOr")), c.OrExpr, c.AndExpr)) ++
@@ -415,7 +416,8 @@ val g_pattern =
     c => PString(mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2")).value)) ++
   arule("AtomicPattern", "ScriptTrue", c => PBool(true)) ++
   arule("AtomicPattern", "ScriptFalse", c => PBool(false)) ++
-  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogic(c.PatternTerm)) ++
+  arule("AtomicPattern", "Apostrophe PatternTerm Apostrophe", c => PLogicTerm(c.PatternTerm)) ++
+  arule("AtomicPattern", "Apostrophe Colon PatternType Apostrophe", c => PLogicType(c.PatternType)) ++
   arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList, true)) ++
   arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList, false)) ++  
   arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern, c.PrependPattern)) ++
@@ -626,6 +628,8 @@ val g_prog =
   g_statement ++
   g_controlflow ++
   g_header ++
+  arule("ValueQuotedType", "PExpr", _.PExpr[Any]) ++
+  arule("PatternQuotedType", "Pattern", _.Pattern[Any]) ++
   arule("ValueQuotedTerm", "PExpr", _.PExpr[Any]) ++
   arule("PatternQuotedTerm", "Pattern", _.Pattern[Any]) ++
   arule("Prog", "Block", _.Block[Any])

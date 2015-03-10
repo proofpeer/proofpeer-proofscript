@@ -45,6 +45,8 @@ extends Serializer[ParseTree]
   val PretermSerializer = new CustomizablePretermSerializer(SourcePositionSerializer, IndexedNameSerializer, 
     NamespaceSerializer, NameSerializer, this)
 
+  val PretypeSerializer = PretermSerializer.PretypeSerializer
+
   private class PTSerializer[Special <: TracksSourcePosition] extends Serializer[Special] {
 
     def serialize(special : Special) = ParseTreeSerializerBase.serialize(special)
@@ -85,67 +87,69 @@ extends Serializer[ParseTree]
       val FUN = 6
       val LAZY = -6
       val LOGICTERM = 7
-      val CONTROLFLOWEXPR = -7
-      val DO = 8
-      val IF = -8
-      val WHILE = 9
-      val FOR = -9
-      val MATCHCASE = 10
-      val MATCH = -10
-      val CONTEXTCONTROL = 11
-      val NEG = -11
-      val NOT = 12
-      val RANGETO = -12
-      val RANGEDOWNTO = 13
-      val ADD = -13
-      val SUB = 14
-      val MUL = -14
-      val DIV = 15
-      val MOD = -15
-      val AND = 16
-      val OR = -16
-      val PREPEND = 17
-      val APPEND = -17
-      val CONCAT = 18
-      val EQ = -18
-      val NEQ = 19
-      val LE = -19
-      val LEQ = 20
-      val GR = -20
-      val GEQ = 21
-      val PANY = -21
-      val PID = 22
-      val PINT = -22
-      val PBOOL = 23
-      val PSTRING = -23
-      val PLOGIC = 24
-      val PTUPLE = -24
-      val PPREPEND = 25
-      val PAPPEND = -25
-      val PIF = 26
-      val PAS = -26
-      val PNIL = 27
-      val COMMENT = -27
-      val STCOMMENT = 28
-      val STEXPR = -28
-      val STCONTROLFLOW = 29
-      val STSHOW = -29
-      val STFAIL = 30
-      val STASSERT = -30
-      val STFAILURE = 31
-      val STVAL = -31
-      val STVALINTRO = 32
-      val STASSIGN = -32
-      val STDEF = 33
-      val DEFCASE = -33
-      val STRETURN = 34
-      val STASSUME = -34
-      val STLET = 35
-      val STCHOOSE = -35
-      val STTHEOREM = 36
-      val STTHEOREMBY = -36
-      val STTHEORY = 37
-      val BLOCK = -37
+      val LOGICTYPE = -7
+      val CONTROLFLOWEXPR = 8
+      val DO = -8
+      val IF = 9
+      val WHILE = -9
+      val FOR = 10
+      val MATCHCASE = -10
+      val MATCH = 11
+      val CONTEXTCONTROL = -11
+      val NEG = 12
+      val NOT = -12
+      val RANGETO = 13
+      val RANGEDOWNTO = -13
+      val ADD = 14
+      val SUB = -14
+      val MUL = 15
+      val DIV = -15
+      val MOD = 16
+      val AND = -16
+      val OR = 17
+      val PREPEND = -17
+      val APPEND = 18
+      val CONCAT = -18
+      val EQ = 19
+      val NEQ = -19
+      val LE = 20
+      val LEQ = -20
+      val GR = 21
+      val GEQ = -21
+      val PANY = 22
+      val PID = -22
+      val PINT = 23
+      val PBOOL = -23
+      val PSTRING = 24
+      val PLOGICTERM = -24
+      val PLOGICTYPE = 25
+      val PTUPLE = -25
+      val PPREPEND = 26
+      val PAPPEND = -26
+      val PIF = 27
+      val PAS = -27
+      val PNIL = 28
+      val COMMENT = -28
+      val STCOMMENT = 29
+      val STEXPR = -29
+      val STCONTROLFLOW = 30
+      val STSHOW = -30
+      val STFAIL = 31
+      val STASSERT = -31
+      val STFAILURE = 32
+      val STVAL = -32
+      val STVALINTRO = 33
+      val STASSIGN = -33
+      val STDEF = 34
+      val DEFCASE = -34
+      val STRETURN = 35
+      val STASSUME = -35
+      val STLET = 36
+      val STCHOOSE = -36
+      val STTHEOREM = 37
+      val STTHEOREMBY = -37
+      val STTHEORY = 38
+      val BLOCK = -38
     }
 
     object Serializers {
@@ -162,6 +166,7 @@ extends Serializer[ParseTree]
       val FUN = PairSerializer(PatternSerializer,BlockSerializer)
       val LAZY = ExprSerializer
       val LOGICTERM = PretermSerializer
+      val LOGICTYPE = PretypeSerializer
       val CONTROLFLOWEXPR = ControlFlowSerializer
       val DO = PairSerializer(BlockSerializer,BooleanSerializer)
       val IF = TripleSerializer(ExprSerializer,BlockSerializer,BlockSerializer)
@@ -174,7 +179,8 @@ extends Serializer[ParseTree]
       val PINT = BigIntSerializer
       val PBOOL = BooleanSerializer
       val PSTRING = VectorSerializer(IntSerializer)
-      val PLOGIC = PretermSerializer
+      val PLOGICTERM = PretermSerializer
+      val PLOGICTYPE = PretypeSerializer
       val PTUPLE = VectorSerializer(PatternSerializer)
       val PPREPEND = PairSerializer(PatternSerializer,PatternSerializer)
       val PAPPEND = PairSerializer(PatternSerializer,PatternSerializer)
@@ -233,6 +239,8 @@ extends Serializer[ParseTree]
           (Kind.LAZY, Some(Serializers.LAZY.serialize(x)))
         case LogicTerm(x) =>
           (Kind.LOGICTERM, Some(Serializers.LOGICTERM.serialize(x)))
+        case LogicType(x) =>
+          (Kind.LOGICTYPE, Some(Serializers.LOGICTYPE.serialize(x)))
         case ControlFlowExpr(x) =>
           (Kind.CONTROLFLOWEXPR, Some(Serializers.CONTROLFLOWEXPR.serialize(x)))
         case t : Do =>
@@ -299,8 +307,10 @@ extends Serializer[ParseTree]
           (Kind.PBOOL, Some(Serializers.PBOOL.serialize(x)))
         case PString(x) =>
           (Kind.PSTRING, Some(Serializers.PSTRING.serialize(x)))
-        case PLogic(x) =>
-          (Kind.PLOGIC, Some(Serializers.PLOGIC.serialize(x)))
+        case PLogicTerm(x) =>
+          (Kind.PLOGICTERM, Some(Serializers.PLOGICTERM.serialize(x)))
+        case PLogicType(x) =>
+          (Kind.PLOGICTYPE, Some(Serializers.PLOGICTYPE.serialize(x)))
         case PTuple(x) =>
           (Kind.PTUPLE, Some(Serializers.PTUPLE.serialize(x)))
         case t : PPrepend =>
@@ -389,6 +399,8 @@ extends Serializer[ParseTree]
           Lazy(Serializers.LAZY.deserialize(args.get))
         case Kind.LOGICTERM if args.isDefined => 
           LogicTerm(Serializers.LOGICTERM.deserialize(args.get))
+        case Kind.LOGICTYPE if args.isDefined => 
+          LogicType(Serializers.LOGICTYPE.deserialize(args.get))
         case Kind.CONTROLFLOWEXPR if args.isDefined => 
           ControlFlowExpr(Serializers.CONTROLFLOWEXPR.deserialize(args.get))
         case Kind.DO if args.isDefined => 
@@ -455,8 +467,10 @@ extends Serializer[ParseTree]
           PBool(Serializers.PBOOL.deserialize(args.get))
         case Kind.PSTRING if args.isDefined => 
           PString(Serializers.PSTRING.deserialize(args.get))
-        case Kind.PLOGIC if args.isDefined => 
-          PLogic(Serializers.PLOGIC.deserialize(args.get))
+        case Kind.PLOGICTERM if args.isDefined => 
+          PLogicTerm(Serializers.PLOGICTERM.deserialize(args.get))
+        case Kind.PLOGICTYPE if args.isDefined => 
+          PLogicType(Serializers.PLOGICTYPE.deserialize(args.get))
         case Kind.PTUPLE if args.isDefined => 
           PTuple(Serializers.PTUPLE.deserialize(args.get))
         case Kind.PPREPEND if args.isDefined => 
@@ -514,8 +528,8 @@ extends Serializer[ParseTree]
         case _ => throw new RuntimeException("ParseTreeSerializerBase: cannot deserialize " + (kind, args))
       }
     }
-
   }
+
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -571,6 +585,7 @@ object ParseTreeSerializerGenerator {
     ("Fun", "PatternSerializer", "BlockSerializer"),
     ("Lazy", "ExprSerializer"),
     ("LogicTerm", "PretermSerializer"),
+    ("LogicType", "PretypeSerializer"),
     ("ControlFlowExpr", "ControlFlowSerializer"),
     ("Do", "BlockSerializer", "BooleanSerializer"),
     ("If", "ExprSerializer", "BlockSerializer", "BlockSerializer"),
@@ -604,7 +619,8 @@ object ParseTreeSerializerGenerator {
     ("PInt", "BigIntSerializer"),
     ("PBool", "BooleanSerializer"),
     ("PString", "VectorSerializer(IntSerializer)"),
-    ("PLogic", "PretermSerializer"),
+    ("PLogicTerm", "PretermSerializer"),
+    ("PLogicType", "PretypeSerializer"),
     ("PTuple", "VectorSerializer(PatternSerializer)"),
     ("PPrepend", "PatternSerializer", "PatternSerializer"),
     ("PAppend", "PatternSerializer", "PatternSerializer"),

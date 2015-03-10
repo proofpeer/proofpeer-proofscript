@@ -14,6 +14,7 @@ sealed trait Preterm {
 object Preterm {
 
   import Utils.Integer
+  import Pretype.PTyQuote
  
   case class PTmTyping(tm : Preterm, typeOf : Pretype) extends Preterm
   case class PTmName(name : Name, typeOf : Pretype) extends Preterm
@@ -140,49 +141,44 @@ object Preterm {
 
   def pTmQuote(quoted : Any) : Preterm = PTmQuote(quoted, Pretype.PTyAny)
 
-  def instQuotes[F](inst : PTmQuote => Either[Preterm, F], tm : Preterm) : Either[Preterm, F] = {
-    tm match {
-      case PTmTyping(tm, ty) => 
-        instQuotes(inst, tm) match {
-          case Left(tm) => Left(PTmTyping(tm, ty))
-          case f => f
-        }
-      case PTmAbs(x, ty, body, body_ty) =>
-        instQuotes(inst, body) match {
-          case Left(body) => Left(PTmAbs(x, ty, body, body_ty))
-          case f => f
-        }
-      case PTmComb(f, g, higherorder, typeof) =>
-        (instQuotes(inst, f), instQuotes(inst, g)) match {
-          case (Left(f), Left(g)) => Left(PTmComb(f, g, higherorder, typeof))
-          case (f @ Right(_), _) => f
-          case (_, g @ Right(_)) => g
-        }
-      case q : PTmQuote => inst(q)
-      case name : PTmName => Left(name)
-      case error : PTmError => Left(error)
-    }
-  }
-
-  def instQuotes[F, T](inst : (PTmQuote, Continuation[Either[Preterm, F], T]) => Thunk[T], tm : Preterm, 
+  def instQuotes[F, T](
+    inst : (PTmQuote, Continuation[Either[Preterm, F], T]) => Thunk[T], 
+    instTy : (PTyQuote, Continuation[Either[Pretype, F], T]) => Thunk[T],
+    tm : Preterm, 
     cont : Continuation[Either[Preterm, F], T]) : Thunk[T] = 
   {
     tm match {
       case PTmTyping(tm, ty) => 
-        instQuotes[F, T](inst, tm, {
-          case Left(tm) => cont(Left(PTmTyping(tm, ty)))
+        instQuotes[F, T](inst, instTy, tm, {
+          case Left(tm) => 
+            Pretype.instQuotes[F, T](instTy, ty, {
+              case Left(ty) => cont(Left(PTmTyping(tm, ty)))
+              case Right(f) => cont(Right(f))
+            })
           case f => cont(f)
         })
       case PTmAbs(x, ty, body, body_ty) =>
-        instQuotes[F, T](inst, body, {
-          case Left(body) => cont(Left(PTmAbs(x, ty, body, body_ty)))
+        instQuotes[F, T](inst, instTy, body, {
+          case Left(body) => 
+            Pretype.instQuotes[F, T](instTy, ty, {
+              case Right(f) => cont(Right(f))
+              case Left(ty) =>
+                Pretype.instQuotes[F, T](instTy, body_ty, {
+                  case Right(f) => cont(Right(f))
+                  case Left(body_ty) => cont(Left(PTmAbs(x, ty, body, body_ty)))
+                })
+            })
           case f => cont(f)
         })
       case PTmComb(f, g, higherorder, typeof) =>
-        instQuotes[F, T](inst, f, left =>
-          instQuotes[F, T](inst, g, right =>
+        instQuotes[F, T](inst, instTy, f, left =>
+          instQuotes[F, T](inst, instTy, g, right =>
             (left, right) match {
-              case (Left(f), Left(g)) => cont(Left(PTmComb(f, g, higherorder, typeof)))
+              case (Left(f), Left(g)) => 
+                Pretype.instQuotes[F, T](instTy, typeof, {
+                  case Right(f) => cont(Right(f))
+                  case Left(typeof) => cont(Left(PTmComb(f, g, higherorder, typeof)))
+                })
               case (f @ Right(_), _) => cont(f)
               case (_, g @ Right(_)) => cont(g)              
             }))
@@ -219,21 +215,27 @@ object Preterm {
   	}
   }
 
-  def listQuotes(tm : Preterm, quotes : List[PTmQuote]) : List[PTmQuote] = {
+  private def listTyQuotes(ty : Pretype, quotes : List[Either[PTmQuote, PTyQuote]]) : List[Either[PTmQuote, PTyQuote]] = {
+    val tyQuotes = Pretype.listQuotes(ty).map(q => Right(q))
+    tyQuotes ++ quotes
+  }
+
+  def listQuotes(tm : Preterm, quotes : List[Either[PTmQuote, PTyQuote]]) : List[Either[PTmQuote, PTyQuote]] = {
   	tm match {
-  		case PTmTyping(tm, _) => listQuotes(tm, quotes)
-  		case PTmAbs(_, _, body, _) => listQuotes(body, quotes)
-  		case PTmComb(f, x, _, _) => listQuotes(f, listQuotes(x, quotes))
-  		case q : PTmQuote => q::quotes
+  		case PTmTyping(tm, ty) => listQuotes(tm, listTyQuotes(ty, quotes))
+  		case PTmAbs(_, xty, body, bodyty) => listQuotes(body, listTyQuotes(xty, listTyQuotes(bodyty, quotes)))
+  		case PTmComb(f, x, _, ty) => listQuotes(f, listQuotes(x, listTyQuotes(ty, quotes)))
+  		case q : PTmQuote => Left(q)::quotes
   		case _ : PTmError => quotes
   		case _ : PTmName => quotes
   	}
   }
 
-
   def listErrors(tm : Preterm) : List[PTmError] = listErrors(tm, List())
 
-  def listQuotes(tm : Preterm) : List[PTmQuote] = listQuotes(tm, List())
+  def listQuotes(tm : Preterm) : List[Either[PTmQuote, PTyQuote]] = listQuotes(tm, List())
+
+  def hasQuotes(tm : Preterm) : Boolean = !listQuotes(tm).isEmpty
 
   def removeAny(tm : Preterm, fresh : Integer) : (Preterm, Integer) = {
   	tm match {

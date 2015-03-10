@@ -1,5 +1,7 @@
 package proofpeer.proofscript.logic
 
+import proofpeer.general.continuation._
+
 sealed trait Pretype
 object Pretype {
   import Utils.Integer 
@@ -9,6 +11,8 @@ object Pretype {
   case class PTyFun(domain : Pretype, range : Pretype) extends Pretype
   case object PTyAny extends Pretype
   case class PTyVar(n : Integer) extends Pretype // type variables are only used during type inference
+  /** quoted is going to be either ParseTree.Expr or ParseTree.Pattern */
+  case class PTyQuote(quoted : Any) extends Pretype 
 
   // Computes an integer n such that
   // 1. n >= min 
@@ -31,7 +35,7 @@ object Pretype {
   	}
   }
 
-  // Removes all occurrences of PTyAny by fresh variables.
+  // Removes all occurrences of PTyAny or PTyQuote by fresh variables.
   def removeAny(ty : Pretype) : Pretype = {
   	removeAny(ty, computeFresh(ty, 0))._1
   }
@@ -147,8 +151,18 @@ object Pretype {
   		case PTyUniverse => Type.Universe
   		case PTyProp => Type.Prop
   		case PTyFun(domain, range) => Type.Fun(translate(domain), translate(range))
-  		case _ => Utils.failwith("cannot translate PTyAny or PTyVar into proper Type")
+  		case _ => Utils.failwith("cannot translate PTyAny or PTyVar or PTyQuote into proper Type")
   	}
+  }
+
+  def forceTranslate(ty : Pretype) : Type = {
+    ty match {
+      case PTyUniverse => Type.Universe
+      case PTyProp => Type.Prop
+      case PTyFun(domain, range) => Type.Fun(forceTranslate(domain), forceTranslate(range))
+      case PTyAny => Type.Universe
+      case _ => Utils.failwith("cannot translate PTyVar or PTyQuote into proper Type")
+    }
   }
 
   def translate(ty : Type) : Pretype = {
@@ -157,6 +171,35 @@ object Pretype {
   		case Type.Universe => PTyUniverse
   		case Type.Fun(domain, range) => PTyFun(translate(domain), translate(range))
   	}
+  }
+
+  def listQuotes(ty : Pretype) : List[PTyQuote] = listQuotes(ty, List())
+
+  def hasQuotes(ty : Pretype) : Boolean = !listQuotes(ty).isEmpty
+
+  private def listQuotes(ty : Pretype, quotes : List[PTyQuote]) : List[PTyQuote] = {
+    ty match {
+      case PTyFun(domain, range) => listQuotes(range, listQuotes(domain, quotes))
+      case q : PTyQuote => q :: quotes
+      case _ => quotes
+    }
+  }
+
+  def instQuotes[F, T](inst : (PTyQuote, Continuation[Either[Pretype, F], T]) => Thunk[T], ty : Pretype, 
+    cont : Continuation[Either[Pretype, F], T]) : Thunk[T] = 
+  {
+    ty match {
+      case PTyFun(domain, range) =>
+        instQuotes[F, T](inst, domain, domain =>  
+          instQuotes[F, T](inst, range, range =>
+            (domain, range) match {
+              case (Left(domain), Left(range)) => cont(Left(PTyFun(domain, range)))
+              case (f @ Right(_), _) => cont(f)
+              case (_, g @ Right(_)) => cont(g) 
+            }))
+      case q : PTyQuote => inst(q, cont)
+      case _ => cont(Left(ty))
+    }
   }
 
 }

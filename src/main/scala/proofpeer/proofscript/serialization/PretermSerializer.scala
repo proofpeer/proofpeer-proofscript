@@ -7,7 +7,7 @@ import Pretype._
 import Preterm._
 import proofpeer.indent.Span
 
-final object PretypeSerializer extends CaseClassSerializerBase[Pretype] {
+/*final object PretypeSerializer extends CaseClassSerializerBase[Pretype] {
 
   object Kind {
     val PTYUNIVERSE = 0
@@ -54,7 +54,7 @@ final object PretypeSerializer extends CaseClassSerializerBase[Pretype] {
     }
   }
 
-}
+}*/
 
 final class CustomizablePretermSerializer(
   SourcePositionSerializer : Serializer[SourcePosition], 
@@ -68,6 +68,61 @@ extends NestedSerializer[Preterm]
   val PretermSerializer = this
 
   object QuotedSerializer extends TypecastSerializer[Any, ParseTree](ParseTreeSerializer)
+
+  object PretypeSerializer extends CaseClassSerializerBase[Pretype] {
+
+    object Kind {
+      val PTYUNIVERSE = 0
+      val PTYPROP = 1
+      val PTYFUN = -1
+      val PTYANY = 2
+      val PTYVAR = -2
+      val PTYQUOTE = 3
+    }
+
+    object Serializers {
+      val PTYFUN = PairSerializer(PretypeSerializer,PretypeSerializer)
+      val PTYVAR = BigIntSerializer
+      val PTYQUOTE = QuotedSerializer
+    }
+
+    def decomposeAndSerialize(obj : Pretype) : (Int, Option[Any]) = {
+      obj match {
+        case PTyUniverse =>
+          (Kind.PTYUNIVERSE, None)
+        case PTyProp =>
+          (Kind.PTYPROP, None)
+        case t : PTyFun =>
+          (Kind.PTYFUN, Some(Serializers.PTYFUN.serialize(PTyFun.unapply(t).get)))
+        case PTyAny =>
+          (Kind.PTYANY, None)
+        case PTyVar(x) =>
+          (Kind.PTYVAR, Some(Serializers.PTYVAR.serialize(x)))
+        case PTyQuote(x) =>
+          (Kind.PTYQUOTE, Some(Serializers.PTYQUOTE.serialize(x)))
+        case _ => throw new RuntimeException("PretypeSerializer: cannot serialize " + obj)
+      }
+    }
+
+    def deserializeAndCompose(kind : Int, args : Option[Any]) : Pretype = {
+      kind match {
+        case Kind.PTYUNIVERSE if args.isEmpty => 
+          PTyUniverse
+        case Kind.PTYPROP if args.isEmpty => 
+          PTyProp
+        case Kind.PTYFUN if args.isDefined => 
+          PTyFun.tupled(Serializers.PTYFUN.deserialize(args.get))
+        case Kind.PTYANY if args.isEmpty => 
+          PTyAny
+        case Kind.PTYVAR if args.isDefined => 
+          PTyVar(Serializers.PTYVAR.deserialize(args.get))
+        case Kind.PTYQUOTE if args.isDefined => 
+          PTyQuote(Serializers.PTYQUOTE.deserialize(args.get))
+        case _ => throw new RuntimeException("PretypeSerializer: cannot deserialize " + (kind, args))
+      }
+    }
+
+  }
 
   object PretermSerializerBase extends CaseClassSerializerBase[Preterm] {
 
@@ -124,6 +179,7 @@ extends NestedSerializer[Preterm]
         case _ => throw new RuntimeException("PretermSerializerBase: cannot deserialize " + (kind, args))
       }
     }
+
   }
 
   protected lazy val innerSerializer : Serializer[Preterm] = PretermSerializerBase
@@ -138,7 +194,8 @@ object PretermSerializerGenerator {
     "PTyProp",
     ("PTyFun", "PretypeSerializer", "PretypeSerializer"),
     "PTyAny",
-    ("PTyVar", "BigIntSerializer")
+    ("PTyVar", "BigIntSerializer"),
+    ("PTyQuote", "QuotedSerializer")
   )
 
   val termCases : Vector[Any] = Vector(

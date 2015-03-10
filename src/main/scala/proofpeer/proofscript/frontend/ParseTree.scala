@@ -1,7 +1,7 @@
 package proofpeer.proofscript.frontend
 
 import proofpeer.indent.Span
-import proofpeer.proofscript.logic.{Preterm, Namespace, Name}
+import proofpeer.proofscript.logic.{Preterm, Pretype, Namespace, Name}
 import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
 final class Source(val namespace : Namespace, val src : String) extends UniquelyIdentifiable {
@@ -92,13 +92,27 @@ object ParseTree {
     protected def calcFreeVars = {
       var fs : Set[String] = Set()
       for (q <- Preterm.listQuotes(tm)) {
+        q match {
+          case Left(Preterm.PTmQuote(p : ParseTree, _)) => fs = fs ++ p.freeVars
+          case Right(Pretype.PTyQuote(p : ParseTree)) => fs = fs ++ p.freeVars
+          case _ => 
+        }
+      }
+      fs
+    }  
+  }
+
+  case class LogicType(ty : Pretype) extends Expr {
+    protected def calcFreeVars = {
+      var fs : Set[String] = Set()
+      for (q <- Pretype.listQuotes(ty)) {
         q.quoted match {
           case p : ParseTree => fs = fs ++ p.freeVars
           case _ => 
         }
       }
       fs
-    }  
+    }      
   }
   
   case class ControlFlowExpr(controlflow : ControlFlow) extends Expr {
@@ -192,11 +206,30 @@ object ParseTree {
     protected def calcVars = (Set(), Set())
   }
 
-  case class PLogic(tm : Preterm) extends Pattern {
+  case class PLogicTerm(tm : Preterm) extends Pattern {
     protected def calcVars = {
       var frees : Set[String] = Set()
       var intros : Set[String] = Set()
       for (q <- Preterm.listQuotes(tm)) {
+        q match {
+          case Left(Preterm.PTmQuote(p : ParseTree, _)) => 
+            frees = frees ++ p.freeVars
+            intros = intros ++ p.introVars
+          case Right(Pretype.PTyQuote(p : ParseTree)) => 
+            frees = frees ++ p.freeVars
+            intros = intros ++ p.introVars
+          case _ => 
+        }
+      }
+      (frees, intros)
+    }
+  }
+
+  case class PLogicType(ty : Pretype) extends Pattern {
+    protected def calcVars = {
+      var frees : Set[String] = Set()
+      var intros : Set[String] = Set()
+      for (q <- Pretype.listQuotes(ty)) {
         q.quoted match {
           case p : ParseTree => 
             frees = frees ++ p.freeVars
@@ -205,7 +238,7 @@ object ParseTree {
         }
       }
       (frees, intros)
-    }
+    }          
   }
 
   case class PTuple(elements : Vector[Pattern]) extends Pattern {

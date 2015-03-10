@@ -64,29 +64,32 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
   private val ContextSerializer = kernelSerializers.ContextSerializer
   private val TheoremSerializer = kernelSerializers.TheoremSerializer
   private val TermSerializer = kernelSerializers.TermSerializer
+  private val TypeSerializer = kernelSerializers.TypeSerializer
   private object PTFunSerializer extends TypecastSerializer[ParseTree.Fun, ParseTree](ParseTreeSerializer)
   private object PTDefCaseSerializer extends TypecastSerializer[ParseTree.DefCase, ParseTree](ParseTreeSerializer)
 
-  private object StateValueSerializerBase extends CaseClassSerializerBase[StateValue] {
+  object StateValueSerializerBase extends CaseClassSerializerBase[StateValue] {
 
     object Kind {
       val NILVALUE = 0
       val CONTEXTVALUE = 1
       val THEOREMVALUE = -1
       val TERMVALUE = 2
-      val BOOLVALUE = -2
-      val INTVALUE = 3
-      val SIMPLEFUNCTIONVALUE = -3
-      val RECURSIVEFUNCTIONVALUE = 4
-      val NATIVEFUNCTIONVALUE = -4
-      val STRINGVALUE = 5
-      val TUPLEVALUE = -5
+      val TYPEVALUE = -2
+      val BOOLVALUE = 3
+      val INTVALUE = -3
+      val SIMPLEFUNCTIONVALUE = 4
+      val RECURSIVEFUNCTIONVALUE = -4
+      val NATIVEFUNCTIONVALUE = 5
+      val STRINGVALUE = -5
+      val TUPLEVALUE = 6
     }
 
     object Serializers {
       val CONTEXTVALUE = ContextSerializer
       val THEOREMVALUE = TheoremSerializer
       val TERMVALUE = TermSerializer
+      val TYPEVALUE = TypeSerializer
       val BOOLVALUE = BooleanSerializer
       val INTVALUE = BigIntSerializer
       val SIMPLEFUNCTIONVALUE = PairSerializer(StateSerializer,PTFunSerializer)
@@ -106,6 +109,8 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
           (Kind.THEOREMVALUE, Some(Serializers.THEOREMVALUE.serialize(x)))
         case TermValue(x) =>
           (Kind.TERMVALUE, Some(Serializers.TERMVALUE.serialize(x)))
+        case TypeValue(x) =>
+          (Kind.TYPEVALUE, Some(Serializers.TYPEVALUE.serialize(x)))
         case BoolValue(x) =>
           (Kind.BOOLVALUE, Some(Serializers.BOOLVALUE.serialize(x)))
         case IntValue(x) =>
@@ -134,6 +139,8 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
           TheoremValue(Serializers.THEOREMVALUE.deserialize(args.get))
         case Kind.TERMVALUE if args.isDefined => 
           TermValue(Serializers.TERMVALUE.deserialize(args.get))
+        case Kind.TYPEVALUE if args.isDefined => 
+          TypeValue(Serializers.TYPEVALUE.deserialize(args.get))
         case Kind.BOOLVALUE if args.isDefined => 
           BoolValue(Serializers.BOOLVALUE.deserialize(args.get))
         case Kind.INTVALUE if args.isDefined => 
@@ -151,6 +158,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
         case _ => throw new RuntimeException("StateValueSerializerBase: cannot deserialize " + (kind, args))
       }
     }
+
   }
 
   def create(b : Any) : StateValue = {
@@ -227,6 +235,7 @@ object StateSerializerGenerator {
     ("ContextValue", "ContextSerializer"),
     ("TheoremValue", "TheoremSerializer"),
     ("TermValue", "TermSerializer"),
+    ("TypeValue", "TypeSerializer"),
     ("BoolValue", "BooleanSerializer"),
     ("IntValue", "BigIntSerializer"),
     ("SimpleFunctionValue", "StateSerializer", "PTFunSerializer"),
@@ -240,7 +249,7 @@ object StateSerializerGenerator {
     val collectTool = new CaseClassSerializerTool("CollectSerializerBase", collectCases, "Collect")
     // collectTool.output()
     val stateValueTool = new CaseClassSerializerTool("StateValueSerializerBase", stateValueCases, "StateValue")
-    //stateValueTool.output()
+    stateValueTool.output()
   }
 
 }
