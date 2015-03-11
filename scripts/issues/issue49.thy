@@ -12,3 +12,19 @@ assert 'union' == 'union : ‹fun(u, fun(u, u))›'
 let 'x : ‹fun(u, fun(u, p))›'
 
 assert 'x' == 'x : 𝒰 → 𝒰 → ℙ'
+
+match fun(u, p)
+  case ': ‹domain› → ‹range›' =>
+    show domain
+    show range
+  case _ =>
+    show "no match"
+
+
+match 'x'
+  case 'x : ‹domain› → ‹range›' =>
+    show domain
+    show range
+  case _ =>
+    show "no match"
+

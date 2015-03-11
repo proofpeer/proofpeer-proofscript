@@ -56,8 +56,8 @@ context
 context
   failure 'x'
   failure
-    let 'x : 𝒰 = true'
-  let 'x : ℙ = true'
+    let '(x : 𝒰) = true'
+  let '(x : ℙ) = true'
 
 
 # assume
