@@ -189,7 +189,7 @@ theorem disjExistsAll: '∀P Q. ((∃x. P x) ∨ (∀x. Q x)) = (∃x. ∀y. P x
     theorem case1:
       assume noP:'∀x. ¬(P x)'
       val noPRule = convRule (onceTreeConv (rewrConv (gsym eqFalseSimp)), noP) 0
-      val allQ = convRule (treeConv (rewrConv (noPRule <+ basicRewrites)),
+      val allQ = convRule (treeConv (rewrConv (noPRule <+ propRewrites)),
                            porq) 0
       orIntroR ('∃x. P x',allQ)
     theorem case2:

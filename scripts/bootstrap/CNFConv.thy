@@ -21,19 +21,6 @@ def
   nnf                tm = tryConv (sumConv [binderConv nnf, propBinaryConv nnf]) tm
 
 
-def debugConv [convName,c] =
-  tm =>
-    show "Enter:"
-    show convName
-    show tm
-    val thms = c tm
-    show "Exit:"
-    show convName
-    show tm
-    for thm in thms do
-      show rhs (rhs (term (normalize (term thm))))
-    thms
-
 def raiseQuantifiers tm =
   def
     rq '(∃x. ‹P› x) ∧ (∃x. ‹Q› x)' = [instantiate (conjExists,P,Q)]

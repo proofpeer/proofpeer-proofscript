@@ -62,18 +62,34 @@ def
         case [body]        => return [ctx,[x],body]
   stripForall '‹x›' = [x]
 
-val basicRewrites =
+theorem reflPropTrue: '∀p:ℙ. (p = p) = ⊤'
+  let 'p:ℙ'
+  eqTrueIntro (reflexive 'p:ℙ')
+
+theorem reflImpTrue: '∀p:ℙ. (p → p) = ⊤'
+  let p:'p:ℙ'
+  theorem imp:
+    assume p
+  eqTrueIntro imp
+
+val propRewrites =
   [notFalseTrue,notTrueFalse,
    orRightZero,orRightId,
-   convRule (onceTreeConv (rewrConv [orComm]), orRightZero) 0,
-   convRule (onceTreeConv (rewrConv [orComm]), orRightId) 0,
+   convRule (onceTreeConv (rewrConv orComm), orRightZero) 0,
+   convRule (onceTreeConv (rewrConv orComm), orRightId) 0,
    andRightZero,andRightId,
-   convRule (onceTreeConv (rewrConv [andComm]), andRightZero) 0,
-   convRule (onceTreeConv (rewrConv [andComm]), andRightId) 0,
-   eqTrueSimp,eqFalseSimp,
-   convRule (randConv (absConv (landConv symConv)), eqTrueSimp),
-   convRule (randConv (absConv (landConv symConv)), eqFalseSimp),
-   topDefEq,point,botDefEq,gsym notDefEx]
+   convRule (onceTreeConv (rewrConv andComm), andRightZero) 0,
+   convRule (onceTreeConv (rewrConv andComm), andRightId) 0,
+   reflPropTrue,
+   eqTrueSimp,
+   convRule (randConv (absConv (landConv symConv)), eqTrueSimp) 0,
+   convRule (randConv (rewrConv notTrueFalse),instantiate (eqFalseSimp,'⊤')) 0,
+   convRule (randConv (rewrConv notTrueFalse),
+     instantiate
+       (convRule (randConv (absConv (landConv symConv)), eqFalseSimp) 0,'⊤')) 0,
+   topDefEq,point,botDefEq,
+   convRule (treeConv (rewrConv notTrueFalse), instantiate (gsym notDefEx,'⊤')) 0
+   ]
 
 # Tautology verifier.
 def taut tm =
@@ -90,9 +106,9 @@ def taut tm =
           tautAux (body, xs, (notp <+ rewrsAcc))
         matchmp (orDefEx,caseSplit,pCase,notpCase)
     tautAux ['‹p›:ℙ',[],rewrsAcc] =
-      eqTrueElim (treeConv (rewrConv rewrsAcc) p 0)
+      eqTrueElim (upConv (rewrConv rewrsAcc) p 0)
   context <ctx>
-    return tautAux (tm, xs, basicRewrites)
+    return tautAux (tm, xs, propRewrites)
 
 choose hilbertChoiceDef: 'epsilonU:(𝒰 → ℙ) → 𝒰'
   let 'p:𝒰 → ℙ'

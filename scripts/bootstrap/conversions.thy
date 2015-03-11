@@ -142,6 +142,14 @@ def onceTreeConv conv =
                       combConv (onceTreeConv conv,onceTreeConv conv),
                       absConv (onceTreeConv conv))) tm
 
+# Apply a conversion bottom up
+def upConv conv =
+  tm =>
+    seqConv [sumConv [absConv (upConv conv),
+                      combConv (upConv conv, upConv conv),
+                      idConv],
+             tryConv conv] tm
+
 # Rewrite x = x to ⊤
 def
   reflConv '‹x› = ‹y›' if x == y = [eqTrueIntro (reflexive x)]
@@ -157,7 +165,9 @@ def symConv '‹x› = ‹y›' =
     sym asm
   [equivalence (left,right)]
 
-def repeatConv  c     = tm => tryConv (seqConv [c, repeatConv c]) tm
+def repeatConv1 c = tm => seqConv [c, tryConv (repeatConv1 c)] tm
+
+def repeatConv c = tryConv (repeatConv1 c)
 
 # Repeat a conversional.
 def repeatConvl [k,c] = tm => sumConv [seqConv [c, repeatConvl [k,k c]], c] tm
