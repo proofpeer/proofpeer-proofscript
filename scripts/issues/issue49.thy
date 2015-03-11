@@ -20,10 +20,15 @@ match fun(u, p)
   case _ =>
     assert false
 
+def typeOf '‹_› : ‹ty›' = ty
+
 match 'x'
-  case 'x : ‹domain› → ‹range›' =>
+  case 'x : ‹domain› → ‹range› : ‹xty›' =>
     assert domain == u
     assert range == ': 𝒰 → ℙ'
+    assert xty == ': 𝒰 → 𝒰 → ℙ'
   case _ =>
     assert false
+
+assert typeOf 'x' == ': 𝒰 → 𝒰 → ℙ'
 

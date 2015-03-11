@@ -1377,9 +1377,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case _ => return cont(success(None))
 					}
 				val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
-				val preterm = 
+				val (preterm, typeQuotes, typesOfTypeQuotes) = 
 					Preterm.inferPattern(tc, _preterm) match {
-						case Left(preterm) => preterm
+						case Left(result) => result
 						case Right(errors) => 
 							var erroroutput = errors.mkString("\n")
 							if (errors.size <= 1)
@@ -1394,7 +1394,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Right(invalid) => 
 						if (invalid) cont(fail(pat, "pattern is not a higher-order pattern"))
 						else cont(success(None))
-					case Left(subst) => 
+					case Left((subst, typeSubst)) => 
+						val f = typeSubst.get _
+						val types = typesOfTypeQuotes.mapValues(pretype => Pretype.translate(Pretype.subst(f, pretype)))
 						def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings) : Thunk[T] = {
 							if (idTerms.isEmpty)
 								cont(success(Some(matchings)))
@@ -1408,7 +1410,20 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								})																
 							}
 						}
-						loop(subst.toSeq, matchings)
+						def loopTypes(idTypes : Seq[(Utils.Integer, Type)], matchings : Matchings) : Thunk[T] = {
+							if (idTypes.isEmpty)
+								loop(subst.toSeq, matchings)
+							else {
+								val (quoteId, ty) = idTypes.head
+								val value = TypeValue(ty)
+								val p = typeQuotes(quoteId).quoted.asInstanceOf[Pattern]
+								matchPatternCont[T](state, p, value, matchings, {
+									case Success(Some(matchings_q), _) => loopTypes(idTypes.tail, matchings_q)
+									case r => cont(r)
+								})																
+							}
+						}						
+						loopTypes(types.toSeq, matchings)
 				}
 			case PLogicType(pretype) =>
 				value match {

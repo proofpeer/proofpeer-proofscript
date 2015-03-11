@@ -207,7 +207,7 @@ object Pretype {
     (pat, quotes)
   }
 
-  def pretype2Pattern(pretype : Pretype, min : Integer, q : Map[Integer, PTyQuote]) 
+  private def pretype2Pattern(pretype : Pretype, min : Integer, q : Map[Integer, PTyQuote]) 
     : (Integer, Pretype, Map[Integer, PTyQuote]) = 
   {
     var fresh = computeFresh(pretype, min)
@@ -237,6 +237,15 @@ object Pretype {
     if (solutions == null) None
     else Some(solutions.mapValues(v => forceTranslate(v)))
   }
+
+  def removeAny(pretype : Pretype, min : Integer, q : Map[Integer, PTyQuote]) 
+    : (Pretype, Integer, Map[Integer, PTyQuote]) = 
+  {
+    val (f, p, quotes) = pretype2Pattern(pretype, min, q)
+    (p, f, quotes)
+  }
+
+
 
 }
 

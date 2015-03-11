@@ -237,28 +237,30 @@ object Preterm {
 
   def hasQuotes(tm : Preterm) : Boolean = !listQuotes(tm).isEmpty
 
-  def removeAny(tm : Preterm, fresh : Integer) : (Preterm, Integer) = {
+  def removeAny(tm : Preterm, fresh : Integer, quotes : Map[Integer, Pretype.PTyQuote]) 
+    : (Preterm, Integer, Map[Integer, Pretype.PTyQuote]) = 
+  {
   	tm match {
   		case PTmTyping(tm, ty) => 
-  		  val (rtm, u) = removeAny(tm, fresh)
-  		  val (rty, v) = Pretype.removeAny(ty, u)
-  		  (PTmTyping(rtm, rty), v)
+  		  val (rtm, u, q1) = removeAny(tm, fresh, quotes)
+  		  val (rty, v, q) = Pretype.removeAny(ty, u, q1)
+  		  (PTmTyping(rtm, rty), v, q)
   		case PTmAbs(x, ty, body, body_ty) =>
-  		  val (rty, u) = Pretype.removeAny(ty, fresh)
-  		  val (rbody, v) = removeAny(body, u)
-  		  val (rbody_ty, w) = Pretype.removeAny(body_ty, v)
-  		  (PTmAbs(x, rty, rbody, rbody_ty), w)
+  		  val (rty, u, q1) = Pretype.removeAny(ty, fresh, quotes)
+  		  val (rbody, v, q2) = removeAny(body, u, q1)
+  		  val (rbody_ty, w, q) = Pretype.removeAny(body_ty, v, q2)
+  		  (PTmAbs(x, rty, rbody, rbody_ty), w, q)
   		case PTmComb(f, x, higherorder, ty) =>
-  		  val (rf, u) = removeAny(f, fresh)
-  		  val (rx, v) = removeAny(x, u)
-  		  val (rty, w) = Pretype.removeAny(ty, v)
-  		  (PTmComb(rf, rx, higherorder, rty), w)
+  		  val (rf, u, q1) = removeAny(f, fresh, quotes)
+  		  val (rx, v, q2) = removeAny(x, u, q1)
+  		  val (rty, w, q) = Pretype.removeAny(ty, v, q2)
+  		  (PTmComb(rf, rx, higherorder, rty), w, q)
   		case PTmName(name, ty) =>
-  		  val (rty, u) = Pretype.removeAny(ty, fresh)
-  		  (PTmName(name, rty), u)
-      case PTmQuote(q, ty) =>
-        val (rty, u) = Pretype.removeAny(ty, fresh)
-        (PTmQuote(q, rty), u)
+  		  val (rty, u, q) = Pretype.removeAny(ty, fresh, quotes)
+  		  (PTmName(name, rty), u, q)
+      case PTmQuote(quote, ty) =>
+        val (rty, u, q) = Pretype.removeAny(ty, fresh, quotes)
+        (PTmQuote(quote, rty), u, q)
   		case _ => Utils.failwith("internal error: removeAny")
   	}
   } 
@@ -416,34 +418,45 @@ object Preterm {
   	}
   }
 
-  def inferTypes1(context : TypingContext, tm : Preterm) : Option[Preterm] = {
+  def inferTypes1(context : TypingContext, tm : Preterm, vars : Map[Integer, Pretype]) : Option[(Preterm, Map[Integer, Pretype])] = {
   	val eqs = computeTypeEqualities(context, tm, Set())
   	val s = Pretype.solve(eqs)
-  	if (s == null) None else Some(updateHigherOrderFlags(subst(n => s.get(n), tm)))
+  	if (s == null) None 
+    else {
+      val t = updateHigherOrderFlags(subst(n => s.get(n), tm))
+      val f = s.get _
+      val vs = vars.mapValues(pretype => Pretype.subst(f, pretype))
+      Some((t, vs))
+    }
   }
 
-  def inferTypes(context : TypingContext, term : Preterm) : Option[Preterm] = {
+  def inferTypes(context : TypingContext, term : Preterm, vars : Map[Integer, Pretype]) : Option[(Preterm, Map[Integer, Pretype])] = {
   	var t = term
+    var typeVars = vars
   	do {  	
-  		inferTypes1(context, t) match {
+  		inferTypes1(context, t, typeVars) match {
   			case None => return None
-  			case Some(s) =>
-  				if (s == t) return Some(t)
+  			case Some((s, vars)) =>
+  				if (s == t) return Some((t, typeVars))
   				t = s
+          typeVars = vars
   		}
   	} while (true)
   	Utils.failwith("internal error")
   }
 
-  def inferPolymorphicPreterm(context : TypingContext, term : Preterm) : Either[Preterm, List[PTmError]] = {
+  def inferPolymorphicPreterm(context : TypingContext, term : Preterm) 
+    : Either[(Preterm, Map[Integer, Pretype.PTyQuote], Map[Integer, Pretype]), List[PTmError]] = 
+  {
     try {
       val (checkedTerm, checkedFresh) = checkNameTypes(context, term, computeFresh(term, 0))
       val errors = listErrors(checkedTerm)
       if (!errors.isEmpty) return Right(errors)
-      val (t, fresh) = removeAny(checkedTerm, checkedFresh)
-      inferTypes(context, t) match {
+      val (t, fresh, quotes) = removeAny(checkedTerm, checkedFresh, Map())
+      val typeVars = quotes.map({case (i, v) => (i, Pretype.PTyVar(i))})
+      inferTypes(context, t, typeVars) match {
         case None => Right(List(PTmError("term is ill-typed")))
-        case Some(t) => Left(t)
+        case Some((t, typeVars)) => Left((t, quotes, typeVars))
       }
     } catch {
       case e : Utils.KernelException =>
@@ -453,32 +466,11 @@ object Preterm {
 
   def inferPreterm(context : TypingContext, term : Preterm) : Either[Preterm, List[PTmError]] = {
   	inferPolymorphicPreterm(context, term) match {
-  		case r : Right[_,_] => r
-  		case Left(t) => 
-  			val tNoVars = subst(n => Some(Pretype.PTyUniverse), t)
-  			// this inferTypes is unnecessary, let's do it anyway for now
-  			inferTypes(context, tNoVars) match {
-  				case None => 
-  				  // Some careful thinking tells us that this case can never happen.
-  				  // To see why: the only way this can happen is that conflicting comb constraints
-  				  // are added in computeTypeEqualities when eliminating the variables. In particular there
-  				  // must be a PTmComb term for which the computed higher-order was None before, and is Some(_) now,
-  				  // and the added constraints produce a conflict.  
-  				  // Case analysis shows that this cannot happen:
-  				  // 1. Because the computed higher-order was None before, we know that before this holds:
-  				  //    - f.typeOf is a variable 
-  				  //    - x.typeOf is a variable or universe
-  				  //    - typeOf is a variable or universe
-  				  // 2. If the computed higher-order is Some(true) after, we know that afterwards:
-  				  //		- One of f.typeOf, x.typeOf and typeOf must be prop or fun
-  				  //    But this contradicts 1., so 2. is not possible.
-  				  // 3. If the computed higher-order is Some(false) after, the added constraints are that:
-  				  //    f.typeOf is a universe, x.typeOf is a universe, and typeOf is a universe
-  				  //    All of these constraints are a consequence of 1. and the fact that the substitution
-  				  //    replaces all variables by universe, so no conflict can arise.
-  					Utils.failwith("internal error: term is ill-typed after eliminating all type variables")
-  				case Some(t) => Left(t)
-  			}
+  		case Right(errors) => Right(errors)
+  		case Left((t, quotes, _)) => 
+        if (!quotes.isEmpty) Utils.failwith("term contains type quotes")
+  			val tNoVars = updateHigherOrderFlags(subst(n => Some(Pretype.PTyUniverse), t))
+        Left(tNoVars)
   	}
   }
 
@@ -541,16 +533,18 @@ object Preterm {
     }
   }
 
-  def inferPattern(context : TypingContext, term : Preterm) : Either[Preterm, List[PTmError]] = {
+  def inferPattern(context : TypingContext, term : Preterm) 
+    : Either[(Preterm, Map[Integer, Pretype.PTyQuote], Map[Integer, Pretype]), List[PTmError]] = 
+  {
     inferPolymorphicPreterm(context, term) match {
-      case r : Right[_,_] => r
-      case Left(t) =>
+      case Right(errors) => Right(errors)
+      case Left((t, quotes, typesOfQuotes)) =>
         val tDecided = decideHigherOrderFlags(t, Set())
-        inferTypes(context, tDecided) match {
+        inferTypes(context, tDecided, typesOfQuotes) match {
           case None =>
             // not sure if this can happen or not:
             Right(List(PTmError("term is ill-typed after deciding all higherorder flags"))) 
-          case Some(t) => Left(t)
+          case Some((t, typesOfQuotes)) => Left((t, quotes, typesOfQuotes))
         }
     }
   }

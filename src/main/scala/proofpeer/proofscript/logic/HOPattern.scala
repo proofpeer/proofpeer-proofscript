@@ -57,7 +57,7 @@ def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm)
 private def pretype2Pattern(pretype : Pretype, quotes : Map[Integer, Pretype.PTyQuote]) : 
   (Pretype, Map[Integer, Pretype.PTyQuote]) =
 {
-  val (_, pattern, q) = Pretype.pretype2Pattern(pretype, quotes.size, quotes)
+  val (pattern, _, q) = Pretype.removeAny(pretype, quotes.size, quotes)
   (pattern, q)
 }
 
@@ -121,9 +121,9 @@ def isHOPattern(pattern : HOPattern) : Boolean = {
 }
 
 
-def patternMatch(context : Context, hop : HOPattern, term : Term) : Either[Map[Integer, Term], Boolean] = {
+def patternMatch(context : Context, hop : HOPattern, term : Term) : Either[(Map[Integer, Term], Map[Integer, Pretype]), Boolean] = {
   unify(hop, term2HOP(context, term)) match {
-    case Left((subst, _)) => Left(subst.mapValues(hop2Term))
+    case Left((subst, typeSubst)) => Left(subst.mapValues(hop2Term), typeSubst)
     case Right(invalid) => Right(invalid)
   }
 }
