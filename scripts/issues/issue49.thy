@@ -15,16 +15,15 @@ assert 'x' == 'x : 𝒰 → 𝒰 → ℙ'
 
 match fun(u, p)
   case ': ‹domain› → ‹range›' =>
-    show domain
-    show range
+    assert domain == u
+    assert range == p
   case _ =>
-    show "no match"
-
+    assert false
 
 match 'x'
   case 'x : ‹domain› → ‹range›' =>
-    show domain
-    show range
+    assert domain == u
+    assert range == ': 𝒰 → ℙ'
   case _ =>
-    show "no match"
+    assert false
 

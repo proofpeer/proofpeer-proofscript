@@ -35,7 +35,7 @@ object Pretype {
   	}
   }
 
-  // Removes all occurrences of PTyAny or PTyQuote by fresh variables.
+  // Removes all occurrences of PTyAny by fresh variables.
   def removeAny(ty : Pretype) : Pretype = {
   	removeAny(ty, computeFresh(ty, 0))._1
   }
@@ -51,7 +51,7 @@ object Pretype {
   	}
   }
 
-  // Solves a set of equations between types. None of the types may contain PTyAny.
+  // Solves a set of equations between types. None of the types may contain PTyAny or PTyQuote.
   // Returns null if there is no solution.
   def solve(eqs : Set[(Pretype, Pretype)]) : Map[Integer, Pretype] = {
   	var equations = eqs
@@ -200,6 +200,42 @@ object Pretype {
       case q : PTyQuote => inst(q, cont)
       case _ => cont(Left(ty))
     }
+  }
+
+  def pretype2Pattern(pretype : Pretype) : (Pretype, Map[Integer, PTyQuote]) = {
+    val (_, pat, quotes) = pretype2Pattern(pretype, 0, Map())
+    (pat, quotes)
+  }
+
+  def pretype2Pattern(pretype : Pretype, min : Integer, q : Map[Integer, PTyQuote]) 
+    : (Integer, Pretype, Map[Integer, PTyQuote]) = 
+  {
+    var fresh = computeFresh(pretype, min)
+    var quotes : Map[Integer, PTyQuote] = q
+    def patOf(pretype : Pretype) : Pretype = {
+      pretype match {
+        case PTyFun(domain, range) => 
+          PTyFun(patOf(domain), patOf(range))
+        case PTyAny => 
+          val p = PTyVar(fresh)
+          fresh = fresh + 1
+          p
+        case q : PTyQuote =>
+          val p = PTyVar(fresh)
+          quotes = quotes + (fresh -> q)
+          fresh = fresh + 1
+          p
+        case _ => pretype
+      }
+    }
+    val p = patOf(pretype)
+    (fresh, p, quotes)
+  }
+
+  def patternMatch(pattern : Pretype, ty : Type) : Option[Map[Integer, Type]] = {
+    val solutions = solve(Set((pattern, translate(ty))))
+    if (solutions == null) None
+    else Some(solutions.mapValues(v => forceTranslate(v)))
   }
 
 }

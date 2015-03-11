@@ -46,11 +46,19 @@ def hop2Term(term : HOPattern) : Term = {
 
 // takes a properly type inferred preterm (via Preterm.inferPolymorphicPreterm);
 // all higherorder flags are supposed to be resolved;
-// returns a HOPattern and a mapping from meta variable indices to corresponding quotations
+// returns a HOPattern and a mapping from meta variable indices to corresponding quotations,
+// and a mapping from type variable indices to corresponding quotations
 def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm) 
   : (HOPattern, Map[Integer, Preterm.PTmQuote]) = 
 {
   preterm2HOP(typingContext, preterm, Map())
+}
+
+private def pretype2Pattern(pretype : Pretype, quotes : Map[Integer, Pretype.PTyQuote]) : 
+  (Pretype, Map[Integer, Pretype.PTyQuote]) =
+{
+  val (_, pattern, q) = Pretype.pretype2Pattern(pretype, quotes.size, quotes)
+  (pattern, q)
 }
 
 private def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm, 
@@ -58,7 +66,7 @@ private def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm
 {
   import Preterm._
   preterm match {
-    case PTmTyping(tm, _) => preterm2HOP(typingContext, tm, quotes)
+    case PTmTyping(tm, ty) => preterm2HOP(typingContext, tm, quotes)
     case PTmName(name, ty) => 
       typingContext.lookupPolymorphic(name, 0).get match {
         case (name, _, _, isVar) =>

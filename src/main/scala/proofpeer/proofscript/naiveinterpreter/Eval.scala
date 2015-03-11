@@ -1410,6 +1410,35 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 						loop(subst.toSeq, matchings)
 				}
+			case PLogicType(pretype) =>
+				value match {
+					case TypeValue(ty) => 
+						val (pat, quotes) = Pretype.pretype2Pattern(pretype)
+						Pretype.patternMatch(pat, ty) match {
+							case None => cont(success(None))
+							case Some(subst) =>
+								def loop(idTypes : Seq[(Utils.Integer, Type)], matchings : Matchings) : Thunk[T] = {
+									if (idTypes.isEmpty)
+										cont(success(Some(matchings)))
+									else {
+										val (quoteId, ty) = idTypes.head
+										val value = TypeValue(ty)
+										val quote = quotes.get(quoteId)
+										if (quote.isDefined) {
+											val p = quote.get.quoted.asInstanceOf[Pattern]
+											matchPatternCont[T](state, p, value, matchings, {
+												case Success(Some(matchings_q), _) => loop(idTypes.tail, matchings_q)
+												case r => cont(r)
+											})							
+										}	else {
+											loop(idTypes.tail, matchings)
+										}								
+									}
+								}
+								loop(subst.toSeq, matchings)								
+						}
+					case _ => cont(success(None))
+				}
 			case _ => cont(fail(pat, "pattern has not been implemented yet"))
 		}		
 	}
