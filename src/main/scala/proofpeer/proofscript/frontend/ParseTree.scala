@@ -83,6 +83,10 @@ object ParseTree {
   case class Fun(param : Pattern, body : Block) extends Expr {
     protected def calcFreeVars = body.freeVars -- param.introVars ++ param.freeVars
   }
+
+  case class TypeCast(expr : Expr, valuetype : ValueType) extends Expr {
+    protected def calcFreeVars = expr.freeVars   
+  }
   
   case class Lazy(expr : Expr) extends Expr {
     protected def calcFreeVars = expr.freeVars
@@ -183,6 +187,21 @@ object ParseTree {
   case object Leq extends CmpOperator
   case object Gr extends CmpOperator
   case object Geq extends CmpOperator  
+
+  sealed trait ValueType extends TracksSourcePosition
+  case object TyAny extends ValueType
+  case object TyNil extends ValueType
+  case object TyContext extends ValueType
+  case object TyTheorem extends ValueType
+  case object TyTerm extends ValueType
+  case object TyType extends ValueType
+  case object TyBoolean extends ValueType
+  case object TyInteger extends ValueType
+  case object TyFunction extends ValueType
+  case object TyString extends ValueType
+  case object TyTuple extends ValueType
+  case object TyMap extends ValueType
+  case object TySet extends ValueType
   
   sealed trait Pattern extends ParseTree
   
@@ -282,6 +301,10 @@ object ParseTree {
     protected def calcVars = (Set(), Set())
   }
 
+  case class PType(pat : Pattern, ty : ValueType) extends Pattern {
+    protected def calcVars = pat.calcVars
+  }
+
   case class Comment(text : String) extends ParseTree {
     protected def calcVars = (Set(), Set())
   }
@@ -340,7 +363,7 @@ object ParseTree {
     }
   }
     
-  case class DefCase(name : String, param : Pattern, body : Block) extends ParseTree {
+  case class DefCase(name : String, param : Pattern, returnType : Option[ValueType], body : Block) extends ParseTree {
     protected def calcVars = (param.freeVars ++ (body.freeVars -- param.introVars), Set(name))
   }
   

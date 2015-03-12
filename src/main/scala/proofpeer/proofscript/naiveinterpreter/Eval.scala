@@ -1060,6 +1060,15 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							})					
 						case Success(v, _) => cont(fail(u, "value cannot be applied to anything: " + display(state, v)))
 					})
+				case TypeCast(expr, valuetype) =>
+					evalExpr[T](state, expr,  {
+						case failed : Failed[_] => cont(failed)
+						case Success(value, _) =>
+							matchValueType(value, valuetype) match {
+								case None => cont(fail(expr, "type checking error of value: " + display(state, value)))
+								case Some(value) => cont(success(value))
+							}
+					})
 				case tm : LogicTerm =>
 					evalLogicTerm(state, tm, {
 						case f : Failed[_] => cont(fail(f))
@@ -1113,7 +1122,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						evalBlock[T](state.bind(matchings), c.body,  {
 							case failed : Failed[_] => 
 								cont(fail(failed).addToTrace(c.param, FunctionLabel(c.name, this, state, argument)))
-							case Success(state, _) => cont(success(state.reapCollect))
+							case Success(state, _) => 
+								val returnValue = state.reapCollect
+								c.returnType match {
+									case None => cont(success(returnValue))
+									case Some(returnType) =>
+										matchValueType(returnValue, returnType) match {
+											case None => cont(fail(c, "return value does not type check: " + display(state, returnValue)))
+											case Some(returnValue) => cont(success(returnValue))
+										}
+								}
 						})
 				})				
 			}
@@ -1362,6 +1380,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 					case r => cont(r)
 				})
+			case PType(p, valuetype) =>
+				matchValueType(value, valuetype) match {
+					case None => cont(success(None))
+					case Some(value) => matchPatternCont[T](state, p, value, matchings, cont)
+				}
 			case PLogicTerm(_preterm) =>
 				val term = 
 					value match {
@@ -1456,6 +1479,26 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}
 			case _ => cont(fail(pat, "pattern has not been implemented yet"))
 		}		
+	}
+
+	def matchValueType(value : StateValue, valuetype : ParseTree.ValueType) : Option[StateValue] = {
+		(value, valuetype) match {
+			case (_, TyAny) => 
+			case (NilValue, TyNil) =>
+			case (_ : ContextValue, TyContext) => 
+			case (_ : TheoremValue, TyTheorem) =>
+			case (_ : TermValue, TyTerm) =>
+			case (_ : TypeValue, TyType) =>
+			case (_ : BoolValue, TyBoolean) =>
+			case (_ : IntValue, TyInteger) =>
+			case (_ : SimpleFunctionValue, TyFunction) =>
+			case (_ : RecursiveFunctionValue, TyFunction) =>
+			case (_ : NativeFunctionValue, TyFunction) =>
+			case (_ : StringValue, TyString) =>
+			case (_ : TupleValue, TyTuple) =>			
+			case _ => return None
+		}
+		Some(value)
 	}
 
 	def matchPatterns[T](state : State, pats : Seq[Pattern], values : Seq[StateValue], matchings : Matchings,

@@ -56,7 +56,7 @@ val eqTrueIntro =
 # Returns nil if theorem is not of the correct form.
 # Fails if not given a theorem.
 def
-  eqTrueElim ('‹_› = ⊤') as thm =
+  eqTrueElim '‹_› = ⊤' as thm =
     modusponens (truth,sym thm)
   eqTrueElim thm = assertThm thm
 

@@ -111,7 +111,19 @@ def g_literals =
   keyword("Assert", "assert") ++ 
   keyword("Failure", "failure") ++ 
   keyword("As", "as") ++
-  keyword("By", "by") 
+  keyword("By", "by") ++
+  keyword("TyNil", "Nil") ++
+  keyword("TyTheorem", "Theorem") ++
+  keyword("TyTerm", "Term") ++
+  keyword("TyString", "String") ++
+  keyword("TyType", "Type") ++
+  keyword("TyContext", "Context") ++
+  keyword("TyBoolean", "Boolean") ++
+  keyword("TyInteger", "Integer") ++
+  keyword("TyFunction", "Function") ++
+  keyword("TyTuple", "Tuple") ++
+  keyword("TyMap", "Map") ++
+  keyword("TySet", "Set") 
 
 def optspan(span : Span) : Option[Span] = {
   if (span == null) None else Some(span)
@@ -287,7 +299,8 @@ val g_expr =
   arule("ExprList1", "ExprList1 Comma PExpr", c => c.ExprList1[Vector[Expr]] :+ c.PExpr) ++
   arule("ExprList1", "ExprList1 Comma", c => c.ExprList1[Vector[Expr]] :+ NilExpr) ++
   arule("PExpr", "Expr", _.Expr[Expr]) ++
-  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr))
+  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) ++
+  arule("PExpr", "PExpr Colon ScriptValueType", c=> TypeCast(c.PExpr, c.ScriptValueType))
   
 val g_do = 
   arule("STDo", "Do Block",
@@ -424,11 +437,26 @@ val g_pattern =
   arule("PrependPattern", "AppendPattern", _.AppendPattern[Any]) ++
   arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern, c.AtomicPattern)) ++
   arule("AppendPattern", "AtomicPattern", _.AtomicPattern[Any]) ++
+  arule("ScriptValueType", "Underscore", c => TyAny) ++
+  arule("ScriptValueType", "TyNil", c => TyNil) ++
+  arule("ScriptValueType", "TyContext", c => TyContext) ++
+  arule("ScriptValueType", "TyTheorem", c => TyTheorem) ++
+  arule("ScriptValueType", "TyTerm", c => TyTerm) ++
+  arule("ScriptValueType", "TyType", c => TyType) ++
+  arule("ScriptValueType", "TyBoolean", c => TyBoolean) ++
+  arule("ScriptValueType", "TyInteger", c => TyInteger) ++
+  arule("ScriptValueType", "TyString", c => TyString) ++
+  arule("ScriptValueType", "TyTuple", c => TyTuple) ++
+  arule("ScriptValueType", "TyMap", c => TyMap) ++
+  arule("ScriptValueType", "TySet", c => TySet) ++
   arule("AsPattern", "PrependPattern", _.PrependPattern[Any]) ++
-  arule("AsPattern", "AsPattern As IndexedName", c => PAs(c.AsPattern, c.text("IndexedName"))) ++
+  arule("AsPattern", "Pattern As IndexedName", c => PAs(c.Pattern, c.text("IndexedName"))) ++
   arule("IfPattern", "AsPattern", _.AsPattern[Any]) ++
-  arule("IfPattern", "IfPattern If Expr", c => PIf(c.IfPattern, c.Expr)) ++
-  arule("Pattern", "IfPattern", _.IfPattern[Any]) ++
+  arule("IfPattern", "Pattern If Expr", c => PIf(c.Pattern, c.Expr)) ++
+  arule("ArgumentPattern", "IfPattern", _.IfPattern[Any]) ++
+  arule("TypePattern", "ArgumentPattern", _.ArgumentPattern[Any]) ++
+  arule("TypePattern", "TypePattern Colon ScriptValueType", c => PType(c.TypePattern, c.ScriptValueType)) ++
+  arule("Pattern", "TypePattern", _.TypePattern[Any]) ++
   arule("OptPattern", "", c => None) ++
   arule("OptPattern", "Pattern", c => Some(c.Pattern[Any])) ++
   arule("PatternList", "", c => Vector[Pattern]()) ++
@@ -493,23 +521,28 @@ val g_def =
   arule("ST", "Def DefCases",
       CS.Indent("Def", "DefCases"),
       c => mkSTDef(c.DefCases)) ++
-  arule("ST", "Def IndexedName Pattern Eq Block", 
+  arule("ST", "Def IndexedName ArgumentPattern DefType Eq Block", 
       CS.and(
         CS.SameLine("Def", "IndexedName"),
-        CS.Indent("Def", "Pattern"),
+        CS.Indent("Def", "ArgumentPattern"),
+        CS.Indent("Def", "DefType"),
         CS.Indent("Def", "Eq"),
         CS.Indent("Def", "Block"), 
         CS.not(CS.SameLine("Def", "Block"))),
-      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.Pattern, c.Block)))) ++
+      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)))) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),
       c => c.DefCases[Vector[DefCase]] :+ c.DefCase) ++
-  arule("DefCase", "IndexedName Pattern Eq Block",
+  arule("DefCase", "IndexedName ArgumentPattern DefType Eq Block",
       CS.and(
-          CS.Indent("IndexedName", "Pattern"),
+          CS.Indent("IndexedName", "ArgumentPattern"),
+          CS.Indent("IndexedName", "DefType"),
+          CS.Indent("IndexedName", "Eq"),
           CS.Indent("IndexedName", "Block")),
-      c => DefCase(c.text("IndexedName"), c.Pattern, c.Block))
+      c => DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)) ++
+  arule("DefType", "", c => None) ++
+  arule("DefType", "Colon ScriptValueType", c => Some(c.ScriptValueType[Any]))
       
 val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), 

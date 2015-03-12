@@ -69,6 +69,8 @@ extends Serializer[ParseTree]
   private object ControlFlowSerializer extends PTSerializer[ControlFlow]
   private object MatchCaseSerializer extends PTSerializer[MatchCase]
   private object CommentSerializer extends PTSerializer[Comment]
+  private object ValueTypeSerializer extends PTSerializer[ValueType]
+
 
   private object ParseTreeSerializerBase extends CaseClassSerializerBase[TracksSourcePosition] {
 
@@ -85,71 +87,86 @@ extends Serializer[ParseTree]
       val TUPLE = 5
       val APP = -5
       val FUN = 6
-      val LAZY = -6
-      val LOGICTERM = 7
-      val LOGICTYPE = -7
-      val CONTROLFLOWEXPR = 8
-      val DO = -8
-      val IF = 9
-      val WHILE = -9
-      val FOR = 10
-      val MATCHCASE = -10
-      val MATCH = 11
-      val CONTEXTCONTROL = -11
-      val NEG = 12
-      val NOT = -12
-      val RANGETO = 13
-      val RANGEDOWNTO = -13
-      val ADD = 14
-      val SUB = -14
-      val MUL = 15
-      val DIV = -15
-      val MOD = 16
-      val AND = -16
-      val OR = 17
-      val PREPEND = -17
-      val APPEND = 18
-      val CONCAT = -18
-      val EQ = 19
-      val NEQ = -19
-      val LE = 20
-      val LEQ = -20
-      val GR = 21
-      val GEQ = -21
-      val PANY = 22
-      val PID = -22
-      val PINT = 23
-      val PBOOL = -23
-      val PSTRING = 24
-      val PLOGICTERM = -24
-      val PLOGICTYPE = 25
-      val PTUPLE = -25
-      val PPREPEND = 26
-      val PAPPEND = -26
-      val PIF = 27
-      val PAS = -27
-      val PNIL = 28
-      val COMMENT = -28
-      val STCOMMENT = 29
-      val STEXPR = -29
-      val STCONTROLFLOW = 30
-      val STSHOW = -30
-      val STFAIL = 31
-      val STASSERT = -31
-      val STFAILURE = 32
-      val STVAL = -32
-      val STVALINTRO = 33
-      val STASSIGN = -33
-      val STDEF = 34
-      val DEFCASE = -34
-      val STRETURN = 35
-      val STASSUME = -35
-      val STLET = 36
-      val STCHOOSE = -36
-      val STTHEOREM = 37
-      val STTHEOREMBY = -37
-      val STTHEORY = 38
-      val BLOCK = -38
+      val TYPECAST = -6
+      val LAZY = 7
+      val LOGICTERM = -7
+      val LOGICTYPE = 8
+      val CONTROLFLOWEXPR = -8
+      val DO = 9
+      val IF = -9
+      val WHILE = 10
+      val FOR = -10
+      val MATCHCASE = 11
+      val MATCH = -11
+      val CONTEXTCONTROL = 12
+      val NEG = -12
+      val NOT = 13
+      val RANGETO = -13
+      val RANGEDOWNTO = 14
+      val ADD = -14
+      val SUB = 15
+      val MUL = -15
+      val DIV = 16
+      val MOD = -16
+      val AND = 17
+      val OR = -17
+      val PREPEND = 18
+      val APPEND = -18
+      val CONCAT = 19
+      val EQ = -19
+      val NEQ = 20
+      val LE = -20
+      val LEQ = 21
+      val GR = -21
+      val GEQ = 22
+      val PANY = -22
+      val PID = 23
+      val PINT = -23
+      val PBOOL = 24
+      val PSTRING = -24
+      val PLOGICTERM = 25
+      val PLOGICTYPE = -25
+      val PTUPLE = 26
+      val PPREPEND = -26
+      val PAPPEND = 27
+      val PIF = -27
+      val PAS = 28
+      val PNIL = -28
+      val PTYPE = 29
+      val TYANY = -29
+      val TYNIL = 30
+      val TYCONTEXT = -30
+      val TYTHEOREM = 31
+      val TYTERM = -31
+      val TYTYPE = 32
+      val TYBOOLEAN = -32
+      val TYINTEGER = 33
+      val TYFUNCTION = -33
+      val TYSTRING = 34
+      val TYTUPLE = -34
+      val TYMAP = 35
+      val TYSET = -35
+      val COMMENT = 36
+      val STCOMMENT = -36
+      val STEXPR = 37
+      val STCONTROLFLOW = -37
+      val STSHOW = 38
+      val STFAIL = -38
+      val STASSERT = 39
+      val STFAILURE = -39
+      val STVAL = 40
+      val STVALINTRO = -40
+      val STASSIGN = 41
+      val STDEF = -41
+      val DEFCASE = 42
+      val STRETURN = -42
+      val STASSUME = 43
+      val STLET = -43
+      val STCHOOSE = 44
+      val STTHEOREM = -44
+      val STTHEOREMBY = 45
+      val STTHEORY = -45
+      val BLOCK = 46
     }
 
     object Serializers {
@@ -164,6 +181,7 @@ extends Serializer[ParseTree]
       val TUPLE = VectorSerializer(ExprSerializer)
       val APP = PairSerializer(ExprSerializer,ExprSerializer)
       val FUN = PairSerializer(PatternSerializer,BlockSerializer)
+      val TYPECAST = PairSerializer(ExprSerializer,ValueTypeSerializer)
       val LAZY = ExprSerializer
       val LOGICTERM = PretermSerializer
       val LOGICTYPE = PretypeSerializer
@@ -186,6 +204,7 @@ extends Serializer[ParseTree]
       val PAPPEND = PairSerializer(PatternSerializer,PatternSerializer)
       val PIF = PairSerializer(PatternSerializer,ExprSerializer)
       val PAS = PairSerializer(PatternSerializer,StringSerializer)
+      val PTYPE = PairSerializer(PatternSerializer,ValueTypeSerializer)
       val COMMENT = StringSerializer
       val STCOMMENT = CommentSerializer
       val STEXPR = ExprSerializer
@@ -198,7 +217,7 @@ extends Serializer[ParseTree]
       val STVALINTRO = ListSerializer(IdSerializer)
       val STASSIGN = PairSerializer(PatternSerializer,BlockSerializer)
       val STDEF = MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))
-      val DEFCASE = TripleSerializer(StringSerializer,PatternSerializer,BlockSerializer)
+      val DEFCASE = QuadrupleSerializer(StringSerializer,PatternSerializer,OptionSerializer(ValueTypeSerializer),BlockSerializer)
       val STRETURN = OptionSerializer(ExprSerializer)
       val STASSUME = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
       val STLET = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
@@ -235,6 +254,8 @@ extends Serializer[ParseTree]
           (Kind.APP, Some(Serializers.APP.serialize(App.unapply(t).get)))
         case t : Fun =>
           (Kind.FUN, Some(Serializers.FUN.serialize(Fun.unapply(t).get)))
+        case t : TypeCast =>
+          (Kind.TYPECAST, Some(Serializers.TYPECAST.serialize(TypeCast.unapply(t).get)))
         case Lazy(x) =>
           (Kind.LAZY, Some(Serializers.LAZY.serialize(x)))
         case LogicTerm(x) =>
@@ -323,6 +344,34 @@ extends Serializer[ParseTree]
           (Kind.PAS, Some(Serializers.PAS.serialize(PAs.unapply(t).get)))
         case PNil =>
           (Kind.PNIL, None)
+        case t : PType =>
+          (Kind.PTYPE, Some(Serializers.PTYPE.serialize(PType.unapply(t).get)))
+        case TyAny =>
+          (Kind.TYANY, None)
+        case TyNil =>
+          (Kind.TYNIL, None)
+        case TyContext =>
+          (Kind.TYCONTEXT, None)
+        case TyTheorem =>
+          (Kind.TYTHEOREM, None)
+        case TyTerm =>
+          (Kind.TYTERM, None)
+        case TyType =>
+          (Kind.TYTYPE, None)
+        case TyBoolean =>
+          (Kind.TYBOOLEAN, None)
+        case TyInteger =>
+          (Kind.TYINTEGER, None)
+        case TyFunction =>
+          (Kind.TYFUNCTION, None)
+        case TyString =>
+          (Kind.TYSTRING, None)
+        case TyTuple =>
+          (Kind.TYTUPLE, None)
+        case TyMap =>
+          (Kind.TYMAP, None)
+        case TySet =>
+          (Kind.TYSET, None)
         case Comment(x) =>
           (Kind.COMMENT, Some(Serializers.COMMENT.serialize(x)))
         case STComment(x) =>
@@ -395,6 +444,8 @@ extends Serializer[ParseTree]
           App.tupled(Serializers.APP.deserialize(args.get))
         case Kind.FUN if args.isDefined => 
           Fun.tupled(Serializers.FUN.deserialize(args.get))
+        case Kind.TYPECAST if args.isDefined => 
+          TypeCast.tupled(Serializers.TYPECAST.deserialize(args.get))
         case Kind.LAZY if args.isDefined => 
           Lazy(Serializers.LAZY.deserialize(args.get))
         case Kind.LOGICTERM if args.isDefined => 
@@ -483,6 +534,34 @@ extends Serializer[ParseTree]
           PAs.tupled(Serializers.PAS.deserialize(args.get))
         case Kind.PNIL if args.isEmpty => 
           PNil
+        case Kind.PTYPE if args.isDefined => 
+          PType.tupled(Serializers.PTYPE.deserialize(args.get))
+        case Kind.TYANY if args.isEmpty => 
+          TyAny
+        case Kind.TYNIL if args.isEmpty => 
+          TyNil
+        case Kind.TYCONTEXT if args.isEmpty => 
+          TyContext
+        case Kind.TYTHEOREM if args.isEmpty => 
+          TyTheorem
+        case Kind.TYTERM if args.isEmpty => 
+          TyTerm
+        case Kind.TYTYPE if args.isEmpty => 
+          TyType
+        case Kind.TYBOOLEAN if args.isEmpty => 
+          TyBoolean
+        case Kind.TYINTEGER if args.isEmpty => 
+          TyInteger
+        case Kind.TYFUNCTION if args.isEmpty => 
+          TyFunction
+        case Kind.TYSTRING if args.isEmpty => 
+          TyString
+        case Kind.TYTUPLE if args.isEmpty => 
+          TyTuple
+        case Kind.TYMAP if args.isEmpty => 
+          TyMap
+        case Kind.TYSET if args.isEmpty => 
+          TySet
         case Kind.COMMENT if args.isDefined => 
           Comment(Serializers.COMMENT.deserialize(args.get))
         case Kind.STCOMMENT if args.isDefined => 
@@ -528,7 +607,9 @@ extends Serializer[ParseTree]
         case _ => throw new RuntimeException("ParseTreeSerializerBase: cannot deserialize " + (kind, args))
       }
     }
+
   }
+
 
   private def decodeInt(b : Any) : Int = {
     b match {
@@ -583,6 +664,7 @@ object ParseTreeSerializerGenerator {
     ("Tuple", "VectorSerializer(ExprSerializer)"),
     ("App", "ExprSerializer", "ExprSerializer"),
     ("Fun", "PatternSerializer", "BlockSerializer"),
+    ("TypeCast", "ExprSerializer", "ValueTypeSerializer"),
     ("Lazy", "ExprSerializer"),
     ("LogicTerm", "PretermSerializer"),
     ("LogicType", "PretypeSerializer"),
@@ -627,6 +709,20 @@ object ParseTreeSerializerGenerator {
     ("PIf", "PatternSerializer", "ExprSerializer"),
     ("PAs", "PatternSerializer", "StringSerializer"),
     "PNil",
+    ("PType", "PatternSerializer", "ValueTypeSerializer"),
+    "TyAny", 
+    "TyNil", 
+    "TyContext", 
+    "TyTheorem", 
+    "TyTerm",
+    "TyType", 
+    "TyBoolean", 
+    "TyInteger", 
+    "TyFunction", 
+    "TyString", 
+    "TyTuple",
+    "TyMap",
+    "TySet",
     ("Comment", "StringSerializer"),
     ("STComment", "CommentSerializer"),
     ("STExpr", "ExprSerializer"),
@@ -639,7 +735,7 @@ object ParseTreeSerializerGenerator {
     ("STValIntro", "ListSerializer(IdSerializer)"),
     ("STAssign", "PatternSerializer", "BlockSerializer"),
     ("STDef", "MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))"),
-    ("DefCase", "StringSerializer", "PatternSerializer", "BlockSerializer"),
+    ("DefCase", "StringSerializer", "PatternSerializer", "OptionSerializer(ValueTypeSerializer)", "BlockSerializer"),
     ("STReturn", "OptionSerializer(ExprSerializer)"),
     ("STAssume", "OptionSerializer(StringSerializer)", "ExprSerializer"),
     ("STLet", "OptionSerializer(StringSerializer)", "ExprSerializer"),

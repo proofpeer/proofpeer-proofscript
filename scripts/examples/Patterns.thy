@@ -116,7 +116,43 @@ assert dest '∀ q. q = x' == [4, 'y ↦ y', 'y ↦ x']
 assert dest '∀ q. q = y' == [4, 'x : ℙ ↦ x', 'x : ℙ ↦ y']
 assert dest '∃ q. q = x' == nil
 
+# Pattern matching based on type of value
 
+def typeOf v =
+  match v
+    case _ : Nil => "Nil"
+    case _ : Boolean => "Boolean"
+    case _ : Integer => "Integer"
+    case _ : String => "String"
+    case _ : Tuple => "Tuple"
+    case _ : Map => "Map"
+    case _ : Set => "Set"
+    case _ : Term => "Term"
+    case _ : Type => "Type"
+    case _ : Theorem => "Theorem"
+    case _ : Context => "Context"
+    case _ : _ => "Any"
+
+def check (v, ty : String) = 
+  assert typeOf v == ty
+  ()
+
+_ = (do*
+  check ('x', "Term")
+  check (1, "Integer")
+  check (nil, "Nil")
+  check (true, "Boolean")
+  check ((1), "Integer")
+  check ((1, 2), "Tuple")
+  check ([1], "Tuple")
+  check (': 𝒰', "Type")
+  check (inf, "Theorem")
+  check ((context), "Context")
+  check ("check", "String"))
+
+def f x : Integer = (x * x : Integer)
+
+assert f 12 == 144
 
 
 
