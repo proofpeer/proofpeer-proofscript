@@ -1485,6 +1485,15 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		(value, valuetype) match {
 			case (_, TyAny) => 
 			case (NilValue, TyNil) =>
+			case (NilValue, TyOption(_)) =>
+			case (value, TyOption(vty)) => return matchValueType(value, vty)
+			case (value, TyUnion(vty1, vty2)) =>
+				matchValueType(value, vty1) match {
+					case None =>
+						return matchValueType(value, vty2)
+					case result =>
+						return result
+				}
 			case (_ : ContextValue, TyContext) => 
 			case (_ : TheoremValue, TyTheorem) =>
 			case (_ : TermValue, TyTerm) =>

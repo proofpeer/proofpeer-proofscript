@@ -68,6 +68,7 @@ def g_literals =
   lex("Gr", char('>')) ++
   lex("Leq", ALT(char(0x2264), string("<="))) ++
   lex("Geq", ALT(char(0x2265), string(">="))) ++
+  lex("QuestionMark", char('?')) ++
   lex("SquareBracketOpen", char('[')) ++
   lex("SquareBracketClose", char(']')) ++
   lex("DoubleArrow", ALT(char(0x21D2), string("=>"))) ++
@@ -437,18 +438,21 @@ val g_pattern =
   arule("PrependPattern", "AppendPattern", _.AppendPattern[Any]) ++
   arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern, c.AtomicPattern)) ++
   arule("AppendPattern", "AtomicPattern", _.AtomicPattern[Any]) ++
-  arule("ScriptValueType", "Underscore", c => TyAny) ++
-  arule("ScriptValueType", "TyNil", c => TyNil) ++
-  arule("ScriptValueType", "TyContext", c => TyContext) ++
-  arule("ScriptValueType", "TyTheorem", c => TyTheorem) ++
-  arule("ScriptValueType", "TyTerm", c => TyTerm) ++
-  arule("ScriptValueType", "TyType", c => TyType) ++
-  arule("ScriptValueType", "TyBoolean", c => TyBoolean) ++
-  arule("ScriptValueType", "TyInteger", c => TyInteger) ++
-  arule("ScriptValueType", "TyString", c => TyString) ++
-  arule("ScriptValueType", "TyTuple", c => TyTuple) ++
-  arule("ScriptValueType", "TyMap", c => TyMap) ++
-  arule("ScriptValueType", "TySet", c => TySet) ++
+  arule("ScriptValuePrimitiveType", "Underscore", c => TyAny) ++
+  arule("ScriptValuePrimitiveType", "TyNil", c => TyNil) ++
+  arule("ScriptValuePrimitiveType", "TyContext", c => TyContext) ++
+  arule("ScriptValuePrimitiveType", "TyTheorem", c => TyTheorem) ++
+  arule("ScriptValuePrimitiveType", "TyTerm", c => TyTerm) ++
+  arule("ScriptValuePrimitiveType", "TyType", c => TyType) ++
+  arule("ScriptValuePrimitiveType", "TyBoolean", c => TyBoolean) ++
+  arule("ScriptValuePrimitiveType", "TyInteger", c => TyInteger) ++
+  arule("ScriptValuePrimitiveType", "TyString", c => TyString) ++
+  arule("ScriptValuePrimitiveType", "TyTuple", c => TyTuple) ++
+  arule("ScriptValuePrimitiveType", "TyMap", c => TyMap) ++
+  arule("ScriptValuePrimitiveType", "TySet", c => TySet) ++
+  arule("ScriptValueType", "ScriptValuePrimitiveType", c => c.ScriptValuePrimitiveType[Any]) ++
+  arule("ScriptValueType", "ScriptValueType Bar ScriptValuePrimitiveType", c => TyUnion(c.ScriptValueType, c.ScriptValuePrimitiveType)) ++
+  arule("ScriptValueType", "ScriptValuePrimitiveType QuestionMark", c => TyOption(c.ScriptValuePrimitiveType)) ++
   arule("AsPattern", "PrependPattern", _.PrependPattern[Any]) ++
   arule("AsPattern", "Pattern As IndexedName", c => PAs(c.Pattern, c.text("IndexedName"))) ++
   arule("IfPattern", "AsPattern", _.AsPattern[Any]) ++

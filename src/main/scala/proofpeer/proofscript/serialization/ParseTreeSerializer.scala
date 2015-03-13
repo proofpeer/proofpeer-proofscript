@@ -146,27 +146,29 @@ extends Serializer[ParseTree]
       val TYTUPLE = -34
       val TYMAP = 35
       val TYSET = -35
-      val COMMENT = 36
-      val STCOMMENT = -36
-      val STEXPR = 37
-      val STCONTROLFLOW = -37
-      val STSHOW = 38
-      val STFAIL = -38
-      val STASSERT = 39
-      val STFAILURE = -39
-      val STVAL = 40
-      val STVALINTRO = -40
-      val STASSIGN = 41
-      val STDEF = -41
-      val DEFCASE = 42
-      val STRETURN = -42
-      val STASSUME = 43
-      val STLET = -43
-      val STCHOOSE = 44
-      val STTHEOREM = -44
-      val STTHEOREMBY = 45
-      val STTHEORY = -45
-      val BLOCK = 46
+      val TYOPTION = 36
+      val TYUNION = -36
+      val COMMENT = 37
+      val STCOMMENT = -37
+      val STEXPR = 38
+      val STCONTROLFLOW = -38
+      val STSHOW = 39
+      val STFAIL = -39
+      val STASSERT = 40
+      val STFAILURE = -40
+      val STVAL = 41
+      val STVALINTRO = -41
+      val STASSIGN = 42
+      val STDEF = -42
+      val DEFCASE = 43
+      val STRETURN = -43
+      val STASSUME = 44
+      val STLET = -44
+      val STCHOOSE = 45
+      val STTHEOREM = -45
+      val STTHEOREMBY = 46
+      val STTHEORY = -46
+      val BLOCK = 47
     }
 
     object Serializers {
@@ -205,6 +207,8 @@ extends Serializer[ParseTree]
       val PIF = PairSerializer(PatternSerializer,ExprSerializer)
       val PAS = PairSerializer(PatternSerializer,StringSerializer)
       val PTYPE = PairSerializer(PatternSerializer,ValueTypeSerializer)
+      val TYOPTION = ValueTypeSerializer
+      val TYUNION = PairSerializer(ValueTypeSerializer,ValueTypeSerializer)
       val COMMENT = StringSerializer
       val STCOMMENT = CommentSerializer
       val STEXPR = ExprSerializer
@@ -372,6 +376,10 @@ extends Serializer[ParseTree]
           (Kind.TYMAP, None)
         case TySet =>
           (Kind.TYSET, None)
+        case TyOption(x) =>
+          (Kind.TYOPTION, Some(Serializers.TYOPTION.serialize(x)))
+        case t : TyUnion =>
+          (Kind.TYUNION, Some(Serializers.TYUNION.serialize(TyUnion.unapply(t).get)))
         case Comment(x) =>
           (Kind.COMMENT, Some(Serializers.COMMENT.serialize(x)))
         case STComment(x) =>
@@ -562,6 +570,10 @@ extends Serializer[ParseTree]
           TyMap
         case Kind.TYSET if args.isEmpty => 
           TySet
+        case Kind.TYOPTION if args.isDefined => 
+          TyOption(Serializers.TYOPTION.deserialize(args.get))
+        case Kind.TYUNION if args.isDefined => 
+          TyUnion.tupled(Serializers.TYUNION.deserialize(args.get))
         case Kind.COMMENT if args.isDefined => 
           Comment(Serializers.COMMENT.deserialize(args.get))
         case Kind.STCOMMENT if args.isDefined => 
@@ -609,7 +621,6 @@ extends Serializer[ParseTree]
     }
 
   }
-
 
   private def decodeInt(b : Any) : Int = {
     b match {
@@ -723,6 +734,8 @@ object ParseTreeSerializerGenerator {
     "TyTuple",
     "TyMap",
     "TySet",
+    ("TyOption", "ValueTypeSerializer"),
+    ("TyUnion", "ValueTypeSerializer", "ValueTypeSerializer"),
     ("Comment", "StringSerializer"),
     ("STComment", "CommentSerializer"),
     ("STExpr", "ExprSerializer"),

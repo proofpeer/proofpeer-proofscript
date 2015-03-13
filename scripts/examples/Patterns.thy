@@ -150,12 +150,22 @@ _ = (do*
   check ((context), "Context")
   check ("check", "String"))
 
-def f x : Integer = (x * x : Integer)
+def f (x : Integer) : Integer = if x == 0 then "0" else (x * x : Integer)
 
 assert f 12 == 144
+failure f "12"
+failure f 0
 
+def g (x : Integer) : Integer? = if x == 0 then nil else x * x
+assert g 0 == nil
+assert g 12 == 144
 
+def h x : Integer | String = if x == 0 then "0" else x
 
+assert h 0 == "0"
+assert h 1 == 1
+assert h "hello" == "hello"
+failure h ': 𝒰'
 
 
 

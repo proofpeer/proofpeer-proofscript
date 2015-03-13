@@ -202,6 +202,8 @@ object ParseTree {
   case object TyTuple extends ValueType
   case object TyMap extends ValueType
   case object TySet extends ValueType
+  case class TyUnion(vt1 : ValueType, vt2 : ValueType) extends ValueType
+  case class TyOption(vt : ValueType) extends ValueType
   
   sealed trait Pattern extends ParseTree
   
