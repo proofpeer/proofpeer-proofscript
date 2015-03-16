@@ -61,7 +61,7 @@ object NativeFunctions {
   private def transitive(eval : Eval, state : State, tm : StateValue) : Result = {
     val ctx = state.context
     tm match {
-      case TupleValue(tuple) if tuple.size >= 1 =>
+      case TupleValue(tuple, _) if tuple.size >= 1 =>
         var thm : Theorem = null
         for (t <- tuple) {
           t match {
@@ -82,7 +82,7 @@ object NativeFunctions {
   private def combine(eval : Eval, state : State, tm : StateValue) : Result = {
     val ctx = state.context
     tm match {
-      case TupleValue(tuple) if tuple.size >= 1 =>
+      case TupleValue(tuple, _) if tuple.size >= 1 =>
         var thm : Theorem = null
         for (t <- tuple) {
           t match {
@@ -103,7 +103,7 @@ object NativeFunctions {
   private def instantiate(eval : Eval, state : State, tm : StateValue) : Result = {
     val ctx = state.context
     tm match {
-      case TupleValue(values) if !values.isEmpty =>
+      case TupleValue(values, _) if !values.isEmpty =>
         values.head match {
           case TheoremValue(thm) =>
             var insts : List[Option[Term]] = List()
@@ -124,7 +124,7 @@ object NativeFunctions {
   private def modusponens(eval : Eval, state : State, theorems : StateValue) : Result = {
     val ctx = state.context
     theorems match {
-      case TupleValue(tuple) if tuple.size >= 1 =>
+      case TupleValue(tuple, _) if tuple.size >= 1 =>
         var thm : Theorem = null
         for (t <- tuple) {
           t match {
@@ -144,7 +144,7 @@ object NativeFunctions {
 
   private def equivalence(eval : Eval, state : State, theorems : StateValue) : Result = {
     theorems match {
-      case TupleValue(Vector(TheoremValue(a), TheoremValue(b))) =>
+      case TupleValue(Vector(TheoremValue(a), TheoremValue(b)), _) =>
         val ctx = state.context
         Left(TheoremValue(ctx.equiv(ctx.lift(a), ctx.lift(b))))
       case _ => 
@@ -188,7 +188,7 @@ object NativeFunctions {
   private def compute_size(eval : Eval, state : State, value : StateValue) : Result = {
     value match {
       case StringValue(s) => Left(IntValue(s.size))
-      case TupleValue(v) => Left(IntValue(v.size))
+      case TupleValue(v, _) => Left(IntValue(v.size))
       case _ => Right("size is not defined for: " + eval.display(state, value))
     }  
   }
@@ -209,7 +209,7 @@ object NativeFunctions {
   private def destcomb(eval : Eval, state : State, tm : StateValue) : Result = {    
     val ctx = state.context
     tm match {
-      case TermValue(Term.Comb(f, g)) => Left(TupleValue(Vector(TermValue(f), TermValue(g))))
+      case TermValue(Term.Comb(f, g)) => Left(TupleValue(Vector(TermValue(f), TermValue(g)), true))
       case TermValue(f) => Left(NilValue)
       case _ => Right("term expected")
     }    
@@ -222,7 +222,7 @@ object NativeFunctions {
         ctx.destAbs(t) match {
           case None => Left(NilValue)
           case Some((context, x, body)) =>
-            Left(TupleValue(Vector(ContextValue(context), TermValue(x), TermValue(body))))
+            Left(TupleValue(Vector(ContextValue(context), TermValue(x), TermValue(body)), false))
         }
       case _ => Right("term expected")
     }    
@@ -233,7 +233,7 @@ object NativeFunctions {
     tm match {
       case TheoremValue(thm) => 
         Left(TheoremValue(ctx.lift(thm)))
-      case TupleValue(Vector(TheoremValue(thm), BoolValue(preserve_structure))) =>
+      case TupleValue(Vector(TheoremValue(thm), BoolValue(preserve_structure)),_) =>
         Left(TheoremValue(ctx.lift(thm, preserve_structure)))
       case _ => Right("theorem or pair of theorem and boolean expected")
     }

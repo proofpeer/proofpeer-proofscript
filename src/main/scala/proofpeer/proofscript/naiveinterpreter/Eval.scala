@@ -596,7 +596,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							}
 							evalExpr(frozenState, thms, {
 								case f : Failed[_] => cont(fail(f))
-								case Success(TupleValue(thms), _) if thms.forall(StateValue.isTheoremValue _) =>
+								case Success(TupleValue(thms, _), _) if thms.forall(StateValue.isTheoremValue _) =>
 									prove(thms.map(th => th.asInstanceOf[TheoremValue].value))
 								case Success(NilValue, _) =>
 									prove(Vector())
@@ -724,40 +724,42 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				if (a < b) Some(IsLess)
 				else if (a > b) Some(IsGreater)
 				else Some(IsEq)
-			case (TupleValue(xs), TupleValue(ys)) =>
+			case (TupleValue(xs, cx), TupleValue(ys, cy)) =>
 				val len = xs.size
 				if (len == ys.size) {
-					var has_less = false
-					var has_eq = false
-					var has_greater = false
-					var has_neq = false
-					for (i <- 0 until len)
-						cmp(state, xs(i), ys(i)) match {
-							case None => return None
-							case Some(c) =>
-								c match {
-									case IsLess => has_less = true
-									case IsLessOrEqual =>
-										has_less = true
-										has_eq = true 
-									case IsEq => has_eq = true
-									case IsGreater => has_greater = true
-									case IsGreaterOrEqual => 
-										has_greater = true
-										has_eq = true
-									case IsNEq => has_neq = true
-								}
-						}
-					if (has_neq) Some(IsNEq)
-					else
-						(has_less, has_eq, has_greater) match {
-							case (true, false, false) => Some(IsLess)
-							case (true, true, false) => Some(IsLessOrEqual)
-							case (false, _, false) => Some(IsEq)
-							case (false, false, true) => Some(IsGreater)
-							case (false, true, true) => Some(IsGreaterOrEqual)
-							case (true, _, true) => Some(IsNEq)
-						}
+					if (cx && cy) {
+						var has_less = false
+						var has_eq = false
+						var has_greater = false
+						var has_neq = false
+						for (i <- 0 until len)
+							cmp(state, xs(i), ys(i)) match {
+								case None => return None
+								case Some(c) =>
+									c match {
+										case IsLess => has_less = true
+										case IsLessOrEqual =>
+											has_less = true
+											has_eq = true 
+										case IsEq => has_eq = true
+										case IsGreater => has_greater = true
+										case IsGreaterOrEqual => 
+											has_greater = true
+											has_eq = true
+										case IsNEq => has_neq = true
+									}
+							}
+						if (has_neq) Some(IsNEq)
+						else
+							(has_less, has_eq, has_greater) match {
+								case (true, false, false) => Some(IsLess)
+								case (true, true, false) => Some(IsLessOrEqual)
+								case (false, _, false) => Some(IsEq)
+								case (false, false, true) => Some(IsGreater)
+								case (false, true, true) => Some(IsGreaterOrEqual)
+								case (true, _, true) => Some(IsNEq)
+							}
+					} else None
 				} else Some(IsNEq)
 			case (TermValue(u), TermValue(v)) => 
 				import KernelUtils._
@@ -770,18 +772,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					Some(IsEq)
 				else
 					Some(IsNEq)
-			case (TheoremValue(p), TheoremValue(q)) => 
-				import KernelUtils._
-				try { 
-				  val u = state.context.lift(p).proposition
-				  val v = state.context.lift(q).proposition
-					if (betaEtaEq(u, v))
-						Some(IsEq)
-					else
-						Some(IsNEq)				  
-				} catch {
-				  case e: Utils.KernelException => None
-				}
+			case (TheoremValue(p), TheoremValue(q)) => None
 			case (_ : ContextValue, _ : ContextValue) => None
 			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
 			case _ => Some(IsNEq)	
@@ -882,9 +873,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case Success(right, _) =>
 									(op, left, right) match {
 										case (RangeTo, IntValue(x), IntValue(y)) => 
-											cont(success(TupleValue((x to y).map(i => IntValue(i)).toVector)))
+											cont(success(TupleValue((x to y).map(i => IntValue(i)).toVector, true)))
 										case (RangeDownto, IntValue(x), IntValue(y)) => 
-											cont(success(TupleValue((y to x).reverse.map(i => IntValue(i)).toVector)))
+											cont(success(TupleValue((y to x).reverse.map(i => IntValue(i)).toVector, true)))
 										case (Add, IntValue(x), IntValue(y)) => cont(success(IntValue(x + y)))
 										case (Sub, IntValue(x), IntValue(y)) => cont(success(IntValue(x - y)))
 										case (Mul, IntValue(x), IntValue(y)) => cont(success(IntValue(x * y)))
@@ -959,16 +950,51 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							loop(v, operators, operands.tail,  cont)
 					}) 
 				case Tuple(xs) => 
-					def loop(xs : Seq[Expr], values : List[StateValue],  cont : RC[StateValue, T]) : Thunk[T] = {
+					def loop(xs : Seq[Expr], values : List[StateValue],  comparable : Boolean, cont : RC[StateValue, T]) : Thunk[T] = {
 						if (xs.isEmpty) 
-							cont(success(TupleValue(values.reverse.toVector)))
+							cont(success(TupleValue(values.reverse.toVector, comparable)))
 						else 
 							evalExpr[T](state, xs.head,  {
 								case f : Failed[_] => cont(f)
-								case Success(value, _) => loop(xs.tail, value :: values,  cont)
+								case Success(value, _) => loop(xs.tail, value :: values,  comparable && value.isComparable, cont)
 							})
 					}
-					loop(xs, List(),  cont)
+					loop(xs, List(),  true, cont)
+				case SetLiteral(xs) =>
+					def loop(xs : Seq[Expr], values : Set[StateValue],  cont : RC[StateValue, T]) : Thunk[T] = {
+						if (xs.isEmpty) 
+							cont(success(SetValue(values, true)))
+						else 
+							evalExpr[T](state, xs.head, {
+								case f : Failed[_] => cont(f)
+								case Success(value, _) => 
+									if (value.isComparable)
+										loop(xs.tail, values + value, cont)
+									else
+										cont(fail(xs.head, "value cannot be a member of a set: " + display(state, value)))
+							})
+					}
+					loop(xs, Set(),  cont)
+				case MapLiteral(xs) =>
+					def loop(xs : Seq[(Expr, Expr)], m : Map[StateValue, StateValue],  comparable : Boolean, cont : RC[StateValue, T]) : Thunk[T] = {
+						if (xs.isEmpty) 
+							cont(success(MapValue(m, comparable)))
+						else {
+							val (key, value) = xs.head
+							evalExpr[T](state, key,  {
+								case f : Failed[_] => cont(f)
+								case Success(vkey, _) => 
+									if (vkey.isComparable) {
+										evalExpr[T](state, value, {
+											case f : Failed[_] => cont(f)
+											case Success(vvalue, _) =>
+												loop(xs.tail, m + (vkey -> vvalue),  comparable && vvalue.isComparable, cont)
+										})
+									} else cont(fail(key, "value cannot be key of a map: " + display(state, vkey)))
+							})
+						}
+					}
+					loop(xs, Map(),  true, cont)								
 				case ControlFlowExpr(controlflow) => 
 					val cstate = state.setCollect(Collect.emptyOne)
 					evalControlFlow[T](cstate, controlflow,  {
@@ -1014,7 +1040,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case Success(IntValue(i), _) =>
 									if (i < 0 || i >= s.size) cont(fail(v, "index " + i + " is out of bounds"))
 									else cont(success(StringValue(Vector(s(i.toInt)))))
-								case Success(TupleValue(indices), _) =>
+								case Success(TupleValue(indices, _), _) =>
 									def buildString() : Thunk[T] = {
 										val len = s.size
 										var codes : List[Int] = List()
@@ -1033,26 +1059,31 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case Success(value, _) =>
 									cont(fail(v, "string cannot be applied to: " + display(state, value)))
 							})
-						case Success(TupleValue(s), _) =>
+						case Success(TupleValue(s, _), _) =>
 							evalExpr[T](state, v,  {
 								case failed : Failed[_] => cont(failed)
 								case Success(IntValue(i), _) =>
 									if (i < 0 || i >= s.size) cont(fail(v, "index " + i + " is out of bounds"))
 									else cont(success(s(i.toInt)))
-								case Success(TupleValue(indices), _) =>
+								case Success(TupleValue(indices, _), _) =>
 									def buildTuple() : Thunk[T] = {
 										val len = s.size
 										var values : List[StateValue] = List()
+										var comparable = true
 										for (index <- indices) {
 											index match {
 												case IntValue(i) =>
 													if (i < 0 || i >= len) return cont(fail(v, "index " + i + " is out of bounds"))
-													else values = s(i.toInt) :: values
+													else {
+														val value = s(i.toInt)
+														values = value :: values
+														comparable = comparable && value.isComparable
+													}
 												case _ =>
 													return cont(fail(v, "index expected, found: " + display(state, index)))
 											}
 										}
-										cont(success(TupleValue(values.reverse.toVector)))									
+										cont(success(TupleValue(values.reverse.toVector, comparable)))									
 									}
 									buildTuple()
 								case Success(value, _) =>
@@ -1215,7 +1246,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def evalFor[T](state : State, control : For,  cont : RC[State, T]) : Thunk[T] = {
 		evalExpr[T](state.freeze, control.coll,  {
 			case f : Failed[_] => cont(fail(f))
-			case Success(TupleValue(values), _) =>
+			case Success(TupleValue(values, _), _) =>
 				def loop(state : State, values : Seq[StateValue],  cont : RC[State, T]) : Thunk[T] = {
 					if (values.isEmpty) cont(success(state))
 					else {
@@ -1332,26 +1363,38 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}
 			case PTuple(ps) =>
 				value match {
-					case TupleValue(xs) if xs.size == ps.size =>
+					case TupleValue(xs, _) if xs.size == ps.size =>
 						matchPatterns[T](state, ps, xs, matchings, cont)
 					case _ => cont(success(None))
 				}
 			case PPrepend(p, ps) =>  
 				value match {
-					case TupleValue(xs) if !xs.isEmpty =>
+					case TupleValue(xs, comparable) if !xs.isEmpty =>
 						matchPatternCont[T](state, p, xs.head, matchings, {
 							case Success(Some(matchings), _) => 
-								matchPatternCont[T](state, ps, TupleValue(xs.tail), matchings, cont) 
+								val tail = xs.tail
+								val c = 
+									if (comparable || xs.head.isComparable)
+										comparable
+									else
+										tail.forall(x => x.isComparable)
+								matchPatternCont[T](state, ps, TupleValue(tail, c), matchings, cont) 
 							case r => cont(r)
 						})
 					case _ => cont(success(None))
 				}
 			case PAppend(ps, p) =>
 				value match {
-					case TupleValue(xs) if !xs.isEmpty =>
+					case TupleValue(xs, comparable) if !xs.isEmpty =>
 						matchPatternCont[T](state, p, xs.last, matchings, {
 							case Success(Some(matchings), _) => 
-								matchPatternCont[T](state, ps, TupleValue(xs.take(xs.size - 1)), matchings, cont) 
+								val prefix = xs.take(xs.size - 1)
+								val c = 
+									if (comparable || xs.last.isComparable)
+										comparable
+									else
+										prefix.forall(x => x.isComparable)
+								matchPatternCont[T](state, ps, TupleValue(prefix, c), matchings, cont) 
 							case r => cont(r)
 						})
 					case _ => cont(success(None))

@@ -150,7 +150,7 @@ context
   val u = '(P ↦ (x ↦ P x)) Q'
   theorem t: '‹u› = Q'
     reflexive 'Q'
-  assert t == normalize u
+  assert term t == term (normalize u)
 
 
 # equivalence

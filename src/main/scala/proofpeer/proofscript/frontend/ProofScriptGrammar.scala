@@ -72,6 +72,7 @@ def g_literals =
   lex("SquareBracketOpen", char('[')) ++
   lex("SquareBracketClose", char(']')) ++
   lex("DoubleArrow", ALT(char(0x21D2), string("=>"))) ++
+  lex("SingleArrow", ALT(char(0x2192), string("->"))) ++
   lex("ScriptEq", string("==")) ++
   lex("ScriptNotEq", ALT(char(0x2260), string("<>"))) ++  
   lex("Apostrophe", char(0x27)) ++
@@ -223,6 +224,10 @@ val g_expr =
   arule("PrimitiveExpr", "Digits", c => Integer(BigInt(c.text("Digits"), 10))) ++
   arule("PrimitiveExpr", "RoundBracketOpen ExprList RoundBracketClose", c => mkTuple(c.ExprList, true)) ++
   arule("PrimitiveExpr", "SquareBracketOpen ExprList SquareBracketClose", c => mkTuple(c.ExprList, false)) ++
+  arule("PrimitiveExpr", "CurlyBracketOpen ExprSetList1 CurlyBracketClose", c => SetLiteral(c.ExprSetList1)) ++
+  arule("PrimitiveExpr", "CurlyBracketOpen ExprMapList1 CurlyBracketClose", c => MapLiteral(c.ExprMapList1)) ++
+  arule("PrimitiveExpr", "CurlyBracketOpen CurlyBracketClose", c => SetLiteral(Vector())) ++
+  arule("PrimitiveExpr", "CurlyBracketOpen SingleArrow CurlyBracketClose", c => MapLiteral(Vector())) ++  
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
@@ -299,6 +304,10 @@ val g_expr =
   arule("ExprList1", "Comma", c => Vector[Expr](NilExpr, NilExpr)) ++
   arule("ExprList1", "ExprList1 Comma PExpr", c => c.ExprList1[Vector[Expr]] :+ c.PExpr) ++
   arule("ExprList1", "ExprList1 Comma", c => c.ExprList1[Vector[Expr]] :+ NilExpr) ++
+  arule("ExprSetList1", "PExpr", c => Vector[Expr](c.PExpr)) ++
+  arule("ExprSetList1", "ExprSetList1 Comma PExpr", c => c.ExprSetList1[Vector[Expr]] :+ c.PExpr) ++
+  arule("ExprMapList1", "PExpr_1 SingleArrow PExpr_2", c => Vector[(Expr, Expr)]((c.PExpr_1, c.PExpr_2))) ++
+  arule("ExprMapList1", "ExprMapList1 Comma PExpr_1 SingleArrow PExpr_2", c => c.ExprMapList1[Vector[(Expr, Expr)]] :+ (c.PExpr_1, c.PExpr_2)) ++
   arule("PExpr", "Expr", _.Expr[Expr]) ++
   arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) ++
   arule("PExpr", "PExpr Colon ScriptValueType", c=> TypeCast(c.PExpr, c.ScriptValueType))

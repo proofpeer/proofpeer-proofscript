@@ -4,7 +4,9 @@ import proofpeer.proofscript.logic._
 import proofpeer.proofscript.frontend.ParseTree
 import proofpeer.proofscript.serialization.UniquelyIdentifiable
 
-trait StateValue extends UniquelyIdentifiable
+trait StateValue extends UniquelyIdentifiable {
+	def isComparable : Boolean
+}
 
 sealed trait Collect {}
 object Collect {
@@ -19,7 +21,10 @@ object Collect {
 
 	private class TupleCollector(val collected : List[StateValue]) extends Collector {
 		def add(value : StateValue) = new TupleCollector(value :: collected)
-		def reap : StateValue = TupleValue(collected.reverse.toVector)
+		def reap : StateValue = {
+			val values = collected.reverse.toVector
+			TupleValue(values, values.forall(_.isComparable))
+		}
 	}
 
 	private val emptyTupleCollector = new TupleCollector(List())
@@ -39,26 +44,54 @@ object Collect {
 	
 }
 
-case object NilValue extends StateValue
-case class ContextValue(value : Context) extends StateValue 
-case class TheoremValue(value : Theorem) extends StateValue
-case class TermValue(value : Term) extends StateValue
-case class TypeValue(value : Type) extends StateValue
-case class BoolValue(value : Boolean) extends StateValue
-case class IntValue(value : BigInt) extends StateValue
-case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue
-case class RecursiveFunctionValue(var state : State, var cases : Vector[ParseTree.DefCase]) extends StateValue
-case class NativeFunctionValue(nativeFunction : NativeFunctions.F) extends StateValue
+case object NilValue extends StateValue {
+	def isComparable = true
+}
+case class ContextValue(value : Context) extends StateValue {
+	def isComparable = false
+}
+case class TheoremValue(value : Theorem) extends StateValue {
+	def isComparable = false
+}
+case class TermValue(value : Term) extends StateValue {
+	def isComparable = true
+}
+case class TypeValue(value : Type) extends StateValue {
+	def isComparable = true
+}
+case class BoolValue(value : Boolean) extends StateValue {
+	def isComparable = true
+}
+case class IntValue(value : BigInt) extends StateValue {
+	def isComparable = true
+}
+case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue {
+	def isComparable = false
+}
+case class RecursiveFunctionValue(var state : State, var cases : Vector[ParseTree.DefCase]) extends StateValue {
+	def isComparable = false	
+}
+case class NativeFunctionValue(nativeFunction : NativeFunctions.F) extends StateValue {
+	def isComparable = false	
+}
 case class StringValue(value : Vector[Int]) extends StateValue {
 	override def toString : String = {
 		new String(value.toArray, 0, value.size)		
 	}
 	def concat(s : StringValue) : StringValue = StringValue(value ++ s.value)
+	def isComparable = true
 }
-case class TupleValue(value : Vector[StateValue]) extends StateValue {
-	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value)
-	def append(x : StateValue) : TupleValue = TupleValue(value :+ x)
-	def concat(tuple : TupleValue) : TupleValue = TupleValue(value ++ tuple.value)
+case class TupleValue(value : Vector[StateValue], comparable : Boolean) extends StateValue {
+	def prepend(x : StateValue) : TupleValue = TupleValue(x +: value, comparable && x.isComparable) 
+	def append(x : StateValue) : TupleValue = TupleValue(value :+ x, comparable && x.isComparable)
+	def concat(tuple : TupleValue) : TupleValue = TupleValue(value ++ tuple.value, comparable && tuple.isComparable)
+	def isComparable = comparable
+}
+case class SetValue(value : Set[StateValue], comparable : Boolean) extends StateValue {
+	def isComparable = comparable
+}
+case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) extends StateValue {
+	def isComparable = comparable
 }
 
 object StateValue {
@@ -115,7 +148,7 @@ object StateValue {
 			case f : SimpleFunctionValue => "? : Function"
 			case f : RecursiveFunctionValue => "? : Function"
 			case f : NativeFunctionValue => "? : Function"
-			case TupleValue(value) =>
+			case TupleValue(value, _) =>
 				var s = "["
 				var first = true
 				for (v <- value) {
@@ -123,6 +156,24 @@ object StateValue {
 					s = s + display(aliases, nameresolution, context, v)
 				} 
 				s + "]"
+			case SetValue(value, _) =>
+				var s = "{"
+				var first = true
+				for (v <- value) {
+					if (first) first = false else s = s + ", "
+					s = s + display(aliases, nameresolution, context, v)
+				} 
+				s + "}"
+			case MapValue(value, _) =>
+				var s = "{"
+				var first = true
+				for ((k, v) <- value) {
+					if (first) first = false else s = s + ", "
+					val sk = display(aliases, nameresolution, context, k)
+					val sv = display(aliases, nameresolution, context, v)
+					s = s + sk + " → " + sv
+				} 
+				if (first) "{→}" else s + "}"			
 			case ContextValue(context) => display(context) + " : Context"
 			case TheoremValue(th) =>
 				try {

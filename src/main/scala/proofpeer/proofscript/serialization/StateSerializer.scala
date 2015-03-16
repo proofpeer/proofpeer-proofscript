@@ -83,6 +83,8 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       val NATIVEFUNCTIONVALUE = 5
       val STRINGVALUE = -5
       val TUPLEVALUE = 6
+      val SETVALUE = -6
+      val MAPVALUE = 7
     }
 
     object Serializers {
@@ -96,7 +98,9 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       val RECURSIVEFUNCTIONVALUE = PairSerializer(StateSerializer,VectorSerializer(PTDefCaseSerializer))
       val NATIVEFUNCTIONVALUE = NativeFunctionSerializer
       val STRINGVALUE = VectorSerializer(IntSerializer)
-      val TUPLEVALUE = VectorSerializer(StateValueSerializer)
+      val TUPLEVALUE = PairSerializer(VectorSerializer(StateValueSerializer),BooleanSerializer)
+      val SETVALUE = PairSerializer(SetSerializer(StateValueSerializer),BooleanSerializer)
+      val MAPVALUE = PairSerializer(MapSerializer(StateValueSerializer, StateValueSerializer),BooleanSerializer)
     }
 
     def decomposeAndSerialize(obj : StateValue) : (Int, Option[Any]) = {
@@ -123,8 +127,12 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
           (Kind.NATIVEFUNCTIONVALUE, Some(Serializers.NATIVEFUNCTIONVALUE.serialize(x)))
         case StringValue(x) =>
           (Kind.STRINGVALUE, Some(Serializers.STRINGVALUE.serialize(x)))
-        case TupleValue(x) =>
-          (Kind.TUPLEVALUE, Some(Serializers.TUPLEVALUE.serialize(x)))
+        case t : TupleValue =>
+          (Kind.TUPLEVALUE, Some(Serializers.TUPLEVALUE.serialize(TupleValue.unapply(t).get)))
+        case t : SetValue =>
+          (Kind.SETVALUE, Some(Serializers.SETVALUE.serialize(SetValue.unapply(t).get)))
+        case t : MapValue =>
+          (Kind.MAPVALUE, Some(Serializers.MAPVALUE.serialize(MapValue.unapply(t).get)))
         case _ => throw new RuntimeException("StateValueSerializerBase: cannot serialize " + obj)
       }
     }
@@ -154,7 +162,11 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
         case Kind.STRINGVALUE if args.isDefined => 
           StringValue(Serializers.STRINGVALUE.deserialize(args.get))
         case Kind.TUPLEVALUE if args.isDefined => 
-          TupleValue(Serializers.TUPLEVALUE.deserialize(args.get))
+          TupleValue.tupled(Serializers.TUPLEVALUE.deserialize(args.get))
+        case Kind.SETVALUE if args.isDefined => 
+          SetValue.tupled(Serializers.SETVALUE.deserialize(args.get))
+        case Kind.MAPVALUE if args.isDefined => 
+          MapValue.tupled(Serializers.MAPVALUE.deserialize(args.get))
         case _ => throw new RuntimeException("StateValueSerializerBase: cannot deserialize " + (kind, args))
       }
     }
@@ -242,7 +254,9 @@ object StateSerializerGenerator {
     ("RecursiveFunctionValue", "StateSerializer", "VectorSerializer(PTDefCaseSerializer)"),
     ("NativeFunctionValue", "NativeFunctionSerializer"),
     ("StringValue", "VectorSerializer(IntSerializer)"),
-    ("TupleValue", "VectorSerializer(StateValueSerializer)")
+    ("TupleValue", "VectorSerializer(StateValueSerializer)", "BooleanSerializer"),
+    ("SetValue", "SetSerializer(StateValueSerializer)", "BooleanSerializer"),
+    ("MapValue", "MapSerializer(StateValueSerializer, StateValueSerializer)", "BooleanSerializer")
   )
 
   def _main(args : Array[String]) {

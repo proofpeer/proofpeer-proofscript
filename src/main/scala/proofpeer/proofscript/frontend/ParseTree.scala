@@ -75,6 +75,14 @@ object ParseTree {
   case class Tuple(elements : Vector[Expr]) extends Expr {
     protected def calcFreeVars = elements.foldLeft(Set[String]())((x, y) => x ++ y.freeVars)
   }
+
+  case class SetLiteral(elements : Vector[Expr]) extends Expr {
+    protected def calcFreeVars = elements.foldLeft(Set[String]())((x, y) => x ++ y.freeVars)    
+  }
+
+  case class MapLiteral(elements : Vector[(Expr, Expr)]) extends Expr {
+    protected def calcFreeVars = elements.foldLeft(Set[String]())((x, y) => x ++ y._1.freeVars ++ y._2.freeVars)    
+  }
     
   case class App(f : Expr, g : Expr) extends Expr {
     protected def calcFreeVars = f.freeVars ++ g.freeVars

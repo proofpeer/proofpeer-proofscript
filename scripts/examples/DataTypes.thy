@@ -34,6 +34,12 @@ show [7]
 # and this is just the number 7, not a vector
 show (7)
 
+# This is a map literal
+show {1 -> "1", "1" -> 1}
+
+# This is a set literal
+show {1, 2, 9, 3}
+
 # This is a function literal
 show x => x * x
 
