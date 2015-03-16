@@ -71,10 +71,27 @@ def sum v =
 assert sum (1, 2, 3, 4, 5, -10, "hello", 7) == 22
 assert sum () == 0
 
-# This implements the map functional
+# the function also works for sets
+assert sum {1, 2, 3, 4, 5, -10, "hello", 7} == 22
+assert sum {} == sum {->} == 0
+assert sum {4, 3, 3} == 7
+
+# This implements the map functional for vectors
 def map (f, v) = for x in v do f x
 
 assert map (x => x * x, [1, 9, 5]) == [1, 81, 25]
+
+# You can apply map also to sets, but you still get a vector
+assert map (x => x * x, {1, 9, 5}) == [1, 81, 25]
+
+# Here is how you can swap keys and values in a Map
+def swap (m : Map) : Map = 
+  val result = {->}
+  for (k, v) in m do
+    result = result ++ {v -> k}
+  result
+
+assert swap {2 -> 3, 3 -> 5, 5 -> 7, 7 -> 11} == {3 -> 2, 5 -> 3, 7 -> 5, 11 -> 7}
 
 # And this implements the fold functional
 def fold (f, x, v) =

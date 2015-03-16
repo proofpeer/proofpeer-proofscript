@@ -99,6 +99,11 @@ failure failure 1 == 1
 # Both strings and vectors have a size
 assert size "hello" == size ("h", "e", "l", "l", "o") == 5
 
+# Maps and vectors do, too
+assert size {2, 3, 5, 7} == 4
+assert size {2 -> 3, 3 -> 5, 5 -> 7, 7 -> 11} == 4
+assert size {} == size {->} == 0
+
 # There are the usual operations on booleans
 assert not false
 assert false or true

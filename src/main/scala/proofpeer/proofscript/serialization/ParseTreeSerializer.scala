@@ -85,90 +85,92 @@ extends Serializer[ParseTree]
       val BINARYOPERATION = 4
       val CMPOPERATION = -4
       val TUPLE = 5
-      val APP = -5
-      val FUN = 6
-      val TYPECAST = -6
-      val LAZY = 7
-      val LOGICTERM = -7
-      val LOGICTYPE = 8
-      val CONTROLFLOWEXPR = -8
-      val DO = 9
-      val IF = -9
-      val WHILE = 10
-      val FOR = -10
-      val MATCHCASE = 11
-      val MATCH = -11
-      val CONTEXTCONTROL = 12
-      val NEG = -12
-      val NOT = 13
-      val RANGETO = -13
-      val RANGEDOWNTO = 14
-      val ADD = -14
-      val SUB = 15
-      val MUL = -15
-      val DIV = 16
-      val MOD = -16
-      val AND = 17
-      val OR = -17
-      val PREPEND = 18
-      val APPEND = -18
-      val CONCAT = 19
-      val EQ = -19
-      val NEQ = 20
-      val LE = -20
-      val LEQ = 21
-      val GR = -21
-      val GEQ = 22
-      val PANY = -22
-      val PID = 23
-      val PINT = -23
-      val PBOOL = 24
-      val PSTRING = -24
-      val PLOGICTERM = 25
-      val PLOGICTYPE = -25
-      val PTUPLE = 26
-      val PPREPEND = -26
-      val PAPPEND = 27
-      val PIF = -27
-      val PAS = 28
-      val PNIL = -28
-      val PTYPE = 29
-      val TYANY = -29
-      val TYNIL = 30
-      val TYCONTEXT = -30
-      val TYTHEOREM = 31
-      val TYTERM = -31
-      val TYTYPE = 32
-      val TYBOOLEAN = -32
-      val TYINTEGER = 33
-      val TYFUNCTION = -33
-      val TYSTRING = 34
-      val TYTUPLE = -34
-      val TYMAP = 35
-      val TYSET = -35
-      val TYOPTION = 36
-      val TYUNION = -36
-      val COMMENT = 37
-      val STCOMMENT = -37
-      val STEXPR = 38
-      val STCONTROLFLOW = -38
-      val STSHOW = 39
-      val STFAIL = -39
-      val STASSERT = 40
-      val STFAILURE = -40
-      val STVAL = 41
-      val STVALINTRO = -41
-      val STASSIGN = 42
-      val STDEF = -42
-      val DEFCASE = 43
-      val STRETURN = -43
-      val STASSUME = 44
-      val STLET = -44
-      val STCHOOSE = 45
-      val STTHEOREM = -45
-      val STTHEOREMBY = 46
-      val STTHEORY = -46
-      val BLOCK = 47
+      val SETLITERAL = -5
+      val MAPLITERAL = 6
+      val APP = -6
+      val FUN = 7
+      val TYPECAST = -7
+      val LAZY = 8
+      val LOGICTERM = -8
+      val LOGICTYPE = 9
+      val CONTROLFLOWEXPR = -9
+      val DO = 10
+      val IF = -10
+      val WHILE = 11
+      val FOR = -11
+      val MATCHCASE = 12
+      val MATCH = -12
+      val CONTEXTCONTROL = 13
+      val NEG = -13
+      val NOT = 14
+      val RANGETO = -14
+      val RANGEDOWNTO = 15
+      val ADD = -15
+      val SUB = 16
+      val MUL = -16
+      val DIV = 17
+      val MOD = -17
+      val AND = 18
+      val OR = -18
+      val PREPEND = 19
+      val APPEND = -19
+      val CONCAT = 20
+      val EQ = -20
+      val NEQ = 21
+      val LE = -21
+      val LEQ = 22
+      val GR = -22
+      val GEQ = 23
+      val PANY = -23
+      val PID = 24
+      val PINT = -24
+      val PBOOL = 25
+      val PSTRING = -25
+      val PLOGICTERM = 26
+      val PLOGICTYPE = -26
+      val PTUPLE = 27
+      val PPREPEND = -27
+      val PAPPEND = 28
+      val PIF = -28
+      val PAS = 29
+      val PNIL = -29
+      val PTYPE = 30
+      val TYANY = -30
+      val TYNIL = 31
+      val TYCONTEXT = -31
+      val TYTHEOREM = 32
+      val TYTERM = -32
+      val TYTYPE = 33
+      val TYBOOLEAN = -33
+      val TYINTEGER = 34
+      val TYFUNCTION = -34
+      val TYSTRING = 35
+      val TYTUPLE = -35
+      val TYMAP = 36
+      val TYSET = -36
+      val TYOPTION = 37
+      val TYUNION = -37
+      val COMMENT = 38
+      val STCOMMENT = -38
+      val STEXPR = 39
+      val STCONTROLFLOW = -39
+      val STSHOW = 40
+      val STFAIL = -40
+      val STASSERT = 41
+      val STFAILURE = -41
+      val STVAL = 42
+      val STVALINTRO = -42
+      val STASSIGN = 43
+      val STDEF = -43
+      val DEFCASE = 44
+      val STRETURN = -44
+      val STASSUME = 45
+      val STLET = -45
+      val STCHOOSE = 46
+      val STTHEOREM = -46
+      val STTHEOREMBY = 47
+      val STTHEORY = -47
+      val BLOCK = 48
     }
 
     object Serializers {
@@ -181,6 +183,8 @@ extends Serializer[ParseTree]
       val BINARYOPERATION = TripleSerializer(BinaryOperatorSerializer,ExprSerializer,ExprSerializer)
       val CMPOPERATION = PairSerializer(VectorSerializer(CmpOperatorSerializer),VectorSerializer(ExprSerializer))
       val TUPLE = VectorSerializer(ExprSerializer)
+      val SETLITERAL = VectorSerializer(ExprSerializer)
+      val MAPLITERAL = VectorSerializer(PairSerializer(ExprSerializer, ExprSerializer))
       val APP = PairSerializer(ExprSerializer,ExprSerializer)
       val FUN = PairSerializer(PatternSerializer,BlockSerializer)
       val TYPECAST = PairSerializer(ExprSerializer,ValueTypeSerializer)
@@ -254,6 +258,10 @@ extends Serializer[ParseTree]
           (Kind.CMPOPERATION, Some(Serializers.CMPOPERATION.serialize(CmpOperation.unapply(t).get)))
         case Tuple(x) =>
           (Kind.TUPLE, Some(Serializers.TUPLE.serialize(x)))
+        case SetLiteral(x) =>
+          (Kind.SETLITERAL, Some(Serializers.SETLITERAL.serialize(x)))
+        case MapLiteral(x) =>
+          (Kind.MAPLITERAL, Some(Serializers.MAPLITERAL.serialize(x)))
         case t : App =>
           (Kind.APP, Some(Serializers.APP.serialize(App.unapply(t).get)))
         case t : Fun =>
@@ -448,6 +456,10 @@ extends Serializer[ParseTree]
           CmpOperation.tupled(Serializers.CMPOPERATION.deserialize(args.get))
         case Kind.TUPLE if args.isDefined => 
           Tuple(Serializers.TUPLE.deserialize(args.get))
+        case Kind.SETLITERAL if args.isDefined => 
+          SetLiteral(Serializers.SETLITERAL.deserialize(args.get))
+        case Kind.MAPLITERAL if args.isDefined => 
+          MapLiteral(Serializers.MAPLITERAL.deserialize(args.get))
         case Kind.APP if args.isDefined => 
           App.tupled(Serializers.APP.deserialize(args.get))
         case Kind.FUN if args.isDefined => 
@@ -621,7 +633,6 @@ extends Serializer[ParseTree]
     }
 
   }
-
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -673,6 +684,8 @@ object ParseTreeSerializerGenerator {
     ("BinaryOperation", "BinaryOperatorSerializer", "ExprSerializer", "ExprSerializer"),
     ("CmpOperation", "VectorSerializer(CmpOperatorSerializer)", "VectorSerializer(ExprSerializer)"),
     ("Tuple", "VectorSerializer(ExprSerializer)"),
+    ("SetLiteral", "VectorSerializer(ExprSerializer)"),
+    ("MapLiteral", "VectorSerializer(PairSerializer(ExprSerializer, ExprSerializer))"),
     ("App", "ExprSerializer", "ExprSerializer"),
     ("Fun", "PatternSerializer", "BlockSerializer"),
     ("TypeCast", "ExprSerializer", "ValueTypeSerializer"),

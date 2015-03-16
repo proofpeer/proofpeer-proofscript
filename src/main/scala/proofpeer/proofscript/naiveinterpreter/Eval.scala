@@ -436,7 +436,6 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		evalBlock[Result[State]](state, block, (r : Result[State]) => Thunk.value(r))()
 	}
 
-
 	def isLogicStatement(st : Statement) : Boolean = {
 		st match {
 			case _ : STAssume => true
@@ -1272,28 +1271,35 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
+	def evalForLoop[T](state : State, control : For, cont : RC[State, T], values : Seq[StateValue]) : Thunk[T] = {
+		def loop(state : State, values : Seq[StateValue]) : Thunk[T] = {
+			if (values.isEmpty) cont(success(state))
+			else {
+				matchPattern[T](state.freeze, control.pat, values.head, {
+					case f : Failed[_] => cont(fail(f))
+					case Success(None, _) => loop(state, values.tail)
+					case Success(Some(matchings), _) =>
+						evalSubBlock(state.bind(matchings), control.body,  {
+							case f : Failed[_] => cont(f)
+							case su @ Success(s, isReturnValue) =>
+								if (isReturnValue) cont(su)
+								else loop(state.subsume(s), values.tail)
+						})
+				})
+			}
+		}
+		loop(state, values)
+	}
+
 	def evalFor[T](state : State, control : For,  cont : RC[State, T]) : Thunk[T] = {
 		evalExpr[T](state.freeze, control.coll,  {
 			case f : Failed[_] => cont(fail(f))
-			case Success(TupleValue(values, _), _) =>
-				def loop(state : State, values : Seq[StateValue],  cont : RC[State, T]) : Thunk[T] = {
-					if (values.isEmpty) cont(success(state))
-					else {
-						matchPattern[T](state.freeze, control.pat, values.head, {
-							case f : Failed[_] => cont(fail(f))
-							case Success(None, _) => loop(state, values.tail,  cont)
-							case Success(Some(matchings), _) =>
-								evalSubBlock(state.bind(matchings), control.body,  {
-									case f : Failed[_] => cont(f)
-									case su @ Success(s, isReturnValue) =>
-										if (isReturnValue) cont(su)
-										else loop(state.subsume(s), values.tail,  cont)
-								})
-						})
-					}
-				}
-				loop(state, values,  cont)
-			case Success(v, _) => cont(fail(control.coll, "tuple expected, found: " + v))
+			case Success(TupleValue(values, _), _) => evalForLoop[T](state, control, cont, values)
+			case Success(SetValue(s), _) => evalForLoop[T](state, control, cont, s.toSeq)
+			case Success(MapValue(m, _), _) => 
+				val values = m.toSeq.map({case (k, v) => TupleValue(Vector(k, v), k.isComparable && v.isComparable)})
+				evalForLoop[T](state, control, cont, values)
+			case Success(v, _) => cont(fail(control.coll, "tuple, set or map expected, found: " + v))
 		})
 	}
 
@@ -1576,7 +1582,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case (_ : RecursiveFunctionValue, TyFunction) =>
 			case (_ : NativeFunctionValue, TyFunction) =>
 			case (_ : StringValue, TyString) =>
-			case (_ : TupleValue, TyTuple) =>			
+			case (_ : TupleValue, TyTuple) =>		
+			case (_ : MapValue, TyMap) =>
+			case (_ : SetValue, TySet) =>	
 			case _ => return None
 		}
 		Some(value)

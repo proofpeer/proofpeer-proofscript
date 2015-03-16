@@ -189,6 +189,8 @@ object NativeFunctions {
     value match {
       case StringValue(s) => Left(IntValue(s.size))
       case TupleValue(v, _) => Left(IntValue(v.size))
+      case SetValue(s) => Left(IntValue(s.size))
+      case MapValue(m, _) => Left(IntValue(m.size))
       case _ => Right("size is not defined for: " + eval.display(state, value))
     }  
   }
