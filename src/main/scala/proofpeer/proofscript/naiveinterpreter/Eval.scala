@@ -904,6 +904,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										case (Concat, xs : StringValue, ys : StringValue) => cont(success(xs.concat(ys)))
 										case (Concat, xs : SetValue, ys : SetValue) => cont(success(xs.concat(ys)))
 										case (Concat, xs : MapValue, ys : MapValue) => cont(success(xs.concat(ys)))
+										case (Minus, xs : SetValue, ys : SetValue) => cont(success(xs.minus(ys)))
+										case (Minus, xs : MapValue, ys : SetValue) => cont(success(xs.minus(ys)))
 										case _ => cont(fail(op, "binary operator "+op+" cannot be applied to values: "+
 											display(state,left)+", "+display(state,right)))
 									}

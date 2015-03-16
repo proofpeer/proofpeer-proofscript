@@ -187,6 +187,7 @@ object ParseTree {
   case object Prepend extends BinaryOperator
   case object Append extends BinaryOperator
   case object Concat extends BinaryOperator
+  case object Minus extends BinaryOperator
   
   sealed trait CmpOperator extends Operator
   case object Eq extends CmpOperator

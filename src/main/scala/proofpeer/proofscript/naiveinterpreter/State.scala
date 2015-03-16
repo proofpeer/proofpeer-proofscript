@@ -90,6 +90,7 @@ case class TupleValue(value : Vector[StateValue], comparable : Boolean) extends 
 case class SetValue(value : Set[StateValue]) extends StateValue {
 	def isComparable = true
 	def concat(set : SetValue) : SetValue = SetValue(value ++ set.value)
+	def minus(set : SetValue) : SetValue = SetValue(value -- set.value)
 }
 case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) extends StateValue {
 	def isComparable = comparable
@@ -102,6 +103,13 @@ case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) e
 		else {
 			MapValue(r, r.values.forall(v => v.isComparable))
 		}
+	}
+	def minus(set : SetValue) : MapValue = {
+		val r = value -- set.value
+		if (comparable)
+			MapValue(r, true)
+		else 
+			MapValue(r, r.values.forall(v => v.isComparable))
 	}
 }
 

@@ -79,6 +79,7 @@ def g_literals =
   lex("Prepend", string("<+")) ++
   lex("Append", string("+>")) ++
   lex("Concat", string("++")) ++
+  lex("MinusMinus", string("--")) ++
   keyword("Val", "val") ++
   keyword("Def", "def") ++
   keyword("Mod", "mod") ++ 
@@ -262,6 +263,7 @@ val g_expr =
   arule("CmpOp", "ScriptEq", c => Eq) ++
   arule("CmpOp", "ScriptNotEq", c => NEq) ++
   arule("GeneralArithExpr", "ConcatExpr", _.ConcatExpr[Any]) ++
+  arule("ConcatExpr", "ConcatExpr MinusMinus ArithExpr", c => BinaryOperation(annotateBinop(Minus, c.span("MinusMinus")), c.ConcatExpr, c.ArithExpr)) ++
   arule("ConcatExpr", "PrependConcatExpr", _.PrependConcatExpr[Any]) ++
   arule("ConcatExpr", "ConcatExpr Append ArithExpr", c => BinaryOperation(annotateBinop(Append, c.span("Append")), c.ConcatExpr, c.ArithExpr)) ++
   arule("PrependConcatExpr", "PrependExpr", _.PrependExpr[Any]) ++ 

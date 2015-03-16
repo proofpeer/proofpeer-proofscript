@@ -130,6 +130,12 @@ assert subset({1 -> 2}, {1 -> 2, 2 -> 1})
 # For vectors, you can prepend and append elements
 assert "h" <+ ["e", "l", "l"] +> "o" == ["h", "e", "l", "l", "o"]
 
+# For sets and maps, you can also remove sets of elements / keys:
+assert {1 -> 2, 2 -> 1} -- {2} == {1 -> 2}
+assert {1, 2} -- {2} == {1}
+assert {1 -> 2, 2 -> 1, 3 -> 5} -- {1, 2} == {3 -> 5}
+assert {1, 2, 3} -- {1, 2} == {3}
+
 # You can create ranges of integers like that:
 assert 2 to 6 == [2, 3, 4, 5, 6] 
 assert 6 to 2 == []

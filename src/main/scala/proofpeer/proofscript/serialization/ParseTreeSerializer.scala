@@ -115,62 +115,63 @@ extends Serializer[ParseTree]
       val PREPEND = 19
       val APPEND = -19
       val CONCAT = 20
-      val EQ = -20
-      val NEQ = 21
-      val LE = -21
-      val LEQ = 22
-      val GR = -22
-      val GEQ = 23
-      val PANY = -23
-      val PID = 24
-      val PINT = -24
-      val PBOOL = 25
-      val PSTRING = -25
-      val PLOGICTERM = 26
-      val PLOGICTYPE = -26
-      val PTUPLE = 27
-      val PPREPEND = -27
-      val PAPPEND = 28
-      val PIF = -28
-      val PAS = 29
-      val PNIL = -29
-      val PTYPE = 30
-      val TYANY = -30
-      val TYNIL = 31
-      val TYCONTEXT = -31
-      val TYTHEOREM = 32
-      val TYTERM = -32
-      val TYTYPE = 33
-      val TYBOOLEAN = -33
-      val TYINTEGER = 34
-      val TYFUNCTION = -34
-      val TYSTRING = 35
-      val TYTUPLE = -35
-      val TYMAP = 36
-      val TYSET = -36
-      val TYOPTION = 37
-      val TYUNION = -37
-      val COMMENT = 38
-      val STCOMMENT = -38
-      val STEXPR = 39
-      val STCONTROLFLOW = -39
-      val STSHOW = 40
-      val STFAIL = -40
-      val STASSERT = 41
-      val STFAILURE = -41
-      val STVAL = 42
-      val STVALINTRO = -42
-      val STASSIGN = 43
-      val STDEF = -43
-      val DEFCASE = 44
-      val STRETURN = -44
-      val STASSUME = 45
-      val STLET = -45
-      val STCHOOSE = 46
-      val STTHEOREM = -46
-      val STTHEOREMBY = 47
-      val STTHEORY = -47
-      val BLOCK = 48
+      val MINUS = -20
+      val EQ = 21
+      val NEQ = -21
+      val LE = 22
+      val LEQ = -22
+      val GR = 23
+      val GEQ = -23
+      val PANY = 24
+      val PID = -24
+      val PINT = 25
+      val PBOOL = -25
+      val PSTRING = 26
+      val PLOGICTERM = -26
+      val PLOGICTYPE = 27
+      val PTUPLE = -27
+      val PPREPEND = 28
+      val PAPPEND = -28
+      val PIF = 29
+      val PAS = -29
+      val PNIL = 30
+      val PTYPE = -30
+      val TYANY = 31
+      val TYNIL = -31
+      val TYCONTEXT = 32
+      val TYTHEOREM = -32
+      val TYTERM = 33
+      val TYTYPE = -33
+      val TYBOOLEAN = 34
+      val TYINTEGER = -34
+      val TYFUNCTION = 35
+      val TYSTRING = -35
+      val TYTUPLE = 36
+      val TYMAP = -36
+      val TYSET = 37
+      val TYOPTION = -37
+      val TYUNION = 38
+      val COMMENT = -38
+      val STCOMMENT = 39
+      val STEXPR = -39
+      val STCONTROLFLOW = 40
+      val STSHOW = -40
+      val STFAIL = 41
+      val STASSERT = -41
+      val STFAILURE = 42
+      val STVAL = -42
+      val STVALINTRO = 43
+      val STASSIGN = -43
+      val STDEF = 44
+      val DEFCASE = -44
+      val STRETURN = 45
+      val STASSUME = -45
+      val STLET = 46
+      val STCHOOSE = -46
+      val STTHEOREM = 47
+      val STTHEOREMBY = -47
+      val STTHEORY = 48
+      val BLOCK = -48
     }
 
     object Serializers {
@@ -318,6 +319,8 @@ extends Serializer[ParseTree]
           (Kind.APPEND, None)
         case Concat =>
           (Kind.CONCAT, None)
+        case Minus =>
+          (Kind.MINUS, None)
         case Eq =>
           (Kind.EQ, None)
         case NEq =>
@@ -516,6 +519,8 @@ extends Serializer[ParseTree]
           Append
         case Kind.CONCAT if args.isEmpty => 
           Concat
+        case Kind.MINUS if args.isEmpty => 
+          Minus
         case Kind.EQ if args.isEmpty => 
           Eq
         case Kind.NEQ if args.isEmpty => 
@@ -633,6 +638,7 @@ extends Serializer[ParseTree]
     }
 
   }
+
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -714,6 +720,7 @@ object ParseTreeSerializerGenerator {
     "Prepend",
     "Append",
     "Concat",
+    "Minus",
     "Eq",
     "NEq",
     "Le",
