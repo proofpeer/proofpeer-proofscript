@@ -761,6 +761,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							}
 					} else None
 				} else Some(IsNEq)
+			case (SetValue(xs, _), SetValue(ys, _)) =>
+				if (xs == ys) Some(IsEq) else Some(IsNEq)
+			case (MapValue(xs, cx), MapValue(ys, cy)) =>
+				if (xs.size == ys.size) {
+					if (cx && cy) {
+						if (xs == ys) Some(IsEq) else Some(IsNEq)
+					} else None
+				} else Some(IsNEq)
 			case (TermValue(u), TermValue(v)) => 
 				import KernelUtils._
 				if (betaEtaEq(u, v))
@@ -895,6 +903,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										case (Append, xs : TupleValue, x) => cont(success(xs.append(x)))
 										case (Concat, xs : TupleValue, ys : TupleValue) => cont(success(xs.concat(ys)))
 										case (Concat, xs : StringValue, ys : StringValue) => cont(success(xs.concat(ys)))
+										case (Concat, xs : SetValue, ys : SetValue) => cont(success(xs.concat(ys)))
+										case (Concat, xs : MapValue, ys : MapValue) => cont(success(xs.concat(ys)))
 										case _ => cont(fail(op, "binary operator "+op+" cannot be applied to values: "+
 											display(state,left)+", "+display(state,right)))
 									}
@@ -1088,7 +1098,26 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 									buildTuple()
 								case Success(value, _) =>
 									cont(fail(v, "string cannot be applied to: " + display(state, value)))
+							})
+						case Success(SetValue(s, _), _) =>
+							evalExpr[T](state, v, {
+								case failed : Failed[_] => cont(failed)
+								case Success(e, _) =>
+									if (e.isComparable) {	
+										cont(success(BoolValue(s.contains(e))))
+									} else cont(success(BoolValue(false))) 
 							})					
+						case Success(MapValue(m, _), _) =>
+							evalExpr[T](state, v, {
+								case failed : Failed[_] => cont(failed)
+								case Success(k, _) =>
+									if (k.isComparable) {
+										m.get(k) match {
+											case None => cont(success(NilValue))
+											case Some(v) => cont(success(v))
+										}
+									} else cont(success(NilValue))
+							})
 						case Success(v, _) => cont(fail(u, "value cannot be applied to anything: " + display(state, v)))
 					})
 				case TypeCast(expr, valuetype) =>

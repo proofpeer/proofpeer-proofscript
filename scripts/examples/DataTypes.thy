@@ -34,17 +34,38 @@ show [7]
 # and this is just the number 7, not a vector
 show (7)
 
-# This is a map literal
-show {1 -> "1", "1" -> 1}
-
-# This is a set literal
-show {1, 2, 9, 3}
-
 # This is a function literal
 show x => x * x
 
 # here we apply this function literal to 7
 show (x => x * x) 7
+
+# This is a set literal
+show {1, 2, 9, 3}
+
+assert {1, 2, 9, 3} == {3, 1, 2, 9}
+assert {1, 2, 9, 3} <> {3, 1, 4, 9}
+assert {1, 2, 9, 3} 9 == true
+assert {1, 2, 9, 3} 10 == false
+failure {x => x}
+assert {1, 2, 9, 3} (x => x) == false
+
+# This is a map literal
+show {1 -> "1", "1" -> 1}
+
+# This is the empty map
+show {->}
+
+# The empty map is not the same as the empty set
+assert {} <> {->}
+
+assert {"1" -> 1, 1 -> "1"} == {1 -> "1", "1" -> 1}
+assert {"1" -> 1, 1 -> "1"} <> {1 -> "1", "1" -> 2}
+
+assert {"1" -> 1, 1 -> "1"} 1 == "1"
+assert {"1" -> 1, 1 -> "1"} "1" == 1
+assert {"1" -> 1, 1 -> "1"} 0 == nil
+assert {"1" -> 1, 1 -> "1"} (x => x) == nil
 
 # You can convert integers into strings 
 assert string (2 - 5) == "-3" 
@@ -88,6 +109,18 @@ assert 7 + 5 == 12 and 7 * 5 == 35 and 7 / 5 == 1 and 7 mod 5 == 2
 
 # Both strings and vectors can be concatenated
 assert "hel" ++ "lo" == "hello" and ["h", "e", "l"] ++ ["l", "o"] == ["h", "e", "l", "l", "o"]
+
+# concatenation of sets is interpreted as set union
+assert {3, 9} ++ {1, 11} == {1, 3, 9, 11}
+
+def subset (u, v) = v ++ u == v
+
+assert subset({3, 9}, {3, 4, 11, 9})
+
+# concatenation of maps is also defined
+assert {1 -> 2} ++ {2 -> 1} == {1 -> 2, 2 -> 1}
+assert {1 -> 2, 2 -> "hello"} ++ {1 -> 3} == {1 -> 3, 2 -> "hello"}
+assert subset({1 -> 2}, {1 -> 2, 2 -> 1})
 
 # For vectors, you can prepend and append elements
 assert "h" <+ ["e", "l", "l"] +> "o" == ["h", "e", "l", "l", "o"]
