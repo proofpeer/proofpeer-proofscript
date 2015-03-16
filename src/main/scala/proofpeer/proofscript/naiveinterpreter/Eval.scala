@@ -761,7 +761,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							}
 					} else None
 				} else Some(IsNEq)
-			case (SetValue(xs, _), SetValue(ys, _)) =>
+			case (SetValue(xs), SetValue(ys)) =>
 				if (xs == ys) Some(IsEq) else Some(IsNEq)
 			case (MapValue(xs, cx), MapValue(ys, cy)) =>
 				if (xs.size == ys.size) {
@@ -973,7 +973,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case SetLiteral(xs) =>
 					def loop(xs : Seq[Expr], values : Set[StateValue],  cont : RC[StateValue, T]) : Thunk[T] = {
 						if (xs.isEmpty) 
-							cont(success(SetValue(values, true)))
+							cont(success(SetValue(values)))
 						else 
 							evalExpr[T](state, xs.head, {
 								case f : Failed[_] => cont(f)
@@ -1099,7 +1099,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case Success(value, _) =>
 									cont(fail(v, "string cannot be applied to: " + display(state, value)))
 							})
-						case Success(SetValue(s, _), _) =>
+						case Success(SetValue(s), _) =>
 							evalExpr[T](state, v, {
 								case failed : Failed[_] => cont(failed)
 								case Success(e, _) =>

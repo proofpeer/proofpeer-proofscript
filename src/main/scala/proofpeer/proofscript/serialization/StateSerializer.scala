@@ -99,7 +99,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       val NATIVEFUNCTIONVALUE = NativeFunctionSerializer
       val STRINGVALUE = VectorSerializer(IntSerializer)
       val TUPLEVALUE = PairSerializer(VectorSerializer(StateValueSerializer),BooleanSerializer)
-      val SETVALUE = PairSerializer(SetSerializer(StateValueSerializer),BooleanSerializer)
+      val SETVALUE = SetSerializer(StateValueSerializer)
       val MAPVALUE = PairSerializer(MapSerializer(StateValueSerializer, StateValueSerializer),BooleanSerializer)
     }
 
@@ -129,8 +129,8 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
           (Kind.STRINGVALUE, Some(Serializers.STRINGVALUE.serialize(x)))
         case t : TupleValue =>
           (Kind.TUPLEVALUE, Some(Serializers.TUPLEVALUE.serialize(TupleValue.unapply(t).get)))
-        case t : SetValue =>
-          (Kind.SETVALUE, Some(Serializers.SETVALUE.serialize(SetValue.unapply(t).get)))
+        case SetValue(x) =>
+          (Kind.SETVALUE, Some(Serializers.SETVALUE.serialize(x)))
         case t : MapValue =>
           (Kind.MAPVALUE, Some(Serializers.MAPVALUE.serialize(MapValue.unapply(t).get)))
         case _ => throw new RuntimeException("StateValueSerializerBase: cannot serialize " + obj)
@@ -164,7 +164,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
         case Kind.TUPLEVALUE if args.isDefined => 
           TupleValue.tupled(Serializers.TUPLEVALUE.deserialize(args.get))
         case Kind.SETVALUE if args.isDefined => 
-          SetValue.tupled(Serializers.SETVALUE.deserialize(args.get))
+          SetValue(Serializers.SETVALUE.deserialize(args.get))
         case Kind.MAPVALUE if args.isDefined => 
           MapValue.tupled(Serializers.MAPVALUE.deserialize(args.get))
         case _ => throw new RuntimeException("StateValueSerializerBase: cannot deserialize " + (kind, args))
@@ -255,7 +255,7 @@ object StateSerializerGenerator {
     ("NativeFunctionValue", "NativeFunctionSerializer"),
     ("StringValue", "VectorSerializer(IntSerializer)"),
     ("TupleValue", "VectorSerializer(StateValueSerializer)", "BooleanSerializer"),
-    ("SetValue", "SetSerializer(StateValueSerializer)", "BooleanSerializer"),
+    ("SetValue", "SetSerializer(StateValueSerializer)"),
     ("MapValue", "MapSerializer(StateValueSerializer, StateValueSerializer)", "BooleanSerializer")
   )
 

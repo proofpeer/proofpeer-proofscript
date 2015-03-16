@@ -87,9 +87,9 @@ case class TupleValue(value : Vector[StateValue], comparable : Boolean) extends 
 	def concat(tuple : TupleValue) : TupleValue = TupleValue(value ++ tuple.value, comparable && tuple.isComparable)
 	def isComparable = comparable
 }
-case class SetValue(value : Set[StateValue], comparable : Boolean) extends StateValue {
-	def isComparable = comparable
-	def concat(set : SetValue) : SetValue = SetValue(value ++ set.value, true)
+case class SetValue(value : Set[StateValue]) extends StateValue {
+	def isComparable = true
+	def concat(set : SetValue) : SetValue = SetValue(value ++ set.value)
 }
 case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) extends StateValue {
 	def isComparable = comparable
@@ -167,7 +167,7 @@ object StateValue {
 					s = s + display(aliases, nameresolution, context, v)
 				} 
 				s + "]"
-			case SetValue(value, _) =>
+			case SetValue(value) =>
 				var s = "{"
 				var first = true
 				for (v <- value) {
