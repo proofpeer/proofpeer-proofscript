@@ -148,6 +148,8 @@ _ = (do*
   check ([1], "Tuple")
   check (': 𝒰', "Type")
   check (inf, "Theorem")
+  check ({1}, "Set")
+  check ({1 -> 1}, "Map")
   check ((context), "Context")
   check ("check", "String")
   check (x => x, "Function"))
