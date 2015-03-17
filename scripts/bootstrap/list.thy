@@ -14,7 +14,12 @@ def
 def foldl [f,xs,b] =
   match xs
     case []      => b
-    case x <+ xs => foldl (f,xs,f b x)
+    case x <+ xs => foldl (f,xs,f (b,x))
+
+def foldr [f,xs,b] =
+  match xs
+    case []      => b
+    case x <+ xs => f (x,foldr (f,xs,b))
 
 def every bs =
   for b in bs do
@@ -47,3 +52,5 @@ def split [f,x] =
     for y in ys do
       for s in split (f,y) do
         s
+
+assert (foldr (([x,xs] => x <+ xs),[1,2,3],[]) == [1,2,3])

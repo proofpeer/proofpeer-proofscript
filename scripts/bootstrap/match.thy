@@ -87,7 +87,8 @@ def matchAntThen [imp,ant,f] =
 
 def matchmp (imp <+ ants) =
   for ant in ants do
-    imp = matchAntThen (imp,rhs (normalize (ant : Term)),thm => modusponens (ant,thm))
+    imp =
+      matchAntThen (imp,rhs (normalize (ant : Term)),thm => modusponens (ant,thm))
     if imp == nil then
       return nil
   imp

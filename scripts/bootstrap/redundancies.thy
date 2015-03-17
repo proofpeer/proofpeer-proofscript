@@ -25,10 +25,3 @@ choose anonymous: 'anonymous: 𝒰'
   let x:'x'
   let 'y = x'
   reflexive 'y'
-
-theorem foo: true
-  let x:'x'
-  let 'y = x'
-  reflexive 'y'
-
-show foo

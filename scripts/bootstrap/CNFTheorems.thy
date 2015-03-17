@@ -38,7 +38,7 @@ theorem existsDeMorgan: '∀P. (¬(∃x. P x)) = (∀x. ¬(P x))'
       theorem pExists:
         val y = fresh "y"
         val asm = let 'y = x'
-        convRule (onceTreeConv (rewrConv [sym asm]), px) 0
+        convRule (onceTreeConv (rewrConv1 (sym asm)), px)
       modusponens (pExists, matchmp (notDefEx, asm))
     matchmp (impliesNot, notPx)
   theorem right:
@@ -54,20 +54,20 @@ theorem allDeMorgan: '∀P. (¬(∀x. P x)) = (∃x. ¬(P x))'
   let 'P : 𝒰 → ℙ'
   val existsDeMorganInst =
     instantiate(existsDeMorgan,'x ↦ ¬(P x)')
-  seqConv [randConv (randConv (absConv (rewrConv [gsym negInvolve]))),
-           onceTreeConv (rewrConv [gsym existsDeMorganInst]),
-           rewrConv [negInvolve]] '¬(∀x. P x)' 0
+  seqConv [randConv (randConv (absConv (rewrConv1 (gsym negInvolve)))),
+           onceTreeConv (rewrConv1 (gsym existsDeMorganInst)),
+           rewrConv [negInvolve]] '¬(∀x. P x)'
 
 # As conversions, so that we can exploit higher-order matching.
 def
   existsDeMorganConv '(¬(∃x. ‹P› x))' =
-    [instantiate (existsDeMorgan, P)]
-  existsDeMorganConv _ = []
+    instantiate (existsDeMorgan, P)
+  existsDeMorganConv _ = nil
 
 def
   allDeMorganConv '¬(∀x. ‹P› x)' =
-    [instantiate (allDeMorgan, P)]
-  allDeMorganConv _ = []
+    instantiate (allDeMorgan, P)
+  allDeMorganConv _ = nil
 
 theorem disjExists: '∀P Q. ((∃x. P x) ∨ (∃x. Q x)) = (∃x. P x ∨ Q x)'
   let 'P : 𝒰 → ℙ'
@@ -90,13 +90,13 @@ theorem disjExists: '∀P Q. ((∃x. P x) ∨ (∃x. Q x)) = (∃x. P x ∨ Q x)
       assume xIsP:'P x'
       theorem thereIsAP:
         val yIsX = let 'y = x'
-        convRule (randConv (subsConv [sym yIsX]),xIsP) 0
+        convRule (randConv (subsConv (sym yIsX)),xIsP)
       orIntroL (thereIsAP, '(∃x. Q x)')
     theorem case2:
       assume xIsQ:'Q x'
       theorem thereIsAQ:
         val yIsX = let 'y = x'
-        convRule (randConv (subsConv [sym yIsX]),xIsQ) 0
+        convRule (randConv (subsConv (sym yIsX)),xIsQ)
       orIntroR ('∃x. P x', thereIsAQ)
     matchmp (orDefEx,xIsPorQ,case1,case2)
   equivalence (left,right)
@@ -112,13 +112,13 @@ theorem conjAll: '∀P Q. ((∀x. P x) ∧ (∀x. Q x)) = (∀x. P x ∧ Q x)'
         (seqConv [rewrConv [orDeMorgan],
                   onceTreeConv existsDeMorganConv],
         (seqConv [existsDeMorganConv, onceTreeConv (rewrConv [orDeMorgan])])),
-       onceTreeConv (rewrConv [negInvolve])], disjExistsInst) 0
+       onceTreeConv (rewrConv [negInvolve])], disjExistsInst)
 
 # As conversions, so that we can exploit higher-order matching.
 def
   disjExistsConv '(∃x. ‹P› x) ∨ (∃x. ‹Q› x)' =
-    [instantiate (disjExists,P,Q)]
-  disjExistsConv _ = []
+    instantiate (disjExists,P,Q)
+  disjExistsConv _ = nil
 
 theorem trivAll: '∀p. (∀x. p) = p'
   let 'p:ℙ'
@@ -133,13 +133,13 @@ theorem trivAll: '∀p. (∀x. p) = p'
 
 def
   trivAllConv '(∀x. ‹p›)' =
-    [instantiate (trivAll,p)]
-  trivAllConv _ = []
+    instantiate (trivAll,p)
+  trivAllConv _ = nil
 
 def
   trivUnAllConv '‹p› : ℙ' =
-    [sym (instantiate (trivAll,p))]
-  trivUnAllConv _ = []
+    sym (instantiate (trivAll,p))
+  trivUnAllConv _ = nil
 
 # In case we lose the emptyset.
 choose anonymous: 'anonymous: 𝒰'
@@ -188,15 +188,14 @@ theorem disjExistsAll: '∀P Q. ((∃x. P x) ∨ (∀x. Q x)) = (∃x. ∀y. P x
     val porq = choose 'x' asm
     theorem case1:
       assume noP:'∀x. ¬(P x)'
-      val noPRule = convRule (onceTreeConv (rewrConv (gsym eqFalseSimp)), noP) 0
-      val allQ = convRule (treeConv (rewrConv (noPRule <+ propRewrites)),
-                           porq) 0
+      val noPRule = convRule (onceTreeConv (rewrConv1 (gsym eqFalseSimp)), noP)
+      val allQ = convRule (treeConv (rewrConv (noPRule <+ tautRewrites)),porq)
       orIntroR ('∃x. P x',allQ)
     theorem case2:
       assume noNonP:'¬(∀x. ¬(P x))'
       orIntroL (convRule (treeConv (sumConv [allDeMorganConv,
-                                             rewrConv negInvolve]),
-                          noNonP) 0,
+                                             rewrConv1 negInvolve]),
+                          noNonP),
                 '∀y. Q y')
     matchmp (orDefEx,
              instantiate (excludedMiddle, '∀x. ¬(P x)'),
@@ -218,10 +217,10 @@ theorem conjExists: '∀P Q. ((∃x. P x) ∧ (∃x. Q x)) = (∃x y. P x ∧ Q 
     val conj = choose 'y' ex
     theorem l: '∃z. P z'
       let zx:'z = x'
-      convRule (treeConv (rewrConv (gsym zx)), conjuncts conj 0) 0
+      convRule (treeConv (rewrConv1 (gsym zx)), conjuncts conj 0)
     theorem r: '∃z. Q z'
       let zy:'z = y'
-      convRule (treeConv (rewrConv (gsym zy)), conjuncts conj 1) 0
+      convRule (treeConv (rewrConv1 (gsym zy)), conjuncts conj 1)
     andIntro (l,r)
   equivalence (left,right)
 
@@ -231,4 +230,4 @@ theorem disjAll: '∀P Q. ((∀x. P x) ∨ (∀x. Q x)) = (∀x y. P x ∨ Q y)'
   val neged = instantiate (conjExists,'x ↦ ¬(P x)','x ↦ ¬(Q x)')
   convRule (treeConv (sumConv [existsDeMorganConv,
                                rewrConv [andDeMorgan, negInvolve]]),
-            combine (reflexive 'p ↦ ¬p', neged)) 0
+            combine (reflexive 'p ↦ ¬p', neged))

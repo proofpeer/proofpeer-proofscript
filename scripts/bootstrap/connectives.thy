@@ -1,5 +1,5 @@
 theory Connectives
-extends Conversions Match
+extends Conversions Syntax
 
 theorem topDef: '∀p. p → ⊤'
   let 'p:ℙ'
@@ -137,11 +137,9 @@ val andIntro =
     let 'q:ℙ'
     assume p:'p:ℙ'
     assume q:'q:ℙ'
-    val conv = treeConv (subsConv (eqTrueIntro p,eqTrueIntro q))
-    val thms = convRule (randConv (seqConv (conv,reflConv)),
-                         apThm (andDef,'p:ℙ','q:ℙ'))
-    val [thm] = thms
-    eqTrueElim thm
+    val conv = treeConv (rewrConv [eqTrueIntro p,eqTrueIntro q])
+    eqTrueElim (convRule (randConv (seqConv (conv,reflConv)),
+                          apThm (andDef,'p:ℙ','q:ℙ')))
   def
     loop []        = truth
     loop [p]       = p
@@ -223,11 +221,11 @@ theorem impliesNotEqFalse: '∀p. (p → ⊥) = (p = ⊥)'
     equivalence (asm, instantiate (botDef,'p:ℙ'))
   theorem right: '(p = ⊥) → (p → ⊥)'
     assume asm:'p = ⊥'
-    convRule (randConv (rewrConv [asm]),instantiate (trivImp,'p:ℙ')) 0
+    convRule (randConv (rewrConv asm),instantiate (trivImp,'p:ℙ'))
   equivalence (left,right)
 
 theorem impliesNot: '∀p. (p → ⊥) = (¬p)'
-  convRule (treeConv (rewrConv [eqFalseSimp]), impliesNotEqFalse) 0
+  convRule (treeConv (rewrConv eqFalseSimp), impliesNotEqFalse)
 
 theorem orAndDistrib1:'∀ p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
   let 'p:ℙ'
@@ -277,8 +275,8 @@ theorem orAndDistrib2:'∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
     let 'q2:ℙ'
     let 'r2:ℙ'
     convRule
-      (binaryConv (subsConv [instantiate (orComm,'p2:ℙ','q2 ∧ r2')],
-                   binaryConv (subsConv [instantiate (orComm,'p2:ℙ','q2:ℙ')],
-                               subsConv [instantiate (orComm,'p2:ℙ','r2:ℙ')])),
-              instantiate (orAndDistrib1,'p2:ℙ','q2:ℙ','r2:ℙ')) 0
+      (binaryConv (subsConv (instantiate (orComm,'p2:ℙ','q2 ∧ r2')),
+                   binaryConv (subsConv (instantiate (orComm,'p2:ℙ','q2:ℙ')),
+                               subsConv (instantiate (orComm,'p2:ℙ','r2:ℙ')))),
+              instantiate (orAndDistrib1,'p2:ℙ','q2:ℙ','r2:ℙ'))
   instantiate (lemma,'r:ℙ','p:ℙ','q:ℙ')
