@@ -165,7 +165,15 @@ assert ('union' : Type) == ': 𝒰 → 𝒰 → 𝒰'
 assert ("∀ a b c p. p → p" : Term) == '∀ a b c p. p → p'
 assert ("union" : Term) == 'union'
 assert (empty : Term) == '∀ x. x ∉ ∅'
-
-
-
-
+assert ([] : Set) == {}
+assert ([3, 1] : Set) == {1, 3}
+assert ([] : Map) == {->}
+assert ([(1, 2), (5, 3)] : Map) == {1 -> 2, 5 -> 3}
+assert ({} : Tuple) == ()
+assert ({} : Map)  == {->}
+assert {[4, 3], [3, 4]} ({4, 3} : Tuple)
+assert ({(1, 2), (5, 3)} : Map) == {1 -> 2, 5 -> 3}
+assert ({->} : Tuple) == ()
+assert ({->} : Set) == {}
+assert ({1 -> 2} : Tuple) == [(1, 2)]
+assert ({1 -> 2, 5 -> 3} : Set) == {(1, 2), (5, 3)}

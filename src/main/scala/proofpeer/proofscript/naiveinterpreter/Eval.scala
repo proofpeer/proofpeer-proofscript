@@ -1591,7 +1591,36 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
+	private def toSetValue(seq : Seq[StateValue]) : Option[SetValue] = {
+		if (seq.forall(x => x.isComparable))
+			Some(SetValue(seq.toSet))
+		else 
+			None
+	}
+	private def asSeq(value : SetValue) : Seq[StateValue] = value.value.toSeq
 
+	private def toTupleValue(seq : Seq[StateValue]) : Option[TupleValue] = {
+		val comparable = seq.forall(x => x.isComparable)
+		Some(TupleValue(seq.toVector, comparable))
+	}
+	private def asSeq(value : TupleValue) : Seq[StateValue] = value.value.toSeq
+
+	private def toMapValue(seq : Seq[StateValue]) : Option[MapValue] = {
+		var m : Map[StateValue, StateValue] = Map()
+		var comparable = true
+		for (elem <- seq) {
+			elem match {
+				case TupleValue(Vector(k, v), _) =>
+					if (!k.isComparable) return None
+					comparable = comparable && v.isComparable
+					m = m + (k -> v)
+				case _ => return None
+			}
+		}
+		Some(MapValue(m, comparable))
+	}
+	private def asSeq(value : MapValue) : Seq[StateValue] = 
+		value.value.toSeq.map({case (k, v) => TupleValue(Vector(k, v), v.isComparable)})
 
 	def convertValueType(state : State, value : StateValue, valuetype : ParseTree.ValueType) : Option[StateValue] = {
 		import StateValue.mkStringValue
@@ -1671,6 +1700,12 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				} catch {
 					case _ : Utils.KernelException => None
 				}			
+			case (v : TupleValue, TySet) => toSetValue(asSeq(v))
+			case (v : TupleValue, TyMap) => toMapValue(asSeq(v))
+			case (v : SetValue, TyTuple) => toTupleValue(asSeq(v))
+			case (v : SetValue, TyMap) => toMapValue(asSeq(v))
+			case (v : MapValue, TyTuple) => toTupleValue(asSeq(v))
+			case (v : MapValue, TySet) => toSetValue(asSeq(v))
 			case _ => None
 		}
 	}
