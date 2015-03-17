@@ -159,32 +159,6 @@ object NativeFunctions {
     }
   }
 
-  private def convert_to_term(eval : Eval, state : State, value : StateValue) : Result = {
-    value match {
-      case _ : TermValue => Left(value)
-      case TheoremValue(thm) => Left(TermValue(state.context.lift(thm).proposition))
-      case s : StringValue => Left(TermValue(Syntax.parseTerm(eval.aliases, 
-        eval.logicNameresolution, state.context, s.toString)))
-      case _ => Right("cannot convert to term: " + eval.display(state, value))
-    }
-  }
-
-  private def stringValue(s : String) : StringValue = {
-    StringValue(proofpeer.general.StringUtils.codePoints(s))
-  }
-
-  private def convert_to_string(eval : Eval, state : State, value : StateValue) : Result = {
-    value match {
-      case _ : StringValue => Left(value)
-      case TermValue(t) => Left(stringValue(Syntax.checkprintTerm(eval.aliases, 
-        eval.logicNameresolution, state.context, t)))
-      case TheoremValue(thm) => Left(stringValue(Syntax.checkprintTerm(eval.aliases, 
-        eval.logicNameresolution, state.context, state.context.lift(thm).proposition)))
-      case IntValue(i) => Left(stringValue("" + i))
-      case _ => Right("cannot convert to string: " + eval.display(state, value))
-    }
-  }
-
   private def compute_size(eval : Eval, state : State, value : StateValue) : Result = {
     value match {
       case StringValue(s) => Left(IntValue(s.size))
@@ -201,7 +175,7 @@ object NativeFunctions {
         Syntax.parsePreterm(s.toString) match {
           case Some(Preterm.PTmName(Name(None, name), _)) =>
             val freshName = state.context.mkFresh(name)
-            Left(stringValue(freshName.toString))
+            Left(StateValue.mkStringValue(freshName.toString))
           case _ => Right("constant name without namespace or index required")       
         }
       case _ => Right("fresh expects a string as its argument")
