@@ -297,7 +297,9 @@ val g_expr =
   arule("LazyExpr", "OrExpr", _.OrExpr[Any]) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr)) ++ 
   arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern, c.Block)) ++
-  arule("FunExpr", "LazyExpr", _.LazyExpr[Any]) ++
+  arule("TypedExpr", "LazyExpr Colon ScriptValueType", c => TypeCast(c.LazyExpr, c.ScriptValueType)) ++
+  arule("TypedExpr", "LazyExpr", _.LazyExpr[Any]) ++
+  arule("FunExpr", "TypedExpr", _.TypedExpr[Any]) ++
   arule("Expr", "FunExpr", _.FunExpr[Any]) ++
   arule("ExprList", "", c => Vector[Expr]()) ++
   arule("ExprList", "ExprList1", _.ExprList1[Any]) ++
@@ -311,8 +313,8 @@ val g_expr =
   arule("ExprMapList1", "PExpr_1 SingleArrow PExpr_2", c => Vector[(Expr, Expr)]((c.PExpr_1, c.PExpr_2))) ++
   arule("ExprMapList1", "ExprMapList1 Comma PExpr_1 SingleArrow PExpr_2", c => c.ExprMapList1[Vector[(Expr, Expr)]] :+ (c.PExpr_1, c.PExpr_2)) ++
   arule("PExpr", "Expr", _.Expr[Expr]) ++
-  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) ++
-  arule("PExpr", "PExpr Colon ScriptValueType", c=> TypeCast(c.PExpr, c.ScriptValueType))
+  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) 
+  //arule("PExpr", "PExpr Colon ScriptValueType", c=> TypeCast(c.PExpr, c.ScriptValueType))
   
 val g_do = 
   arule("STDo", "Do Block",

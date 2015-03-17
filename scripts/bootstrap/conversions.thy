@@ -172,8 +172,8 @@ def repeatConv c = tryConv (repeatConv1 c)
 # Repeat a conversional.
 def repeatConvl [k,c] = tm => sumConv [seqConv [c, repeatConvl [k,k c]], c] tm
 
-assert map (t => (t : Term), absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+assert map (t => t : Term, absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
-assert map (t => (t : Term), absConv idConv 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+assert map (t => t : Term, absConv idConv 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
-assert map (t => (t : Term), absConv (subsConv [reflexive '⊤']) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+assert map (t => t : Term, absConv (subsConv [reflexive '⊤']) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
