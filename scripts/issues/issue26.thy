@@ -5,4 +5,4 @@ context
   let 'f : ℙ → ℙ'
   assume foo: '(x ↦ f = f) x'
   val bar = combine (foo, reflexive 'x')
-  assert term bar == 'f x = f x'
+  assert (bar : Term) == 'f x = f x'

@@ -65,7 +65,7 @@ def matchAntThen [imp,ant,f] =
       context <ctx>
         return mp (imp,vs +> x)
     mp ['‹p› → ‹q›',vs] =
-      val bnds = matcher (term ant,p,vs)
+      val bnds = matcher (ant : Term,p,vs)
       if bnds == nil then return nil
       val inst =
         for bnd in bnds do
@@ -74,7 +74,7 @@ def matchAntThen [imp,ant,f] =
             case v     => v
       f (instantiate (imp <+ inst))
     mp ['‹p› = ‹q›',vs] =
-      val bnds = matcher (term ant,p,vs)
+      val bnds = matcher (ant : Term,p,vs)
       if bnds == nil then return nil
       val inst =
         for bnd in bnds do
@@ -87,7 +87,7 @@ def matchAntThen [imp,ant,f] =
 
 def matchmp (imp <+ ants) =
   for ant in ants do
-    imp = matchAntThen (imp,rhs (normalize (term ant)),thm => modusponens (ant,thm))
+    imp = matchAntThen (imp,rhs (normalize (ant : Term)),thm => modusponens (ant,thm))
     if imp == nil then
       return nil
   imp
@@ -99,4 +99,4 @@ context
   let 'P:ℙ → ℙ'
   assume ant1:'y:ℙ'
   assume ant2:'P z ∧ P z'
-  show term(matchmp(imp,ant1,ant2))
+  show matchmp(imp,ant1,ant2) : Term

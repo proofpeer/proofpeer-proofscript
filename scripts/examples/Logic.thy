@@ -1,15 +1,14 @@
 theory Logic extends \root
 
-
 # term
   ------------------------------------
 
 context
   let 'x'
-  assert term 'x' == 'x'
-  assert term "x" == 'x'
+  assert ('x' : Term) == 'x'
+  assert ("x" : Term) == 'x'
   assume x: 'x = x'
-  assert term x == 'x = x'
+  assert (x : Term) == 'x = x'
   
 context
   let 'x'
@@ -17,8 +16,8 @@ context
   context
     let 'y' 
     t = assume 'x = y'
-    assert term t == 'x = y'
-  assert term t == '∀ y. x = y → x = y'
+    assert (t : Term) == 'x = y'
+  assert (t : Term) == '∀ y. x = y → x = y'
 
 
 # fresh
@@ -35,7 +34,7 @@ context
     assume p
   show t
   assert fresh "x" == fresh "x"
-  assert string (fresh "x") == fresh "x"
+  assert (fresh "x" : String) == fresh "x"
 
 # context
   theorem t: '∀ a b c p. p → p'
@@ -66,10 +65,10 @@ context
 
 context
   let 'x'
-  assert string 'x' == "x"
-  assert string "x" == "x"
+  assert ('x' : String) == "x"
+  assert ("x" : String) == "x"
   assume x: 'x = x'
-  assert string x == "x = x"
+  assert (x : String) == "x = x"
 
 
 # transitive
@@ -150,7 +149,7 @@ context
   val u = '(P ↦ (x ↦ P x)) Q'
   theorem t: '‹u› = Q'
     reflexive 'Q'
-  assert term t == term (normalize u)
+  assert (t : Term) == (normalize u : Term)
 
 
 # equivalence
@@ -190,7 +189,7 @@ context
     instantiate (t, 'b', 'c', 'a')
   failure instantiate []
   failure instantiate t
-  theorem (term t) 
+  theorem (t : Term) 
     instantiate [t]
   theorem '∀ y z. P a y z'
     instantiate (t, 'a')
@@ -200,7 +199,7 @@ context
     instantiate (t, , 'b', nil)
   theorem '∀ y. P a y b'
     instantiate (t, 'a', nil, 'b')    
-  theorem (term t) 
+  theorem (t : Term) 
     instantiate [t, , nil, nil]
 
 # destcomb
@@ -216,7 +215,7 @@ context
 
 context
   let 'x'
-  val (eq, right) = destcomb (term (normalize '(x ↦ x) x'))
+  val (eq, right) = destcomb (normalize '(x ↦ x) x' : Term)
   val (_, left) = destcomb eq
   assert left == right
   assert destcomb left <> destcomb right

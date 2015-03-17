@@ -3,6 +3,7 @@ package proofpeer.proofscript.naiveinterpreter
 import proofpeer.proofscript.logic._
 import proofpeer.proofscript.frontend.ParseTree
 import proofpeer.proofscript.serialization.UniquelyIdentifiable
+import proofpeer.general.StringUtils
 
 trait StateValue extends UniquelyIdentifiable {
 	def isComparable : Boolean
@@ -114,6 +115,8 @@ case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) e
 }
 
 object StateValue {
+
+	def mkStringValue(s : String) : StringValue = StringValue(StringUtils.codePoints(s))
 
 	def isFunction(v : StateValue) : Boolean = {
 		v match {

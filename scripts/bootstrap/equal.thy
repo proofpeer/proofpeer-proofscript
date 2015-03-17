@@ -9,7 +9,7 @@ def assertNotNil x =
 
 # Fail if not a theorem. Return nil.
 def assertThm thm =
-  val norm = normalize (term thm)
+  val norm = normalize (thm : Term)
   val _    = modusponens (thm, norm)
   nil
 
@@ -50,7 +50,7 @@ val eqTrueIntro =
       do
         assume '⊤'
         lift p))
-  thm => assertNotNil (modusponens (thm,instantiate (eqTrue, term thm)))
+  thm => assertNotNil (modusponens (thm,instantiate (eqTrue, thm : Term)))
 
 # '‹P› = ⊤' ↦ '‹P›'
 # Returns nil if theorem is not of the correct form.

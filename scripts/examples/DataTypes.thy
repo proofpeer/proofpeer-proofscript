@@ -68,7 +68,7 @@ assert {"1" -> 1, 1 -> "1"} 0 == nil
 assert {"1" -> 1, 1 -> "1"} (x => x) == nil
 
 # You can convert integers into strings 
-assert string (2 - 5) == "-3" 
+assert (2 - 5 : String) == "-3" 
 
 # This is a comparison chain, which is true if every single member of the chain is true
 assert 1 < 3 < 5 < 7 < 7 * 7 == 49 < 50 <= 50 <= 100 > 99
@@ -152,3 +152,20 @@ assert "hello" (1 to 3) == "ell"
 assert ["h", "e", "l", "l", "o"] (1 to 3) == ["e", "l", "l"]
 assert ["h", "e", "l", "l", "o"] (0, 2, 4) == ["h", "l", "o"]
 failure ["h", "e", "l", "l", "o"] (1 to 5)
+
+# Type casts
+assert ('∀ a b c p. p → p' : String) == "∀ a. ∀ b. ∀ c. ∀ p : ℙ. p → p"
+assert (': (𝒰 → 𝒰) → 𝒰 → ℙ' : String) == "(𝒰 → 𝒰) → 𝒰 → ℙ"
+assert (-3 : String) == "-3"
+assert (empty : String) == "∀ x. ¬ (x ∈ ∅)"
+assert ("3" : Integer) == 3
+assert ("-3" : Integer) == -3
+assert ("(𝒰 → 𝒰) → 𝒰 → ℙ" : Type) == ':(𝒰 → 𝒰) → 𝒰 → ℙ'
+assert ('union' : Type) == ': 𝒰 → 𝒰 → 𝒰'
+assert ("∀ a b c p. p → p" : Term) == '∀ a b c p. p → p'
+assert ("union" : Term) == 'union'
+assert (empty : Term) == '∀ x. x ∉ ∅'
+
+
+
+

@@ -82,7 +82,7 @@ val orIntroL =
       modusponens (p,assum)
     modusponens (orElim,sym (apThm (\root\orDef,'p:ℙ','q:ℙ')))
   [lthm,rterm] =>
-    modusponens (lthm,instantiate (orIntroL,term lthm,rterm))
+    modusponens (lthm,instantiate (orIntroL,lthm : Term,rterm))
 
 # ‹q› ↦ ‹p ∨ q›
 val orIntroR =
@@ -96,7 +96,7 @@ val orIntroR =
       assume assum:'q → z'
       modusponens (q,assum)
     modusponens (orElim,sym (apThm (\root\orDef,'p:ℙ','q:ℙ')))
-  [lterm,rthm] => modusponens (rthm,instantiate (orIntroR,lterm,term rthm))
+  [lterm,rthm] => modusponens (rthm,instantiate (orIntroR,lterm,rthm : Term))
 
 val conjuncts =
   val conjunct1 =

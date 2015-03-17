@@ -37,7 +37,7 @@ context
   let x_def: 'x = ∅ ∪ {∅}'
   show x_def
   assert 'x' == 'x : 𝒰'
-  assert term x_def == 'x = ∅ ∪ {∅}'
+  assert (x_def : Term) == 'x = ∅ ∪ {∅}'
 
 context
   failure 'x'
@@ -45,13 +45,13 @@ context
     let 'x = ∅ ∪ {∅}'
   show x_def
   assert 'x' == 'x : 𝒰'
-  assert term x_def == 'x = ∅ ∪ {∅}'
+  assert (x_def : Term) == 'x = ∅ ∪ {∅}'
 
 context
   failure 'x'
   let x_def: 'x = true'
   assert 'x' == 'x : ℙ'
-  assert term x_def == 'x = true'
+  assert (x_def : Term) == 'x = true'
 
 context
   failure 'x'
@@ -66,12 +66,12 @@ context
 context
   assume f: 'false'
   show f
-  assert term f == 'false'
+  assert (f : Term) == 'false'
 
 context
   val f = assume "false"
   show f
-  assert term f == 'false'
+  assert (f : Term) == 'false'
 
 
 # choose and theorem
@@ -82,7 +82,7 @@ context
     let 'y'
     let 'x = y'
   show x_def
-  assert term x_def == '∀ y. x y = y'
+  assert (x_def : Term) == '∀ y. x y = y'
 
 # the same as above, but using an intermediate theorem
 context
@@ -91,7 +91,7 @@ context
     let 'x = y'    
   choose x_def: 'x' t
   show x_def
-  assert term x_def == '∀ y. x y = y'
+  assert (x_def : Term) == '∀ y. x y = y'
 
 # we can move the intermediate theorem into choose
 context
@@ -100,7 +100,7 @@ context
       let 'y'
       let 'x = y'
   show x_def
-  assert term x_def == '∀ y. x y = y'
+  assert (x_def : Term) == '∀ y. x y = y'
 
 context
   failure
@@ -115,7 +115,7 @@ context
     let 'p : ℙ'
     assume 'p'
   show trivial
-  assert term trivial == '∀ p. p → p'
+  assert (trivial : Term) == '∀ p. p → p'
   assert w == 2
 
 # theorems without explicitly stating the proposition
@@ -125,19 +125,19 @@ context
     assume p: 'p'
     let 'a'
     p
-  assert term t == '∀ p. p → p'
+  assert (t : Term) == '∀ p. p → p'
   theorem  
     let 'p : ℙ'
     assume p: 'p'
     let 'a'
     p
-  assert term t == '∀ p. p → p'
+  assert (t : Term) == '∀ p. p → p'
   theorem t: true
     let 'p : ℙ'
     assume p: 'p'
     let 'a'
     p
-  assert term t == '∀ p. p → (∀ a. p)'
+  assert (t : Term) == '∀ p. p → (∀ a. p)'
 
 # theorems without the theorem keyword
 context 

@@ -1125,8 +1125,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					evalExpr[T](state, expr,  {
 						case failed : Failed[_] => cont(failed)
 						case Success(value, _) =>
-							matchValueType(value, valuetype) match {
-								case None => cont(fail(expr, "type checking error of value: " + display(state, value)))
+							convertValueType(state, value, valuetype) match {
+								case None => cont(fail(expr, "cannot type cast value: " + display(state, value)))
 								case Some(value) => cont(success(value))
 							}
 					})
@@ -1563,33 +1563,116 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	def matchValueType(value : StateValue, valuetype : ParseTree.ValueType) : Option[StateValue] = {
 		(value, valuetype) match {
-			case (_, TyAny) => 
-			case (NilValue, TyNil) =>
-			case (NilValue, TyOption(_)) =>
-			case (value, TyOption(vty)) => return matchValueType(value, vty)
+			case (_, TyAny) => Some(value)
+			case (NilValue, TyNil) => Some(value)
+			case (NilValue, TyOption(_)) => Some(value)
+			case (value, TyOption(vty)) => matchValueType(value, vty)
 			case (value, TyUnion(vty1, vty2)) =>
 				matchValueType(value, vty1) match {
 					case None =>
-						return matchValueType(value, vty2)
+						matchValueType(value, vty2)
 					case result =>
-						return result
+						result
 				}
-			case (_ : ContextValue, TyContext) => 
-			case (_ : TheoremValue, TyTheorem) =>
-			case (_ : TermValue, TyTerm) =>
-			case (_ : TypeValue, TyType) =>
-			case (_ : BoolValue, TyBoolean) =>
-			case (_ : IntValue, TyInteger) =>
-			case (_ : SimpleFunctionValue, TyFunction) =>
-			case (_ : RecursiveFunctionValue, TyFunction) =>
-			case (_ : NativeFunctionValue, TyFunction) =>
-			case (_ : StringValue, TyString) =>
-			case (_ : TupleValue, TyTuple) =>		
-			case (_ : MapValue, TyMap) =>
-			case (_ : SetValue, TySet) =>	
-			case _ => return None
+			case (_ : ContextValue, TyContext) => Some(value)
+			case (_ : TheoremValue, TyTheorem) => Some(value)
+			case (_ : TermValue, TyTerm) => Some(value)
+			case (_ : TypeValue, TyType) => Some(value)
+			case (_ : BoolValue, TyBoolean) => Some(value)
+			case (_ : IntValue, TyInteger) => Some(value)
+			case (_ : SimpleFunctionValue, TyFunction) => Some(value)
+			case (_ : RecursiveFunctionValue, TyFunction) => Some(value)
+			case (_ : NativeFunctionValue, TyFunction) => Some(value)
+			case (_ : StringValue, TyString) => Some(value)
+			case (_ : TupleValue, TyTuple) =>	Some(value)	
+			case (_ : MapValue, TyMap) => Some(value)
+			case (_ : SetValue, TySet) =>	Some(value)
+			case _ => None
 		}
-		Some(value)
+	}
+
+
+
+	def convertValueType(state : State, value : StateValue, valuetype : ParseTree.ValueType) : Option[StateValue] = {
+		import StateValue.mkStringValue
+		(value, valuetype) match {
+			case (_, TyAny) => Some(value)
+			case (NilValue, TyNil) => Some(value)
+			case (NilValue, TyOption(_)) => Some(value)
+			case (value, TyOption(vty)) => convertValueType(state, value, vty)
+			case (value, TyUnion(vty1, vty2)) =>
+				convertValueType(state, value, vty1) match {
+					case None =>
+						convertValueType(state, value, vty2)
+					case result =>
+						result
+				}
+			case (_ : ContextValue, TyContext) => Some(value)
+			case (_ : TheoremValue, TyTheorem) => Some(value)
+			case (_ : TermValue, TyTerm) => Some(value)
+			case (_ : TypeValue, TyType) => Some(value)
+			case (_ : BoolValue, TyBoolean) => Some(value)
+			case (_ : IntValue, TyInteger) => Some(value)
+			case (_ : SimpleFunctionValue, TyFunction) => Some(value)
+			case (_ : RecursiveFunctionValue, TyFunction) => Some(value)
+			case (_ : NativeFunctionValue, TyFunction) => Some(value)
+			case (_ : StringValue, TyString) => Some(value)
+			case (_ : TupleValue, TyTuple) =>	Some(value)	
+			case (_ : MapValue, TyMap) => Some(value)
+			case (_ : SetValue, TySet) =>	Some(value)
+			case (IntValue(i), TyString) => Some(mkStringValue(i.toString))
+			case (TypeValue(ty), TyString) => Some(mkStringValue(Syntax.printType(ty)))
+			case (TermValue(tm), TyString) => 
+				Some(mkStringValue(Syntax.checkprintTerm(aliases, logicNameresolution, state.context, tm)))
+			case (TheoremValue(thm), TyString) =>
+				try {
+					val liftedTh = state.context.lift(thm)
+					val tm = liftedTh.proposition
+					Some(mkStringValue(Syntax.checkprintTerm(aliases, logicNameresolution, state.context, tm)))					
+				} catch {
+					case _ : Utils.KernelException => None
+				}
+			case (s : StringValue, TyInteger) =>
+			  try {
+			    val i = BigInt(s.toString, 10)
+			    Some(IntValue(i))
+			  } catch {
+			    case e:Exception => None
+			  }	
+			case (s : StringValue, TyType) => 
+				try {
+					Syntax.parsePretype(s.toString) match {
+						case None => None
+						case Some(ty) => Some(TypeValue(Pretype.translate(ty)))
+					}
+				} catch {
+					case _ : Utils.KernelException => None					
+				}
+			case (tm : TermValue, TyType) => 
+				try {
+					state.context.typeOfTerm(tm.value) match {
+						case None => None
+						case Some(ty) => Some(TypeValue(ty))
+					}
+				} catch {
+					case _ : Utils.KernelException => None
+				}							
+			case (s : StringValue, TyTerm) =>
+				try {
+					Some(TermValue(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)))
+				} catch {
+					case _ : Utils.KernelException => None
+				}				
+			case (thm : TheoremValue, TyTerm) => 
+				try {
+					val liftedThm = state.context.lift(thm.value)
+					val tm = liftedThm.proposition
+					Some(TermValue(tm))					
+				} catch {
+					case _ : Utils.KernelException => None
+				}			
+			case _ => None
+		}
 	}
 
 	def matchPatterns[T](state : State, pats : Seq[Pattern], values : Seq[StateValue], matchings : Matchings,

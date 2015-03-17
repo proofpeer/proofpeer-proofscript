@@ -77,7 +77,7 @@ def seqConv convs =
 
 # Applies a conversion as an inference rule.
 def convRule [conv,thm] =
-  for '‹_› = ‹_›' as cthm in conv (term thm) do
+  for '‹_› = ‹_›' as cthm in conv (thm : Term) do
     modusponens (thm, cthm)
 
 # Attempt a conversion. If it has no results, just use idConv
@@ -172,8 +172,8 @@ def repeatConv c = tryConv (repeatConv1 c)
 # Repeat a conversional.
 def repeatConvl [k,c] = tm => sumConv [seqConv [c, repeatConvl [k,k c]], c] tm
 
-assert map (term,absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+assert map (t => (t : Term), absConv (tm => [reflexive tm]) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
-assert map (term,absConv idConv 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+assert map (t => (t : Term), absConv idConv 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
 
-assert map (term,absConv (subsConv [reflexive '⊤']) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
+assert map (t => (t : Term), absConv (subsConv [reflexive '⊤']) 'x ↦ ⊤') == ['(x ↦ ⊤) = (x ↦ ⊤)']
