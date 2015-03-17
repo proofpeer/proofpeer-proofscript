@@ -131,6 +131,7 @@ def typeOf v =
     case _ : Type => "Type"
     case _ : Theorem => "Theorem"
     case _ : Context => "Context"
+    case _ : Function => "Function"
     case _ : _ => "Any"
 
 def check (v, ty : String) = 
@@ -148,7 +149,8 @@ _ = (do*
   check (': 𝒰', "Type")
   check (inf, "Theorem")
   check ((context), "Context")
-  check ("check", "String"))
+  check ("check", "String")
+  check (x => x, "Function"))
 
 def f (x : Integer) : Integer = if x == 0 then "0" else (x * x : Integer)
 

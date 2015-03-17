@@ -461,6 +461,7 @@ val g_pattern =
   arule("ScriptValuePrimitiveType", "TyTuple", c => TyTuple) ++
   arule("ScriptValuePrimitiveType", "TyMap", c => TyMap) ++
   arule("ScriptValuePrimitiveType", "TySet", c => TySet) ++
+  arule("ScriptValuePrimitiveType", "TyFunction", c => TyFunction) ++
   arule("ScriptValueType", "ScriptValuePrimitiveType", c => c.ScriptValuePrimitiveType[Any]) ++
   arule("ScriptValueType", "ScriptValueType Bar ScriptValuePrimitiveType", c => TyUnion(c.ScriptValueType, c.ScriptValuePrimitiveType)) ++
   arule("ScriptValueType", "ScriptValuePrimitiveType QuestionMark", c => TyOption(c.ScriptValuePrimitiveType)) ++
