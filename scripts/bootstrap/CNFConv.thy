@@ -69,49 +69,67 @@ def
 def
   typeOf '‹_›: ‹a›' = a
 
-# val skolemize =
-#   def
-#     skolemize ('∀x: ‹a›. ‹p› x' as tm, thm, vs, tys) =
-#       val [ctx,x,bod] = destabs '‹p›'
-#       val skThm
-#       context <ctx>
-#         skThm = skolemize ('‹p› ‹x›', thm, vs +> x, tys +> a)
-#       skThm
-#     skolemize ('∃x: ‹a›. ‹p› x' as tm, thm, vs, tys) =
-#       val funTy = mkFunTy (tys +> a)
-#       val chosen
-#       val ctx =
-#         context
-#           chosen = choose '‹fresh "f"›: ‹funTy›' thm
-#       val f = fresh "f"
-#       val skThm
-#       context <ctx>
-#         val x = mkComb (f <+ vs)
-#         skThm = skolemize ('‹p› ‹x›', lift chosen, vs, tys)
-#       show skThm
-#       skThm
-#     skolemize (_, thm, _, _) = thm
-#   thm => skolemize (thm: Term,thm,[],[])
+def bindersConv c =
+  tm =>
+    sumConv [c, if iscomb tm and isabs (rand tm)
+                then binderConv (bindersConv c)
+                else zeroConv tm] tm
+
+val skolem1 =
+  def
+    skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' =
+      theorem '(∀x. ∃y. ‹p› x y) = (∃f: ‹a› → ‹b›. ∀x. ‹p› x (f x))'
+        theorem left: true
+          assume asm:'∀x. ∃y. ‹p› x y'
+          choose '‹fresh "f"›' asm
+        theorem right: '(∃f:‹a› → ‹b›. ∀x. ‹p› x (f x)) → (∀x. ∃y. ‹p› x y)'
+          assume asm:'∃f: ‹a› → ‹b›. ∀x. ‹p› x (f x)'
+          let x:'‹fresh "x"›: ‹a›'
+          theorem '∃y. ‹p› ‹x› y'
+            choose ch:'‹fresh "f"›:‹a› → ‹b›' asm
+            val fx = rand (instantiate (ch,x): Term)
+            let ydef:'y = ‹fx›'
+            convRule (seqConv [randConv (subsConv (gsym ydef)),normalize],
+                      instantiate (ch,x))
+        equivalence (left,right)
+    skolem1 tm = zeroConv tm
+  seqConv [skolem1,normalize]
 
 def
-  skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' =
-    theorem '(∀x. ∃y. ‹p› x y) = (∃f. ∀x. ‹p› x (f x))'
-      theorem left: true
-        assume asm:'∀x. ∃y. ‹p› x y'
-        choose '‹fresh "f"›' asm
-      theorem right: true
-        assume asm:'∃f. ∀x. ‹p› x (f x)'
-        let x:'‹fresh "x"›: ‹b›'
-        choose ch:'‹fresh "f"›' asm
-        val '∀x. ‹f› x' = ch
-        let ydef:'y = ‹f› ‹x›'
-        convRule (randConv (subsConv ydef), instantiate (ch,x))
-      equivalence (left,right)
-
+  timesConvl [_,c,0] = c
+  timesConvl [k,c,n] = timesConvl [k,k c,n-1]
 
 context
-  val conved =
+  val cthm =
     seqConv [nnf,raiseQuantifiers,cnfConv] '∀p q. (∃x y. p x y) = (∃z. q z)'
-  val ctm = rhs (conved: Term)
+  val ctm = rhs (cthm: Term)
   assert
-    (ctm == '∀p q. ∃x. ∀y z. ∃w u. ((p x w) ∨ (¬q z)) ∧ (q u ∨ ¬(p y z))')
+    (ctm == '∀p: 𝒰 → 𝒰 → ℙ. ∀q. ∃x. ∀y z. ∃w u. ((p x w) ∨ (¬q z)) ∧ (q u ∨ ¬(p y z))')
+  show ctm
+  show (rhs (seqConv [timesConvl
+                        [binderConv,
+                         seqConv [skolem1,binderConv skolem1],
+                         4],
+                      timesConvl
+                        [binderConv,
+                         seqConv [skolem1,binderConv skolem1],
+                         3],
+                      timesConvl
+                        [binderConv,
+                         seqConv [skolem1,binderConv skolem1],
+                         1],
+                       skolem1,
+                       binderConv skolem1,
+                       timesConvl
+                         [binderConv,
+                          skolem1,
+                          3],
+                       timesConvl
+                         [binderConv,
+                          skolem1,
+                          2]
+                          ]
+                      ctm: Term))
+  # val sthm = skolem1 ctm
+  # val stm = rhs (sthm: Term)
+  # show (rhs (normalize (stm: Term)))

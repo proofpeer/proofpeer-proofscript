@@ -109,9 +109,9 @@ theorem conjAll: '∀P Q. ((∀x. P x) ∧ (∀x. Q x)) = (∀x. P x ∧ Q x)'
   convRule
     (seqConv
       [binaryConv
-        (seqConv [rewrConv [orDeMorgan],
-                  onceTreeConv existsDeMorganConv],
-        (seqConv [existsDeMorganConv, onceTreeConv (rewrConv [orDeMorgan])])),
+         (seqConv [rewrConv1 orDeMorgan,
+                   onceTreeConv existsDeMorganConv],
+         (seqConv [existsDeMorganConv, onceTreeConv (rewrConv orDeMorgan)])),
        onceTreeConv (rewrConv [negInvolve])], disjExistsInst)
 
 # As conversions, so that we can exploit higher-order matching.

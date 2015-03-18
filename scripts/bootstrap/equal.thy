@@ -1,17 +1,7 @@
 theory Equal
-extends List
+extends Syntax
 
 # Very basic derived theorems and rules concerning equality
-
-# Fail if nil
-def assertNotNil x =
-  if x == nil then assert false else x
-
-# Fail if not a theorem. Return nil.
-def assertThm thm =
-  val norm = normalize (thm : Term)
-  val _    = modusponens (thm, norm)
-  nil
 
 # '‹x› = ‹y›' ↦ '‹y› = ‹x›'
 # Returns nil if theorem is not of the correct form.
@@ -27,9 +17,7 @@ def
 def
   trans (('‹x›=‹_›' as xy) <+ yz <+ eqs) =
     trans (modusponens (xy,combine (reflexive ('s ↦ ‹x› = s'),yz)) <+ eqs)
-  trans ['‹_›=‹_›' as thm] =
-    val _ = assertThm thm
-    thm
+  trans ['‹_›=‹_›': Theorem as thm] = thm
   trans ps =
     val _ = map (assertThm,ps)
     nil
@@ -38,7 +26,6 @@ theorem truth:'⊤'
   modusponens (reflexive '(p : ℙ ↦ p)',sym trueDef)
 
 # '‹P›' ↦ '‹P› = T'
-# Fails if not given a theorem.
 val eqTrueIntro =
   theorem eqTrue:
     let 'p:ℙ'
@@ -50,7 +37,7 @@ val eqTrueIntro =
       do
         assume '⊤'
         lift p))
-  thm => assertNotNil (modusponens (thm,instantiate (eqTrue, thm : Term)))
+  thm => modusponens (thm,instantiate (eqTrue, thm: Term)): Theorem
 
 # '‹P› = ⊤' ↦ '‹P›'
 # Returns nil if theorem is not of the correct form.
@@ -60,11 +47,9 @@ def
     modusponens (truth,sym thm)
   eqTrueElim thm = assertThm thm
 
-# ['‹f = g›', '‹x = y›, ...] ↦ '‹f x ...› = ‹g y ...›'
+# ['‹f = g›', '‹x›, ...] ↦ '‹f x ...› = ‹g x ...›'
 # Returns nil if theorems are not of the correct form.
-# Fails of not given a list of theorems.
 def apThm (thm <+ terms) =
-  val _ = assertThm thm
   combine (thm <+ (for t in terms do
                      reflexive t))
 

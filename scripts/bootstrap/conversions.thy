@@ -10,12 +10,15 @@ val zeroConv = tm => nil
 # Applies a list of conversions in sequence.
 def seqConv convs =
   val thenConv = [conv1,conv2] => tm =>
-    match conv1 tm
-      case '‹_› = ‹y›' as xy: Theorem =>
-        match conv2 y
-          case yz: Theorem => trans (xy,yz)
-          case _ => nil
-      case _ => nil
+    val xy = conv1 tm
+    if xy == nil then nil
+    else
+      match desteq (xy: Term)
+        case [_,y] =>
+          match conv2 y
+            case yz: Theorem => trans (xy,yz)
+            case _           => nil
+        case _ => nil
   foldl (thenConv,convs,idConv)
 
 def
@@ -85,13 +88,13 @@ def absConv conv =
 def
   subsConv thm =
     tm =>
-      match desteq thm
-        case [l,_] if l == tm => thm
-        case _                => nil
+      match thm
+        case '‹l› = ‹_›' if l == tm => modusponens (thm,normalize (thm: Term))
+        case _                      => nil
 
 def rewrConv1 thm =
   tm =>
-    matchAntThen (thm,tm,thm =>
+    matchAntThen (thm,rhs (normalize tm),thm =>
             match thm
               case '‹_› = ‹_›' => thm
               case _           => nil)

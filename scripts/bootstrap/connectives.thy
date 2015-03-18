@@ -121,7 +121,7 @@ val conjuncts =
     thm =>
       match thm
         case '‹p› ∧ ‹q›' as thm => matchmp (conjunct2,thm)
-        case _                  => nil
+        case _                  => assertThm thm
 
   def conjs thm =
     val c1 = conjunct1 thm

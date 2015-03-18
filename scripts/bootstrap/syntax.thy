@@ -1,11 +1,37 @@
 theory Syntax
 extends List
 
-# Basic term manipulation
+# Fail if nil
+def assertNotNil x =
+  if x == nil then assert false else x
+
+# Fail if not a theorem. Return nil.
+def
+  assertThm (thm: Theorem) = nil
+  assertThm _              = fail "Theorem required."
 
 def
-  desteq '‹x› = ‹y›' = [x,y]
-  desteq _           = nil
+  assertTerm (term: Term) = nil
+  assertTerm _            = fail "Term required."
+
+# Basic term manipulation
+
+def rator fx =
+  match destcomb fx
+    case [f,_] => f
+    case _     => nil
+
+def rand fx =
+  match destcomb fx
+    case [_,x] => x
+    case _     => nil
+
+def iscomb tm = destcomb tm <> nil
+def isabs tm  = destabs tm <> nil
+
+def
+  desteq '‹_› = ‹_›' as tm = [rand (rator (tm:Term)), rand (tm:Term)]
+  desteq tm                = assertTerm tm
 
 def lhs tm =
   match desteq tm
@@ -116,4 +142,4 @@ context
   let 'P:ℙ → ℙ'
   assume ant1:'y:ℙ'
   assume ant2:'P z ∧ P z'
-  #  assert (term(matchmp(imp,ant1,ant2)) = '∀ x : ℙ. (y ∧ x) ∧ (P z)')
+  assert (matchmp [imp,ant1,ant2]: Term) == '∀ x : ℙ. (y ∧ x) ∧ (P z)'
