@@ -1098,7 +1098,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 									}
 									buildTuple()
 								case Success(value, _) =>
-									cont(fail(v, "string cannot be applied to: " + display(state, value)))
+									cont(fail(v, "tuple cannot be applied to: " + display(state, value)))
 							})
 						case Success(SetValue(s), _) =>
 							evalExpr[T](state, v, {
