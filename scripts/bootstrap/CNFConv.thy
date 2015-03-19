@@ -58,23 +58,6 @@ def
     seqConv [rewrConv orDistribLeft, binaryConv (disjConv, disjConv)] tm
   disjConv tm = idConv tm
 
-def
-  mkFunTy [ty]        = ty
-  mkFunTy (ty <+ tys) = ': ‹ty › → ‹mkFunTy tys›'
-
-def
-  mkComb [v]       = v
-  mkComb (vs +> v) = '‹mkComb vs› ‹v›'
-
-def
-  typeOf '‹_›: ‹a›' = a
-
-def bindersConv c =
-  tm =>
-    sumConv [c, if iscomb tm and isabs (rand tm)
-                then binderConv (bindersConv c)
-                else zeroConv tm] tm
-
 val skolem1 =
   def
     skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' =
