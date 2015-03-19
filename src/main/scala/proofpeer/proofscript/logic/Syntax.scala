@@ -210,6 +210,8 @@ object Syntax {
     lex("Colon", char(':')) ++
     lex("QuoteOpen", char(0x2039)) ++ 
     lex("QuoteClose", char(0x203A)) ++
+    lex("DoubleQuoteOpen", char(0xAB)) ++ 
+    lex("DoubleQuoteClose", char(0xBB)) ++    
     lex("Forall", char(0x2200)) ++
     lex("Exists", char(0x2203)) ++
     lex("NotExists", char(0x2204)) ++    
@@ -239,6 +241,7 @@ object Syntax {
     rule("ValueAtomicType", "Underscore", c => PTyAny) ++
     rule("ValueAtomicType", "RoundBracketOpen ValueType RoundBracketClose", _.ValueType[Any]) ++
     rule("ValueAtomicType", "QuoteOpen ValueQuotedType QuoteClose", c => PTyQuote(c.ValueQuotedType)) ++
+    rule("ValueAtomicType", "DoubleQuoteOpen ValueQuotedType DoubleQuoteClose", c => PTyQuote(c.ValueQuotedType)) ++
     rule("ValueType", "ValueAtomicType", _.ValueAtomicType[Any]) ++
     rule("ValueType", "ValueAtomicType RightArrow ValueType", c => PTyFun(c.ValueAtomicType, c.ValueType)) 
 
@@ -248,6 +251,7 @@ object Syntax {
     rule("PatternAtomicType", "Underscore", c => PTyAny) ++
     rule("PatternAtomicType", "RoundBracketOpen PatternType RoundBracketClose", _.PatternType[Any]) ++
     rule("PatternAtomicType", "QuoteOpen PatternQuotedType QuoteClose", c => PTyQuote(c.PatternQuotedType)) ++
+    rule("PatternAtomicType", "DoubleQuoteOpen ValueQuotedType DoubleQuoteClose", c => PTyQuote(c.ValueQuotedType)) ++
     rule("PatternType", "PatternAtomicType", _.PatternAtomicType[Any]) ++
     rule("PatternType", "PatternAtomicType RightArrow PatternType", c => PTyFun(c.PatternAtomicType, c.PatternType)) 
     
@@ -267,6 +271,7 @@ val g_Value_term =
     rule("ValueAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("ValueAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("ValueAtomicTerm", "QuoteOpen ValueQuotedTerm QuoteClose", c => pTmQuote(c.ValueQuotedTerm)) ++
+    rule("ValueAtomicTerm", "DoubleQuoteOpen ValueQuotedTerm DoubleQuoteClose", c => pTmQuote(c.ValueQuotedTerm)) ++
     rule("ValueCombTerm", "ValueAtomicTerm", _.ValueAtomicTerm[Any]) ++
     rule("ValueCombTerm", "ValueCombTerm ValueAtomicTerm", 
       c => PTmComb(c.ValueCombTerm, c.ValueAtomicTerm, None, Pretype.PTyAny)) ++
@@ -347,6 +352,7 @@ val g_Pattern_term =
     rule("PatternAtomicTerm", "False", c => pTmConst(Kernel.logical_false)) ++
     rule("PatternAtomicTerm", "EmptySet", c => pTmConst(Kernel.empty_set)) ++
     rule("PatternAtomicTerm", "QuoteOpen PatternQuotedTerm QuoteClose", c => pTmQuote(c.PatternQuotedTerm)) ++
+    rule("PatternAtomicTerm", "DoubleQuoteOpen ValueQuotedTerm DoubleQuoteClose", c => pTmQuote(c.ValueQuotedTerm)) ++
     rule("PatternCombTerm", "PatternAtomicTerm", _.PatternAtomicTerm[Any]) ++
     rule("PatternCombTerm", "PatternCombTerm PatternAtomicTerm", 
       c => PTmComb(c.PatternCombTerm, c.PatternAtomicTerm, None, Pretype.PTyAny)) ++
@@ -418,31 +424,6 @@ val g_Pattern_term =
     g_Pattern_type ++
     g_Value_term ++
     g_Pattern_term
- 
-/*  def parse(g_prog : Grammar, nonterminal : Nonterminal, input : String) {
-    if (!g_prog.info.wellformed) {
-      println("grammar errors:\n"+g_prog.info.errors)
-      return
-    }
-    println("term: '" + input + "'")
-    val d = UnicodeDocument.fromString(input)
-    val g = g_prog.parser.parse(d, nonterminal, 0)
-    g match {
-      case None => 
-        println("Does not parse.")
-      case Some((v, i)) => 
-        if (v.isUnique && i == d.size) {
-          println("Parsed successfully.")
-          val result = Derivation.computeParseResult(g_prog, d, t => null, v)
-          println("Result:\n"+result.result)
-        } else if (i < d.size) {
-          println("Parse error at token " + i + ".")
-        } else {
-          println("Parsed successfully, but ambiguous parse tree.")       
-        } 
-    }  
-    println()
-  }   */
 
   def parsePreterm(input : String) : Option[Preterm] = {
     val d = Document.fromString(input, Some(2))

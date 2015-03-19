@@ -78,28 +78,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.trace, f.error)
 
-	def evalLogicPreterm[T](_state : State, tm : LogicTerm, createFresh : Boolean, 
-		cont : RC[(Preterm, State), T]) : Thunk[T] = 
+	def evalLogicPreterm[T](_state : State, tm : Preterm, cont : RC[Preterm, T]) : Thunk[T] = 
 	{
-		var state = _state
+		val state = _state.freeze
 		def inst(tm : Preterm.PTmQuote, cont : Continuation[Either[Preterm, Failed[StateValue]], T]) : Thunk[T] = 
 		{
 			tm.quoted match {
+				case _ : Pattern => cont(Left(tm))
 				case expr : Expr =>
-					evalExpr[T](state.freeze, expr, {
-						case failed : Failed[_] => 
-							expr match {
-								case Id(name) if createFresh =>
-									Syntax.parsePreterm(name) match {
-					          case Some(Preterm.PTmName(Name(None, indexedName), _)) =>
-					            val freshName = state.context.mkFresh(indexedName)
-					            val codePoints = proofpeer.general.StringUtils.codePoints(freshName.toString)
-					            state = state.bind(Map(name -> StringValue(codePoints)))
-					            cont(Left(Preterm.PTmName(Name(None, freshName), Pretype.PTyAny)))
-					          case _ => cont(Right(failed))      										
-									}
-								case _ => cont(Right(failed))
-							}
+					evalExpr[T](state, expr, {
+						case failed : Failed[_] => cont(Right(failed))
 						case Success(TermValue(t), _) => cont(Left(Preterm.translate(t)))
 						case Success(s : StringValue, _) =>
 							Syntax.parsePreterm(s.toString) match {
@@ -110,9 +98,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					})    	
 			}
 		}
-		Preterm.instQuotes[Failed[StateValue], T](inst, instType[T](state) _, tm.tm, {
+		Preterm.instQuotes[Failed[StateValue], T](inst, instType[T](state) _, tm, {
 		  case Right(f) => cont(fail(f))
-			case Left(preterm) => cont(success((preterm, state)))
+			case Left(preterm) => cont(success(preterm))
 		})
 	}
 
@@ -128,17 +116,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	}
 
 	def evalLogicTerm[T](state : State, tm : LogicTerm, cont : RC[Term, T]) : Thunk[T] = {
-		evalLogicPreterm[T](state, tm, false, {
+		evalLogicPreterm[T](state, tm.tm, {
 			case failed : Failed[_] => cont(fail(failed))
-			case Success((preterm, _), _) => cont(resolvePreterm(state.context, preterm))
+			case Success(preterm, _) => cont(resolvePreterm(state.context, preterm))
 		})
 	} 
 
 	private def instType[T](state : State)(ty : Pretype.PTyQuote, cont : Continuation[Either[Pretype, Failed[StateValue]], T]) : Thunk[T] = 
 	{
 		ty.quoted match {
+			case _ : Pattern => cont(Left(ty))
 			case expr : Expr =>
-				evalExpr[T](state.freeze, expr, {
+				evalExpr[T](state, expr, {
 					case failed : Failed[_] => cont(Right(failed))
 					case Success(TypeValue(t), _) => cont(Left(Pretype.translate(t)))
 					case Success(s : StringValue, _) =>
@@ -151,19 +140,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def evalLogicPretype[T](_state : State, ty : LogicType, cont : RC[(Pretype, State), T]) : Thunk[T] = 
-	{
-		var state = _state
-		Pretype.instQuotes[Failed[StateValue], T](instType[T](state) _, ty.ty, {
-		  case Right(f) => cont(fail(f))
-			case Left(pretype) => cont(success((pretype, state)))
+	def evalLogicPretype[T](_state : State, ty : Pretype, cont : RC[Pretype, T]) : Thunk[T] = {
+		val state = _state.freeze
+		Pretype.instQuotes[Failed[StateValue], T](instType[T](state) _, ty, {
+			case Right(failed) => cont(fail(failed))
+			case Left(pretype) => cont(success(pretype))
 		})
-	}
+	} 
 
 	def evalLogicType[T](state : State, ty : LogicType, cont : RC[Type, T]) : Thunk[T] = {
-		evalLogicPretype[T](state, ty, {
-			case failed: Failed[_] => cont(fail(failed))
-			case Success((pretype, _), _) => cont(success(Pretype.forceTranslate(pretype)))
+		evalLogicPretype[T](state, ty.ty, {
+			case failed : Failed[_] => cont(fail(failed))
+			case Success(pretype, _) => cont(success(Pretype.forceTranslate(pretype)))
 		})
 	}
 
@@ -202,21 +190,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})		
 	}
 
-	// Note that state is not frozen!!
-	def evalPretermExpr[T](state : State, expr : Expr, cont : RC[(Preterm, State), T]) : Thunk[T] = {
+	def evalPretermExpr[T](state : State, expr : Expr, cont : RC[Preterm, T]) : Thunk[T] = {
 		expr match {
 			case tm : LogicTerm => 
-			  // Instead of evalLogicPreterm(state, tm, true), because of 
-			  // issue #31 temporarily remove quote intro feature from language:
-				evalLogicPreterm[T](state, tm, false, cont)
+				evalLogicPreterm[T](state, tm.tm, cont)
 			case _ => 
 				evalExpr[T](state.freeze, expr, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success(TermValue(tm),_) => cont(success((Preterm.translate(tm), state)))
+					case Success(TermValue(tm),_) => cont(success(Preterm.translate(tm)))
 					case Success(s : StringValue, _) =>
 						Syntax.parsePreterm(s.toString) match {
 							case None => cont(fail(expr, "parse error"))
-							case Some(preterm) => cont(success((preterm, state)))
+							case Some(preterm) => cont(success(preterm))
 						}
 					case Success(v, _) => cont(fail(expr, "Preterm expected, found: "+display(state, v)))
 				})
@@ -464,9 +449,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 				})
 			case st @ STLet(thm_name, tm) =>
-				evalPretermExpr(state, tm, {
+				evalPretermExpr(state.freeze, tm, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success((ptm, state), _) =>
+					case Success(ptm, _) =>
 						checkTypedName(ptm) match {
 							case None => 
 								letIsDef(ptm) match {
@@ -478,9 +463,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 				})
 			case STChoose(thm_name, tm, proof) =>
-				evalPretermExpr(state, tm, {
+				evalPretermExpr(state.freeze, tm, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success((ptm, state), _) =>
+					case Success(ptm, _) =>
 						checkTypedName(ptm) match {
 							case None => cont(fail(tm, "name expected"))
 							case Some((n, tys)) =>
@@ -1481,97 +1466,105 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Some(value) => matchPatternCont[T](state, p, value, matchings, cont)
 				}
 			case PLogicTerm(_preterm) =>
-				val term = 
-					value match {
-						case TermValue(value) => value
-						case TheoremValue(thm) => state.context.lift(thm).proposition
-						case s : StringValue =>
-							try {
-								Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)
-							} catch {
-								case ex : Utils.KernelException =>
-									return cont(success(None))
+				evalLogicPreterm(state.freeze, _preterm, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(_preterm, _) =>
+						val term = 
+							value match {
+								case TermValue(value) => value
+								case TheoremValue(thm) => state.context.lift(thm).proposition
+								case s : StringValue =>
+									try {
+										Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)
+									} catch {
+										case ex : Utils.KernelException =>
+											return cont(success(None))
+									}
+								case _ => return cont(success(None))
 							}
-						case _ => return cont(success(None))
-					}
-				val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
-				val (preterm, typeQuotes, typesOfTypeQuotes) = 
-					Preterm.inferPattern(tc, _preterm) match {
-						case Left(result) => result
-						case Right(errors) => 
-							var erroroutput = errors.mkString("\n")
-							if (errors.size <= 1)
-								return cont(fail(pat, "ill-typed pattern: " + erroroutput))
-							else
-								return cont(fail(pat, "ill-typed pattern:\n" + erroroutput))
-					}
-				val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
-				if (!state.context.typeOfTerm(term).isDefined)
-					return cont(fail(pat, "value to be matched is invalid in current context, value is:\n    " + display(state, value)))
-				HOPattern.patternMatch(state.context, hop, term) match {
-					case Right(invalid) => 
-						if (invalid) cont(fail(pat, "pattern is not a higher-order pattern"))
-						else cont(success(None))
-					case Left((subst, typeSubst)) => 
-						val f = typeSubst.get _
-						val types = typesOfTypeQuotes.mapValues(pretype => Pretype.translate(Pretype.subst(f, pretype)))
-						def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings) : Thunk[T] = {
-							if (idTerms.isEmpty)
-								cont(success(Some(matchings)))
-							else {
-								val (quoteId, term) = idTerms.head
-								val value = TermValue(term)
-								val p = quotes(quoteId).quoted.asInstanceOf[Pattern]
-								matchPatternCont[T](state, p, value, matchings, {
-									case Success(Some(matchings_q), _) => loop(idTerms.tail, matchings_q)
-									case r => cont(r)
-								})																
+						val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
+						val (preterm, typeQuotes, typesOfTypeQuotes) = 
+							Preterm.inferPattern(tc, _preterm) match {
+								case Left(result) => result
+								case Right(errors) => 
+									var erroroutput = errors.mkString("\n")
+									if (errors.size <= 1)
+										return cont(fail(pat, "ill-typed pattern: " + erroroutput))
+									else
+										return cont(fail(pat, "ill-typed pattern:\n" + erroroutput))
 							}
-						}
-						def loopTypes(idTypes : Seq[(Utils.Integer, Type)], matchings : Matchings) : Thunk[T] = {
-							if (idTypes.isEmpty)
-								loop(subst.toSeq, matchings)
-							else {
-								val (quoteId, ty) = idTypes.head
-								val value = TypeValue(ty)
-								val p = typeQuotes(quoteId).quoted.asInstanceOf[Pattern]
-								matchPatternCont[T](state, p, value, matchings, {
-									case Success(Some(matchings_q), _) => loopTypes(idTypes.tail, matchings_q)
-									case r => cont(r)
-								})																
-							}
-						}						
-						loopTypes(types.toSeq, matchings)
-				}
-			case PLogicType(pretype) =>
-				value match {
-					case TypeValue(ty) => 
-						val (pat, quotes) = Pretype.pretype2Pattern(pretype)
-						Pretype.patternMatch(pat, ty) match {
-							case None => cont(success(None))
-							case Some(subst) =>
-								def loop(idTypes : Seq[(Utils.Integer, Type)], matchings : Matchings) : Thunk[T] = {
-									if (idTypes.isEmpty)
+						val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
+						if (!state.context.typeOfTerm(term).isDefined)
+							return cont(fail(pat, "value to be matched is invalid in current context, value is:\n    " + display(state, value)))
+						HOPattern.patternMatch(state.context, hop, term) match {
+							case Right(invalid) => 
+								if (invalid) cont(fail(pat, "pattern is not a higher-order pattern"))
+								else cont(success(None))
+							case Left((subst, typeSubst)) => 
+								val f = typeSubst.get _
+								val types = typesOfTypeQuotes.mapValues(pretype => Pretype.translate(Pretype.subst(f, pretype)))
+								def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings) : Thunk[T] = {
+									if (idTerms.isEmpty)
 										cont(success(Some(matchings)))
+									else {
+										val (quoteId, term) = idTerms.head
+										val value = TermValue(term)
+										val p = quotes(quoteId).quoted.asInstanceOf[Pattern]
+										matchPatternCont[T](state, p, value, matchings, {
+											case Success(Some(matchings_q), _) => loop(idTerms.tail, matchings_q)
+											case r => cont(r)
+										})																
+									}
+								}
+								def loopTypes(idTypes : Seq[(Utils.Integer, Type)], matchings : Matchings) : Thunk[T] = {
+									if (idTypes.isEmpty)
+										loop(subst.toSeq, matchings)
 									else {
 										val (quoteId, ty) = idTypes.head
 										val value = TypeValue(ty)
-										val quote = quotes.get(quoteId)
-										if (quote.isDefined) {
-											val p = quote.get.quoted.asInstanceOf[Pattern]
-											matchPatternCont[T](state, p, value, matchings, {
-												case Success(Some(matchings_q), _) => loop(idTypes.tail, matchings_q)
-												case r => cont(r)
-											})							
-										}	else {
-											loop(idTypes.tail, matchings)
-										}								
+										val p = typeQuotes(quoteId).quoted.asInstanceOf[Pattern]
+										matchPatternCont[T](state, p, value, matchings, {
+											case Success(Some(matchings_q), _) => loopTypes(idTypes.tail, matchings_q)
+											case r => cont(r)
+										})																
 									}
-								}
-								loop(subst.toSeq, matchings)								
+								}						
+								loopTypes(types.toSeq, matchings)
 						}
-					case _ => cont(success(None))
-				}
+				})
+			case PLogicType(pretype) =>
+				evalLogicPretype(state.freeze, pretype, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(pretype, _) =>
+						value match {
+							case TypeValue(ty) => 
+								val (pat, quotes) = Pretype.pretype2Pattern(pretype)
+								Pretype.patternMatch(pat, ty) match {
+									case None => cont(success(None))
+									case Some(subst) =>
+										def loop(idTypes : Seq[(Utils.Integer, Type)], matchings : Matchings) : Thunk[T] = {
+											if (idTypes.isEmpty)
+												cont(success(Some(matchings)))
+											else {
+												val (quoteId, ty) = idTypes.head
+												val value = TypeValue(ty)
+												val quote = quotes.get(quoteId)
+												if (quote.isDefined) {
+													val p = quote.get.quoted.asInstanceOf[Pattern]
+													matchPatternCont[T](state, p, value, matchings, {
+														case Success(Some(matchings_q), _) => loop(idTypes.tail, matchings_q)
+														case r => cont(r)
+													})							
+												}	else {
+													loop(idTypes.tail, matchings)
+												}								
+											}
+										}
+										loop(subst.toSeq, matchings)								
+								}
+							case _ => cont(success(None))
+						}
+				})
 			case _ => cont(fail(pat, "pattern has not been implemented yet"))
 		}		
 	}
