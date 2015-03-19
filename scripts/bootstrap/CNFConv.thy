@@ -95,41 +95,18 @@ val skolem1 =
     skolem1 tm = zeroConv tm
   seqConv [skolem1,normalize]
 
-def
-  timesConvl [_,c,0] = c
-  timesConvl [k,c,n] = timesConvl [k,k c,n-1]
+def skolemize tm =
+  sumConv [seqConv [skolem1, tryConv skolemize],
+           seqConv [binderConv skolemize,
+                    tryConv (seqConv [skolem1, skolemize])]] tm
 
 context
   val cthm =
-    seqConv [nnf,raiseQuantifiers,cnfConv] '∀p q. (∃x y. p x y) = (∃z. q z)'
+    seqConv [nnf,raiseQuantifiers,cnfConv,skolemize]
+       '∀p q. (∃x y. p x y) = (∃z. q z)'
   val ctm = rhs (cthm: Term)
-  assert
-    (ctm == '∀p: 𝒰 → 𝒰 → ℙ. ∀q. ∃x. ∀y z. ∃w u. ((p x w) ∨ (¬q z)) ∧ (q u ∨ ¬(p y z))')
-  show ctm
-  show (rhs (seqConv [timesConvl
-                        [binderConv,
-                         seqConv [skolem1,binderConv skolem1],
-                         4],
-                      timesConvl
-                        [binderConv,
-                         seqConv [skolem1,binderConv skolem1],
-                         3],
-                      timesConvl
-                        [binderConv,
-                         seqConv [skolem1,binderConv skolem1],
-                         1],
-                       skolem1,
-                       binderConv skolem1,
-                       timesConvl
-                         [binderConv,
-                          skolem1,
-                          3],
-                       timesConvl
-                         [binderConv,
-                          skolem1,
-                          2]
-                          ]
-                      ctm: Term))
-  # val sthm = skolem1 ctm
-  # val stm = rhs (sthm: Term)
-  # show (rhs (normalize (stm: Term)))
+  assert ctm ==
+    '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
+       ∃ g : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
+         ∃ h : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
+           ∀x y z w. (x (f x y) (g x y z w) ∨ ¬(y w)) ∧ (y (h x y z w) ∨ ¬ (x z w))'
