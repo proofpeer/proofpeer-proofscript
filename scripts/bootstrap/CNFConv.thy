@@ -10,15 +10,29 @@ def propBinaryConv c =
       case '‹_› ∨ ‹_›' as tm => binaryConv [c,c] tm
       case                _  => nil
 
+def debugConv [name,c] =
+  tm =>
+    show "Enter"
+    show name
+    show tm
+    val cthm = c tm
+    show "Exit"
+    show name
+    match cthm
+      case '‹_› = ‹y›': Theorem => show y
+      case _                    => show "failed"
+    cthm
+
 def
   nnf '¬‹_›'      as tm =
-    seqConv
-      [sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
-                               [existsDeMorganConv,allDeMorganConv]),
-       nnf] tm
+    tryConv
+      (seqConv
+        [sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
+                                 [existsDeMorganConv,allDeMorganConv]),
+         nnf]) tm
   nnf '‹_› → ‹_›' as tm = seqConv [rewrConv impliesCNF, nnf] tm
   nnf '‹_› = ‹_›' as tm = seqConv [rewrConv equalCNF,   nnf] tm
-  nnf                tm = tryConv (sumConv [binderConv nnf, propBinaryConv nnf]) tm
+  nnf                tm = sumConv [binderConv nnf, propBinaryConv nnf, idConv] tm
 
 
 def raiseQuantifiers tm =
@@ -48,10 +62,10 @@ def raiseQuantifiers tm =
           tm
 
 def
-  cnfConv '‹_› ∧ ‹_›' as tm = binaryConv (cnfConv,cnfConv) tm
-  cnfConv '‹_› ∨ ‹_›' as tm =
-    seqConv [binaryConv (cnfConv,cnfConv), disjConv] tm
-  cnfConv tm = tryConv (binderConv cnfConv) tm
+  cnf '‹_› ∧ ‹_›' as tm = binaryConv (cnf,cnf) tm
+  cnf '‹_› ∨ ‹_›' as tm =
+    seqConv [binaryConv (cnf,cnf), disjConv] tm
+  cnf tm = tryConv (binderConv cnf) tm
   disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
     seqConv [rewrConv orDistribRight, binaryConv (disjConv, disjConv)] tm
   disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
@@ -88,7 +102,7 @@ def skolemize tm =
 
 context
   val cthm =
-    seqConv [nnf,raiseQuantifiers,cnfConv,skolemize]
+    seqConv [nnf,raiseQuantifiers,cnf,skolemize]
        '∀p q. (∃x y. p x y) = (∃z. q z)'
   val ctm = rhs (cthm: Term)
   assert ctm ==
