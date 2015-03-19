@@ -58,23 +58,26 @@ def
     seqConv [rewrConv orDistribLeft, binaryConv (disjConv, disjConv)] tm
   disjConv tm = idConv tm
 
+def skolemThm [a,b] =
+  theorem '∀p. (∀x. ∃y. p x y) = (∃f: ‹a› → ‹b›. ∀x. p x (f x))'
+    let p:'‹fresh "p"›:‹a› → ‹b› → ℙ'
+    theorem left: true
+      assume asm:'∀x. ∃y. ‹p› x y'
+      choose '‹fresh "f"›' asm
+    theorem right: '(∃f:‹a› → ‹b›. ∀x. ‹p› x (f x)) → (∀x. ∃y. ‹p› x y)'
+      assume asm:'∃f: ‹a› → ‹b›. ∀x. ‹p› x (f x)'
+      let x:'‹fresh "x"›: ‹a›'
+      theorem '∃y. ‹p› ‹x› y'
+        choose ch:'‹fresh "f"›:‹a› → ‹b›' asm
+        val fx = rand (instantiate (ch,x): Term)
+        let ydef:'y = ‹fx›'
+        convRule (seqConv [randConv (subsConv (gsym ydef)),normalize],
+                  instantiate (ch,x))
+    equivalence (left,right)
+
 val skolem1 =
   def
-    skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' =
-      theorem '(∀x. ∃y. ‹p› x y) = (∃f: ‹a› → ‹b›. ∀x. ‹p› x (f x))'
-        theorem left: true
-          assume asm:'∀x. ∃y. ‹p› x y'
-          choose '‹fresh "f"›' asm
-        theorem right: '(∃f:‹a› → ‹b›. ∀x. ‹p› x (f x)) → (∀x. ∃y. ‹p› x y)'
-          assume asm:'∃f: ‹a› → ‹b›. ∀x. ‹p› x (f x)'
-          let x:'‹fresh "x"›: ‹a›'
-          theorem '∃y. ‹p› ‹x› y'
-            choose ch:'‹fresh "f"›:‹a› → ‹b›' asm
-            val fx = rand (instantiate (ch,x): Term)
-            let ydef:'y = ‹fx›'
-            convRule (seqConv [randConv (subsConv (gsym ydef)),normalize],
-                      instantiate (ch,x))
-        equivalence (left,right)
+    skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' = instantiate [skolemThm [a,b],p]
     skolem1 tm = zeroConv tm
   seqConv [skolem1,normalize]
 
@@ -92,4 +95,4 @@ context
     '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
        ∃ g : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
          ∃ h : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
-           ∀x y z w. (x (f x y) (g x y z w) ∨ ¬(y w)) ∧ (y (h x y z w) ∨ ¬ (x z w))'
+           ∀p q x y. (p (f p q) (g p q x y) ∨ ¬(q y)) ∧ (q (h p q x y) ∨ ¬ (p x y))'

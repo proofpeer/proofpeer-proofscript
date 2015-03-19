@@ -53,4 +53,9 @@ def split [f,x] =
       for s in split (f,y) do
         s
 
+# f (f (f ... f x))
+def
+  iterate [0,_,x] = x
+  iterate [n,f,x] = iterate [n-1,f,f x]
+
 assert (foldr (([x,xs] => x <+ xs),[1,2,3],[]) == [1,2,3])
