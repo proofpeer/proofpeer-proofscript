@@ -379,7 +379,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							var functions : Map[String, RecursiveFunctionValue] = Map()
 							var nonlinear = bindings
 							for ((name, cs) <- stdef.cases) {
-								val f = RecursiveFunctionValue(null, cs)
+								val f = RecursiveFunctionValue(null, cs, if (stdef.memoize) Map() else null)
 								nonlinear = nonlinear + (name -> f)
 								functions = functions + (name -> f)
 							}
@@ -1028,13 +1028,28 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case Success(f : SimpleFunctionValue, _) =>
 							evalExpr[T](state, v,  {
 								case failed : Failed[_] => cont(failed)
-								case Success(x, _) => evalApply[T](f.state.setContext(state.context), f.f.param, f.f.body, x,
+								case Success(x, _) => evalSimpleApply[T](f.state.setContext(state.context), f.f.param, f.f.body, x,
 									 cont)
 							})
 						case Success(f : RecursiveFunctionValue, _) =>
-							evalExpr[T](state, v,  {
+							evalExpr[T](state, v, {
 								case failed : Failed[_] => cont(failed)
-								case Success(x, _) => evalApply[T](f.state.setContext(state.context), f.cases, x,  cont)
+								case Success(x, _) => 
+									if (f.cache != null) {
+										if (x.isComparable) {
+											f.cache.get(x) match {
+												case Some(y) => cont(success(y))
+												case None => 
+													evalApply[T](f.state.setContext(state.context), f.cases, x, {
+														case failed : Failed[_] => cont(failed)
+														case s @ Success(y, _) => 
+															f.cache = f.cache + (x -> y)
+															cont(s)
+													})
+											}
+										} else cont(fail(v, "value cannot be a table header: " + display(state, x)))
+									} else
+										evalApply[T](f.state.setContext(state.context), f.cases, x,  cont)
 							})
 						case Success(f : NativeFunctionValue, _) =>
 							evalExpr[T](state, v,  {
@@ -1148,7 +1163,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def evalApply[T](state : State, pat : Pattern, body : Block, argument : StateValue, 
+	def evalSimpleApply[T](state : State, pat : Pattern, body : Block, argument : StateValue, 
 		 cont : RC[StateValue, T]) : Thunk[T] = 
 	{
 		matchPattern[T](state.freeze, pat, argument, {

@@ -95,7 +95,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       val BOOLVALUE = BooleanSerializer
       val INTVALUE = BigIntSerializer
       val SIMPLEFUNCTIONVALUE = PairSerializer(StateSerializer,PTFunSerializer)
-      val RECURSIVEFUNCTIONVALUE = PairSerializer(StateSerializer,VectorSerializer(PTDefCaseSerializer))
+      val RECURSIVEFUNCTIONVALUE = TripleSerializer(StateSerializer,VectorSerializer(PTDefCaseSerializer),NullableSerializer(MapSerializer(StateValueSerializer, StateValueSerializer)))
       val NATIVEFUNCTIONVALUE = NativeFunctionSerializer
       val STRINGVALUE = VectorSerializer(IntSerializer)
       val TUPLEVALUE = PairSerializer(VectorSerializer(StateValueSerializer),BooleanSerializer)
@@ -172,11 +172,10 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
     }
 
   }
-
   def create(b : Any) : StateValue = {
     StateValueSerializerBase.determineKind(b) match {
       case StateValueSerializerBase.Kind.RECURSIVEFUNCTIONVALUE =>
-        RecursiveFunctionValue(null, null)
+        RecursiveFunctionValue(null, null, null)
       case _ => null
     }
   }
@@ -187,6 +186,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
         val w = dest.asInstanceOf[RecursiveFunctionValue]
         w.state = v.state
         w.cases = v.cases
+        w.cache = v.cache
         dest
       case _ =>
         src
@@ -251,7 +251,7 @@ object StateSerializerGenerator {
     ("BoolValue", "BooleanSerializer"),
     ("IntValue", "BigIntSerializer"),
     ("SimpleFunctionValue", "StateSerializer", "PTFunSerializer"),
-    ("RecursiveFunctionValue", "StateSerializer", "VectorSerializer(PTDefCaseSerializer)"),
+    ("RecursiveFunctionValue", "StateSerializer", "VectorSerializer(PTDefCaseSerializer)", "NullableSerializer(MapSerializer(StateValueSerializer, StateValueSerializer))"),
     ("NativeFunctionValue", "NativeFunctionSerializer"),
     ("StringValue", "VectorSerializer(IntSerializer)"),
     ("TupleValue", "VectorSerializer(StateValueSerializer)", "BooleanSerializer"),

@@ -82,6 +82,7 @@ def g_literals =
   lex("MinusMinus", string("--")) ++
   keyword("Val", "val") ++
   keyword("Def", "def") ++
+  keyword("Table", "table") ++
   keyword("Mod", "mod") ++ 
   keyword("ScriptOr", "or") ++ 
   keyword("ScriptAnd", "and") ++ 
@@ -314,7 +315,6 @@ val g_expr =
   arule("ExprMapList1", "ExprMapList1 Comma PExpr_1 SingleArrow PExpr_2", c => c.ExprMapList1[Vector[(Expr, Expr)]] :+ (c.PExpr_1, c.PExpr_2)) ++
   arule("PExpr", "Expr", _.Expr[Expr]) ++
   arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) 
-  //arule("PExpr", "PExpr Colon ScriptValueType", c=> TypeCast(c.PExpr, c.ScriptValueType))
   
 val g_do = 
   arule("STDo", "Do Block",
@@ -524,7 +524,7 @@ val g_assign =
           CS.or(CS.Line("Eq", "Block"), CS.Indent("Pattern", "Block"))),
       c => STAssign(c.Pattern, c.Block))
   
-def mkSTDef(cases : Vector[DefCase]) : STDef = {
+def mkSTDef(cases : Vector[DefCase], memoize : Boolean) : STDef = {
   var result : Map[String, Vector[DefCase]] = Map()
   for (c <- cases) {
     result.get(c.name) match {
@@ -532,13 +532,13 @@ def mkSTDef(cases : Vector[DefCase]) : STDef = {
       case Some(cs) => result = result + (c.name -> (cs :+ c))
     }
   }
-  STDef(result)
+  STDef(result, memoize)
 }
 
 val g_def =
   arule("ST", "Def DefCases",
       CS.Indent("Def", "DefCases"),
-      c => mkSTDef(c.DefCases)) ++
+      c => mkSTDef(c.DefCases, false)) ++
   arule("ST", "Def IndexedName ArgumentPattern DefType Eq Block", 
       CS.and(
         CS.SameLine("Def", "IndexedName"),
@@ -547,7 +547,19 @@ val g_def =
         CS.Indent("Def", "Eq"),
         CS.Indent("Def", "Block"), 
         CS.not(CS.SameLine("Def", "Block"))),
-      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)))) ++
+      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), false)) ++
+  arule("ST", "Table DefCases",
+      CS.Indent("Table", "DefCases"),
+      c => mkSTDef(c.DefCases, true)) ++
+  arule("ST", "Table IndexedName ArgumentPattern DefType Eq Block", 
+      CS.and(
+        CS.SameLine("Table", "IndexedName"),
+        CS.Indent("Table", "ArgumentPattern"),
+        CS.Indent("Table", "DefType"),
+        CS.Indent("Table", "Eq"),
+        CS.Indent("Table", "Block"), 
+        CS.not(CS.SameLine("Table", "Block"))),
+      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), true)) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),

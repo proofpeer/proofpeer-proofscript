@@ -362,7 +362,7 @@ object ParseTree {
     protected def calcVars = (pat.freeVars ++ body.freeVars, Set())
   }
   
-  case class STDef(cases : Map[String, Vector[DefCase]]) extends Statement {
+  case class STDef(cases : Map[String, Vector[DefCase]], memoize : Boolean) extends Statement {
     protected def calcVars = {
       var names = Set[String]()
       var frees = Set[String]()

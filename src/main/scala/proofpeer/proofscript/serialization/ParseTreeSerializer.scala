@@ -71,7 +71,6 @@ extends Serializer[ParseTree]
   private object CommentSerializer extends PTSerializer[Comment]
   private object ValueTypeSerializer extends PTSerializer[ValueType]
 
-
   private object ParseTreeSerializerBase extends CaseClassSerializerBase[TracksSourcePosition] {
 
     object Kind {
@@ -225,7 +224,7 @@ extends Serializer[ParseTree]
       val STVAL = PairSerializer(PatternSerializer,BlockSerializer)
       val STVALINTRO = ListSerializer(IdSerializer)
       val STASSIGN = PairSerializer(PatternSerializer,BlockSerializer)
-      val STDEF = MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))
+      val STDEF = PairSerializer(MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer)),BooleanSerializer)
       val DEFCASE = QuadrupleSerializer(StringSerializer,PatternSerializer,OptionSerializer(ValueTypeSerializer),BlockSerializer)
       val STRETURN = OptionSerializer(ExprSerializer)
       val STASSUME = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
@@ -413,8 +412,8 @@ extends Serializer[ParseTree]
           (Kind.STVALINTRO, Some(Serializers.STVALINTRO.serialize(x)))
         case t : STAssign =>
           (Kind.STASSIGN, Some(Serializers.STASSIGN.serialize(STAssign.unapply(t).get)))
-        case STDef(x) =>
-          (Kind.STDEF, Some(Serializers.STDEF.serialize(x)))
+        case t : STDef =>
+          (Kind.STDEF, Some(Serializers.STDEF.serialize(STDef.unapply(t).get)))
         case t : DefCase =>
           (Kind.DEFCASE, Some(Serializers.DEFCASE.serialize(DefCase.unapply(t).get)))
         case STReturn(x) =>
@@ -614,7 +613,7 @@ extends Serializer[ParseTree]
         case Kind.STASSIGN if args.isDefined => 
           STAssign.tupled(Serializers.STASSIGN.deserialize(args.get))
         case Kind.STDEF if args.isDefined => 
-          STDef(Serializers.STDEF.deserialize(args.get))
+          STDef.tupled(Serializers.STDEF.deserialize(args.get))
         case Kind.DEFCASE if args.isDefined => 
           DefCase.tupled(Serializers.DEFCASE.deserialize(args.get))
         case Kind.STRETURN if args.isDefined => 
@@ -638,7 +637,6 @@ extends Serializer[ParseTree]
     }
 
   }
-
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -767,7 +765,7 @@ object ParseTreeSerializerGenerator {
     ("STVal", "PatternSerializer", "BlockSerializer"),
     ("STValIntro", "ListSerializer(IdSerializer)"),
     ("STAssign", "PatternSerializer", "BlockSerializer"),
-    ("STDef", "MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))"),
+    ("STDef", "MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))", "BooleanSerializer"),
     ("DefCase", "StringSerializer", "PatternSerializer", "OptionSerializer(ValueTypeSerializer)", "BlockSerializer"),
     ("STReturn", "OptionSerializer(ExprSerializer)"),
     ("STAssume", "OptionSerializer(StringSerializer)", "ExprSerializer"),
