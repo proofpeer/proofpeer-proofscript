@@ -6,6 +6,7 @@ import proofpeer.indent._
 import proofpeer.general.algorithms.TopologicalSort
 import proofpeer.proofscript.serialization._
 import proofpeer.general.Bytes
+import proofpeer.proofscript.ProofScriptManager
 
 trait InterpreterNotificationHandler {
   def startCompiling(theory : Namespace)
@@ -118,7 +119,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     import ProofScriptParser._
     parser.parseFromSource(thy.source, header) match {
       case SuccessfulParse(block) =>
-        interpretTheoryHeader(thy.namespace, block)
+        interpretTheoryHeader(thy.namespace, block) 
       case AmbiguousParse(pos) =>
         Right((pos, "ambiguous theory header"))
       case FailedParse(pos) =>
@@ -186,15 +187,17 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     for ((namespace, parents) <- unsorted) {
       val cyclicParents = parents -- sortedSet
       if (cyclicParents.size == 1)
-        addFault(namespace, null, "cyclic dependency on parent theory " + cyclicParents.head)
+        addFault(namespace, null, "invalid (possibly cyclic) dependency on parent theory " + cyclicParents.head)
       else 
-        addFault(namespace, null, "cyclic dependency involving (one of) these parent theories: " + (cyclicParents.mkString(", ")))
+        addFault(namespace, null, "invalid (possibly cyclic) dependency involving (one of) these parent theories: " + (cyclicParents.mkString(", ")))
     }
     for (namespace <- sorted) {
       val (_, version, parents, aliases) = rootingParticipants(namespace)._1
       if (namespace == Namespace.root) {
         if (!parents.isEmpty) addFault(namespace, "theory \\root cannot have any parent theories")
         else if (version.isEmpty) addFault(namespace, "theory \\root has no ProofScript version defined")
+        else if (version.get != ProofScriptManager.currentVersion)
+          addFault(namespace, "unsupported ProofScript version: " + version.get + ", expected version is: " + ProofScriptManager.currentVersion)
         else executionEnvironment.finishedRooting(namespace, parents, aliases, version)
       } else {
         if (parents.isEmpty) addFault(namespace, "the theory doesn't extend any parent theories")
