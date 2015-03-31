@@ -24,6 +24,8 @@ def debugConv [name,c] =
     cthm
 
 def
+  nnf '¬⊥'             = notFalseTrue
+  nnf '¬⊤'             = notTrueFalse
   nnf '¬‹_›'      as tm =
     tryConv
       (seqConv
@@ -33,7 +35,6 @@ def
   nnf '‹_› → ‹_›' as tm = seqConv [rewrConv impliesCNF, nnf] tm
   nnf '‹_› = ‹_›' as tm = seqConv [rewrConv equalCNF,   nnf] tm
   nnf                tm = sumConv [binderConv nnf, propBinaryConv nnf, idConv] tm
-
 
 def raiseQuantifiers tm =
   def
@@ -62,17 +63,25 @@ def raiseQuantifiers tm =
           tm
 
 def
+  cnf '⊤ ∧ ‹p›'   as tm = seqConv [instantiate (andLeftId, p), cnf] tm
+  cnf '‹p› ∧ ⊤'   as tm = seqConv [instantiate (andRightId, p), cnf] tm
+  cnf '⊥ ∧ ‹p›'   as tm = instantiate (andLeftZero, p)
+  cnf '‹p› ∧ ⊥'   as tm = instantiate (andRightZero, p)
   cnf '‹_› ∧ ‹_›' as tm = binaryConv (cnf,cnf) tm
   cnf '‹_› ∨ ‹_›' as tm =
     seqConv [binaryConv (cnf,cnf), disjConv] tm
   cnf tm = tryConv (binderConv cnf) tm
+  disjConv '⊤ ∨ ‹p›' as tm = instantiate (orLeftZero,p)
+  disjConv '‹p› ∨ ⊤' as tm = instantiate (orRightZero,p)
+  disjConv '⊥ ∨ ‹p›' as tm = seqConv [instantiate (orLeftId,p), disjConv] tm
+  disjConv '‹p› ∨ ⊥' as tm = seqConv [instantiate (orRightId,p), disjConv] tm
   disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
     seqConv [rewrConv orDistribRight, binaryConv (disjConv, disjConv)] tm
   disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
     seqConv [rewrConv orDistribLeft, binaryConv (disjConv, disjConv)] tm
   disjConv tm = idConv tm
 
-def skolemThm [a,b] =
+table skolemThm [a,b] =
   theorem '∀p. (∀x. ∃y. p x y) = (∃f: ‹a› → ‹b›. ∀x. p x (f x))'
     let p:'‹fresh "p"›:‹a› → ‹b› → ℙ'
     theorem left: true
