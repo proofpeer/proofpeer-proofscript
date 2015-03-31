@@ -73,7 +73,7 @@ val eqFalseElim =
     modusponens (imp,sym (apThm (notDef,p)))
   thm =>
     match thm
-      case '‹p› = ‹_›' =>
+      case '‹p› = ⊥' =>
         modusponens (thm,instantiate (eqFalse,p))
       case thm => assertThm thm
 
