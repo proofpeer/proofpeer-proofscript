@@ -1,4 +1,4 @@
-theory Metis
+theory MetisRules
 extends CNFConv
 
 def
