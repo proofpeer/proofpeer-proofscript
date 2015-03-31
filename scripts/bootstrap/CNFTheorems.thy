@@ -1,6 +1,18 @@
 theory CNFTheorems
 extends Classical
 
+theorem orLeftId: '∀p. (⊥ ∨ p) = p'
+  taut '∀p. (⊥ ∨ p) = p'
+
+theorem orLeftZero: '∀p. (⊤ ∨ p) = ⊤'
+  taut '∀p. (⊤ ∨ p) = ⊤'
+
+theorem andLeftId: '∀p. (⊤ ∧ p) = p'
+  taut '∀p. (⊤ ∧ p) = p'
+
+theorem andLeftZero: '∀p. (⊥ ∧ p) = ⊥'
+  taut '∀p. (⊥ ∧ p) = ⊥'
+
 theorem negInvolve: '∀p. (¬(¬p)) = p'
   taut '∀p. (¬(¬p)) = p'
 
