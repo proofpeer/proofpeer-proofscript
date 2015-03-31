@@ -3,25 +3,13 @@ extends CNFTheorems
 
 def binderConv c = randConv (absConv c)
 
+# Apply a conversion to both sides of a conjunction or disjunction.
 def propBinaryConv c =
   tm =>
     match tm
       case '‹_› ∧ ‹_›' as tm => binaryConv [c,c] tm
       case '‹_› ∨ ‹_›' as tm => binaryConv [c,c] tm
       case                _  => nil
-
-def debugConv [name,c] =
-  tm =>
-    show "Enter"
-    show name
-    show tm
-    val cthm = c tm
-    show "Exit"
-    show name
-    match cthm
-      case '‹_› = ‹y›': Theorem => show y
-      case _                    => show "failed"
-    cthm
 
 def
   nnf '¬⊥'             = notFalseTrue
@@ -36,7 +24,8 @@ def
   nnf '‹_› = ‹_›' as tm = seqConv [rewrConv equalCNF,   nnf] tm
   nnf                tm = sumConv [binderConv nnf, propBinaryConv nnf, idConv] tm
 
-def raiseQuantifiers tm =
+# Conversion from nnf to prenex form.
+def prenex tm =
   def
     rq '(∃x. ‹P› x) ∧ (∃x. ‹Q› x)' = instantiate (conjExists,P,Q)
     rq '(∃x. ‹P› x) ∨ (∃x. ‹Q› x)' = instantiate (disjExists,P,Q)
@@ -57,11 +46,12 @@ def raiseQuantifiers tm =
                         seqConv [rewrConv1 andComm, rq],
                         seqConv [rewrConv1 orComm,  rq]]
   def convl c = sumConv [binderConv (binderConv c), binderConv c]
-  sumConv [binderConv raiseQuantifiers,
-           seqConv [propBinaryConv raiseQuantifiers, repeatConvl [convl,rqComm]],
+  sumConv [binderConv prenex,
+           seqConv [propBinaryConv prenex, repeatConvl [convl,rqComm]],
            idConv]
           tm
 
+# Conversion from an nnf matrix to cnf.
 def
   cnf '⊤ ∧ ‹p›'   as tm = seqConv [instantiate (andLeftId, p), cnf] tm
   cnf '‹p› ∧ ⊤'   as tm = seqConv [instantiate (andRightId, p), cnf] tm
@@ -80,6 +70,24 @@ def
   disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
     seqConv [rewrConv orDistribLeft, binaryConv (disjConv, disjConv)] tm
   disjConv tm = idConv tm
+
+val flipConjAll = gsym conjAll
+
+# Distribute quantifiers over their conjunctive matrix, dropping ones that
+# become redundant.
+def distribQuants tm =
+  def
+    db1 '(∀x. ‹P› x ∧ ‹Q› x)' = instantiate (flipConjAll, P, Q)
+    db1 p                     = idConv p
+
+  val simpdb1 =
+    seqConv [db1, binaryConv [tryConv trivAllConv,tryConv trivAllConv]]
+
+  def db tm = seqConv [simpdb1, tryConv (landConv db)] tm
+
+  def repeat tm = sumConv [seqConv [binderConv repeat, db], db] tm
+
+  repeat tm
 
 table skolemThm [a,b] =
   theorem '∀p. (∀x. ∃y. p x y) = (∃f: ‹a› → ‹b›. ∀x. p x (f x))'
@@ -119,3 +127,12 @@ context
        ∃ g : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
          ∃ h : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
            ∀p q x y. (p (f p q) (g p q x y) ∨ ¬(q y)) ∧ (q (h p q x y) ∨ ¬ (p x y))'
+
+context
+  let 'p : (𝒰 → 𝒰 → ℙ)'
+  let 'q : (𝒰 → 𝒰 → ℙ)'
+  let 'f : (𝒰 → 𝒰)'
+  val cthm = distribQuants '∀x y z w. p x (f y) ∧ q y z ∧ p (f x) (f (f w))': Term
+  val ctm = rhs (cthm: Term)
+  assert ctm ==
+    '(∀ x y. p x (f y)) ∧ (∀x y. q x y) ∧ (∀x y. (p (f x)) (f (f y)))'
