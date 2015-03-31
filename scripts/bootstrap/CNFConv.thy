@@ -119,7 +119,7 @@ def skolemize tm =
 
 context
   val cthm =
-    seqConv [nnf,raiseQuantifiers,cnf,skolemize]
+    seqConv [nnf,prenex,cnf,skolemize]
        '∀p q. (∃x y. p x y) = (∃z. q z)'
   val ctm = rhs (cthm: Term)
   assert ctm ==
