@@ -43,6 +43,12 @@ def rhs tm =
     case [_,r] => r
     case _     => nil
 
+def
+  mkcombs (f, []) =
+    f
+  mkcombs (f, arg <+ args) =
+    mkcombs ('‹f› ‹arg›', args)
+
 # Very simple matching.
 def matcher [tm,pattern,inst] =
   def insertNew [t,v,inst] =

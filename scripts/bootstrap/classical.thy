@@ -82,7 +82,7 @@ val tautRewrites =
    convRule (onceTreeConv (rewrConv1 andComm), andRightZero),
    convRule (onceTreeConv (rewrConv1 andComm), andRightId),
    reflPropTrue,
-   eqTrueSimp,
+   instantiate (eqTrueSimp, '⊥'),
    convRule (randConv (absConv (landConv symConv)), eqTrueSimp),
    convRule (randConv (rewrConv1 notTrueFalse),instantiate (eqFalseSimp,'⊤')),
    convRule (randConv (rewrConv1 notTrueFalse),
@@ -104,6 +104,8 @@ val truthTables =
 # Tautology verifier.
 def taut tm =
   def
+    atoms '⊤'            = {}
+    atoms '⊥'            = {}
     atoms '‹p› ∧ ‹q›'     = atoms p ++ atoms q
     atoms '‹p› ∨ ‹q›'     = atoms p ++ atoms q
     atoms '‹p› → ‹q›'     = atoms p ++ atoms q
@@ -126,7 +128,7 @@ def taut tm =
       eqTrueElim (upConv (sumConv (map (subsConv,rewrsAcc))) p)
   val [ctx,xs,body] = stripForall tm
   context <ctx>
-    return tautAux (body, atoms body:Tuple, truthTables)
+      return tautAux (body, atoms body:Tuple, truthTables)
 
 choose hilbertChoiceDef: 'epsilonU:(𝒰 → ℙ) → 𝒰'
   let 'p:𝒰 → ℙ'
