@@ -40,11 +40,8 @@ def map_term (f, term) =
 # A clause is a pair whose first element is a tuple, associating each quantifier in
 # turn with a Metis free-variable [fvs,tm]
 def initClause tm =
-  val [ctx,xs,_] = stripForall tm
-  val n
-  context <ctx>
-    n = size xs
-  [(0 to n - 1), tm]
+  val [_,xs,_] = stripForall tm
+  [(0 to size xs - 1), tm]
 
 # Generate n fresh variables, returning a context containing them all, and a map from
 # each to the index of the implicit quantifier, outermost first. For example, given
