@@ -138,38 +138,3 @@ def metisResolution [lit,pos,neg] =
   if res == nil then
     res = matchmp (resolveTriv2, pos1, neg1)
   convRule (nubClauseConv, res)
-
-context
-  let 'p:ℙ'
-  let 'q:ℙ'
-  let 'r:ℙ'
-  let 's:ℙ'
-  let 't:ℙ'
-  show nubClauseConv 'p ∨ p ∨ p ∨ p ∨ p'
-  def eqFalseIntro '¬‹p›' as thm =
-    modusponens (thm, instantiate (gsym eqFalseSimp,p))
-  show rhs (normalize (pullOut 'q' 'p ∨ q ∨ r ∨ s ∨ t': Term): Term)
-  assume asm1: 'q ∨ p ∨ t'
-  assume asm2: '¬q ∨ s ∨ ¬p'
-  show metisResolution ['p:ℙ',asm1,asm2]
-
-context
-  let 'f: 𝒰 → 𝒰 → 𝒰 → 𝒰 → ℙ'
-  let 'g: 𝒰 → 𝒰 → 𝒰'
-  let 'h: 𝒰 → 𝒰 → 𝒰'
-  let 'x: 𝒰'
-  let 'y: 𝒰'
-  let 'z: 𝒰'
-  let 'w: 𝒰'
-  let 'u: 𝒰'
-  let 'v: 𝒰'
-  let 'a: 𝒰'
-  let 'p:ℙ'
-  let 'q:ℙ'
-  let 'r:ℙ'
-  assume asm1: '(u = v) ∨ (x = y) ∨ r ∨ (x = y) ∨ (y = x) ∨ p ∨ (v = u) ∨ q'
-  assume asm2: '¬x = x ∨ p ∨ ¬y = z ∨ ¬y = y'
-  show followPath [[1,0],'f x (g u v) z w']
-  show metisEquality [[1,0],'f x (g u v) z w','h a z']
-  show metisRemoveSym asm1
-  show rhs (normalize (metisRemoveIrrefl asm2: Term))
