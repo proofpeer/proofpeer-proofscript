@@ -83,10 +83,6 @@ def metisInstantiate [[fvs:Tuple,cl],sub:Map] =
   val [ctx,freeIndex] = freshvars newfvs
   context <ctx>
     for v in fvs do
-      val tm = sub v
-      if tm == nil then
-        cl = instantiate (cl,v)
-      else
-        tm = comb_of_term (map_term (freeIndex, sub v))
-        cl = instantiate (cl,tm)
+      val tm = comb_of_term (map_term (freeIndex, sub v))
+      cl = instantiate (cl,tm)
   [newfvs,cl]
