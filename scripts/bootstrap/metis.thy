@@ -82,4 +82,5 @@ def metisInstantiate [[fvs:Tuple,cl],sub:Map] =
     for v in fvs do
       val tm = comb_of_term (map_term (freeIndex, sub v))
       cl = instantiate (cl,tm)
+    cl = convRule (nubClauseConv, cl)
   [newfvs,cl]
