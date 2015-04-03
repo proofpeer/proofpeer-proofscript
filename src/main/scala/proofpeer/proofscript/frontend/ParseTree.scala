@@ -406,9 +406,9 @@ object ParseTree {
        if (thm_name.isDefined) Set(thm_name.get) else Set())
   }
 
-  case class STTheoremBy(thm_name : Option[String], tm : Expr, thms : Expr) extends Statement {
+  case class STTheoremBy(thm_name : Option[String], tm : Expr, means : Expr) extends Statement {
     protected def calcVars = 
-      (tm.freeVars ++ thms.freeVars,
+      (tm.freeVars ++ means.freeVars,
        if (thm_name.isDefined) Set(thm_name.get) else Set())    
   }
 
