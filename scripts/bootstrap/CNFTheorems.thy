@@ -14,31 +14,31 @@ theorem andLeftZero: '∀p. (⊥ ∧ p) = ⊥'
   taut '∀p. (⊥ ∧ p) = ⊥'
 
 theorem negInvolve: '∀p. (¬(¬p)) = p'
-  taut '∀p. (¬(¬p)) = p'
+  by taut 
 
 theorem andDeMorgan: '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
-  taut '∀p q. (¬(p ∧ q)) = (¬p ∨ ¬q)'
+  by taut 
 
 theorem orDeMorgan: '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
-  taut '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
+  by taut 
 
 theorem notImplies: '∀p q. (¬(p → q)) = (p ∧ ¬q)'
-  taut '∀p q. (¬(p → q)) = (p ∧ ¬q)'
+  by taut 
 
 theorem impliesCNF: '∀p q. (p → q) = (¬p ∨ q)'
-  taut '∀p q. (p → q) = (¬p ∨ q)'
+  by taut 
 
 theorem equalCNF: '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
-  taut '∀p q. (p = q) = ((p ∨ ¬q) ∧ (¬p ∨ q))'
+  by taut 
 
 theorem orDistribRight: '∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
-  taut '∀p q r. ((p ∧ q) ∨ r) = ((p ∨ r) ∧ (q ∨ r))'
+  by taut 
 
 theorem orDistribLeft: '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
-  taut '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
+  by taut 
 
 theorem contra: '∀p q. ¬p → p → q'
-  taut '∀p q. ¬p → p → q'
+  by taut
 
 theorem existsDeMorgan: '∀P. (¬(∃x. P x)) = (∀x. ¬(P x))'
   let 'P : 𝒰 → ℙ'

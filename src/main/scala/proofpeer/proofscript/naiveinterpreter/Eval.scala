@@ -587,9 +587,24 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case Success(TheoremValue(thm), _) =>
 									prove(Vector(thm))
 								case Success(f, _) if StateValue.isFunction(f) => 
-									prove(Vector())
-
-								case Success(v, _) => cont(fail(means, "Invalid means for 'by': " + display(state, v)))
+									val x = TermValue(prop)
+									evalAppValues(means, means, means, frozenState, f, x, {
+										case f : Failed[_] => cont(fail(f))
+										case Success(thm : TheoremValue, _) =>
+											try {
+												val ctx = state.context
+												val liftedThm = ctx.lift(thm.value, false)
+												if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
+													cont(fail(means, "Proven theorem does not match: "+ display(state, TheoremValue(liftedThm))))
+												} else 
+													cont(success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop)))))
+											} catch {
+												case ex: Utils.KernelException => cont(fail(means, "theorem: " + ex.reason))
+											}
+										case Success(v, _) =>
+											cont(fail(means, "By method did not return a theorem but: " + display(frozenState, v)))
+									})
+								case Success(v, _) => cont(fail(means, "Invalid means for 'by': " + display(frozenState, v)))
 							})
 						}
 				})
