@@ -924,120 +924,15 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-
 	def evalApp[T](location : TracksSourcePosition, state : State, u : Expr, v : Expr, cont : RC[StateValue, T]) : Thunk[T] = {
 		evalExpr[T](state, u,  {
 			case failed : Failed[_] => cont(failed)
-			case Success(f : SimpleFunctionValue, _) =>
-				evalExpr[T](state, v,  {
-					case failed : Failed[_] => cont(failed)
-					case Success(x, _) => evalSimpleApply[T](f.state.setContext(state.context), f.f.param, f.f.body, x,
-						 cont)
-				})
-			case Success(f : RecursiveFunctionValue, _) =>
-				evalExpr[T](state, v, {
-					case failed : Failed[_] => cont(failed)
-					case Success(x, _) => 
-						if (f.cache != null) {
-							if (x.isComparable) {
-								f.cache.get(x) match {
-									case Some(y) => cont(success(y))
-									case None => 
-										evalApply[T](f.state.setContext(state.context), f.cases, x, {
-											case failed : Failed[_] => cont(failed)
-											case s @ Success(y, _) => 
-												f.cache = f.cache + (x -> y)
-												cont(s)
-										})
-								}
-							} else cont(fail(v, "value cannot be a table header: " + display(state, x)))
-						} else
-							evalApply[T](f.state.setContext(state.context), f.cases, x,  cont)
-				})
-			case Success(f : NativeFunctionValue, _) =>
+			case Success(f, _) =>
 				evalExpr[T](state, v,  {
 					case failed : Failed[_] => cont(failed)
 					case Success(x, _) => 
-						f.nativeFunction(this, state, x) match {
-							case Left(value) => cont(success(value))
-							case Right(error) => cont(fail(location, error))
-						}
+						evalAppValues(location, u, v, state, f, x, cont)
 				})
-			case Success(StringValue(s), _) =>
-				evalExpr[T](state, v,  {
-					case failed : Failed[_] => cont(failed)
-					case Success(IntValue(i), _) =>
-						if (i < 0 || i >= s.size) cont(fail(v, "index " + i + " is out of bounds"))
-						else cont(success(StringValue(Vector(s(i.toInt)))))
-					case Success(TupleValue(indices, _), _) =>
-						def buildString() : Thunk[T] = {
-							val len = s.size
-							var codes : List[Int] = List()
-							for (index <- indices) {
-								index match {
-									case IntValue(i) =>
-										if (i < 0 || i >= len) return cont(fail(v, "index " + i + " is out of bounds"))
-										else codes = s(i.toInt) :: codes
-									case _ =>
-										return cont(fail(v, "index expected, found: " + display(state, index)))
-								}
-							}
-							cont(success(StringValue(codes.reverse.toVector)))									
-						}
-						buildString()
-					case Success(value, _) =>
-						cont(fail(v, "string cannot be applied to: " + display(state, value)))
-				})
-			case Success(TupleValue(s, _), _) =>
-				evalExpr[T](state, v,  {
-					case failed : Failed[_] => cont(failed)
-					case Success(IntValue(i), _) =>
-						if (i < 0 || i >= s.size) cont(fail(v, "index " + i + " is out of bounds"))
-						else cont(success(s(i.toInt)))
-					case Success(TupleValue(indices, _), _) =>
-						def buildTuple() : Thunk[T] = {
-							val len = s.size
-							var values : List[StateValue] = List()
-							var comparable = true
-							for (index <- indices) {
-								index match {
-									case IntValue(i) =>
-										if (i < 0 || i >= len) return cont(fail(v, "index " + i + " is out of bounds"))
-										else {
-											val value = s(i.toInt)
-											values = value :: values
-											comparable = comparable && value.isComparable
-										}
-									case _ =>
-										return cont(fail(v, "index expected, found: " + display(state, index)))
-								}
-							}
-							cont(success(TupleValue(values.reverse.toVector, comparable)))									
-						}
-						buildTuple()
-					case Success(value, _) =>
-						cont(fail(v, "tuple cannot be applied to: " + display(state, value)))
-				})
-			case Success(SetValue(s), _) =>
-				evalExpr[T](state, v, {
-					case failed : Failed[_] => cont(failed)
-					case Success(e, _) =>
-						if (e.isComparable) {	
-							cont(success(BoolValue(s.contains(e))))
-						} else cont(success(BoolValue(false))) 
-				})					
-			case Success(MapValue(m, _), _) =>
-				evalExpr[T](state, v, {
-					case failed : Failed[_] => cont(failed)
-					case Success(k, _) =>
-						if (k.isComparable) {
-							m.get(k) match {
-								case None => cont(success(NilValue))
-								case Some(v) => cont(success(v))
-							}
-						} else cont(success(NilValue))
-				})
-			case Success(v, _) => cont(fail(u, "value cannot be applied to anything: " + display(state, v)))
 		})
 	}
 
