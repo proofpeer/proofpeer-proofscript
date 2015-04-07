@@ -53,6 +53,12 @@ def split [f,x] =
       for s in split (f,y) do
         s
 
+# Recursively split on the left using a binary destructor
+def splitLeft [f,x] =
+  match f x
+    case nil   => [x]
+    case [l,r] => splitLeft [f,l] +> r
+
 # f (f (f ... f x))
 def
   iterate [0,_,x] = x
