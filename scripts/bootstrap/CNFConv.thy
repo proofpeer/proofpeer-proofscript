@@ -51,25 +51,39 @@ def prenex tm =
            idConv]
           tm
 
+theorem andAssoc: '∀p q r. (p ∧ (q ∧ r)) = (p ∧ q ∧ r)'
+  taut '∀p q r. (p ∧ (q ∧ r)) = (p ∧ q ∧ r)'
+
+theorem orAssoc: '∀p q r. (p ∨ (q ∨ r)) = (p ∨ q ∨ r)'
+  taut '∀p q r. (p ∨ (q ∨ r)) = (p ∨ q ∨ r)'
+
 # Conversion from an nnf matrix to cnf.
-def
-  cnf '⊤ ∧ ‹p›'   as tm = seqConv [instantiate (andLeftId, p), cnf] tm
-  cnf '‹p› ∧ ⊤'   as tm = seqConv [instantiate (andRightId, p), cnf] tm
-  cnf '⊥ ∧ ‹p›'   as tm = instantiate (andLeftZero, p)
-  cnf '‹p› ∧ ⊥'   as tm = instantiate (andRightZero, p)
-  cnf '‹_› ∧ ‹_›' as tm = binaryConv (cnf,cnf) tm
-  cnf '‹_› ∨ ‹_›' as tm =
-    seqConv [binaryConv (cnf,cnf), disjConv] tm
-  cnf tm = tryConv (binderConv cnf) tm
-  disjConv '⊤ ∨ ‹p›' as tm = instantiate (orLeftZero,p)
-  disjConv '‹p› ∨ ⊤' as tm = instantiate (orRightZero,p)
-  disjConv '⊥ ∨ ‹p›' as tm = seqConv [instantiate (orLeftId,p), disjConv] tm
-  disjConv '‹p› ∨ ⊥' as tm = seqConv [instantiate (orRightId,p), disjConv] tm
-  disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
-    seqConv [rewrConv orDistribRight, binaryConv (disjConv, disjConv)] tm
-  disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
-    seqConv [rewrConv orDistribLeft, binaryConv (disjConv, disjConv)] tm
-  disjConv tm = idConv tm
+# TODO: Need to eliminate ⊤ and ⊥ *after* descending into left and right
+val cnf =
+  val andConv =
+    sumConv (for thm in [andLeftId, andRightId, andLeftZero, andRightZero,
+                         andAssoc] do
+               rewrConv1 thm)
+  val orConv =
+    sumConv (for thm in [orLeftId, orRightId, orLeftZero, orRightZero,
+                         orAssoc] do
+               rewrConv1 thm)
+  def
+    cnfConv '‹_› ∧ ‹_›' as tm =
+      seqConv [binaryConv (cnfConv,cnfConv), tryConv andConv] tm
+    cnfConv '‹_› ∨ ‹_›' as tm =
+      seqConv [binaryConv (cnfConv,cnfConv), disjConv] tm
+    cnfConv tm = idConv tm
+    disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
+      seqConv [rewrConv orDistribRight,
+               binaryConv (disjConv, disjConv),
+               tryConv orConv] tm
+    disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
+      seqConv [rewrConv orDistribLeft,
+               binaryConv (disjConv, disjConv),
+               tryConv orConv] tm
+    disjConv tm = idConv tm
+  repeatConvl [binderConv, cnfConv]
 
 val flipConjAll = gsym conjAll
 
