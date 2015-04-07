@@ -1,6 +1,7 @@
 package proofpeer.proofscript.naiveinterpreter
 
 import proofpeer.proofscript.logic._
+import proofpeer.proofscript.automation.Automation
 
 object NativeFunctions {
 
@@ -24,7 +25,8 @@ object NativeFunctions {
       wrap("fresh", fresh),
       wrap("destcomb", destcomb),
       wrap("destabs", destabs),
-      wrap("lift", lift)
+      wrap("lift", lift),
+      wrap("callmetis", callmetis)
     )
 
   lazy val environment : Map[String, F] = nativeFunctions.map(f => (f.name, f)).toMap
@@ -213,4 +215,7 @@ object NativeFunctions {
     }
   }
 
+  private def callmetis(eval : Eval, state : State, problem : StateValue) : Result = {
+    Left(Automation.throughMetis(problem))
+  }
 }

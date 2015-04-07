@@ -125,16 +125,17 @@ theorem resolveTriv1: '∀q r. r → (q ∨ ¬r) → q'
 theorem resolveTriv2: '∀p r. (p ∨ r) → ¬r → p'
   taut '∀p r. (p ∨ r) → ¬r → p'
 
-def
-  negate '¬‹p›' = p
-  negate p      = '¬‹p›'
+theorem finalResolve: '∀p. p → ¬p → ⊥'
+  taut '∀p. p → ¬p → ⊥'
 
-def metisResolution [lit,pos,neg] =
-  val pos1 = convRule (pullOut lit, pos)
-  val neg1 = convRule (pullOut (negate lit), neg)
+def metisResolution [atm,pos,neg] =
+  val pos1 = convRule (pullOut atm, pos)
+  val neg1 = convRule (pullOut '¬‹atm›', neg)
   val res  = matchmp (resolveLeft, pos1, neg1)
   if res == nil then
     res = matchmp (resolveTriv1, pos1, neg1)
   if res == nil then
     res = matchmp (resolveTriv2, pos1, neg1)
+  if res == nil then
+    res = matchmp (finalResolve, pos1, neg1)
   convRule (nubClauseConv, res)
