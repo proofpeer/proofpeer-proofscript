@@ -5,7 +5,7 @@ import proofpeer.proofscript.frontend.ParseTree
 import proofpeer.proofscript.serialization.UniquelyIdentifiable
 import proofpeer.general.StringUtils
 
-trait StateValue extends UniquelyIdentifiable {
+sealed trait StateValue extends UniquelyIdentifiable {
 	def isComparable : Boolean
 }
 
