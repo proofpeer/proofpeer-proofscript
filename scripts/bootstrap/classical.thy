@@ -57,11 +57,11 @@ def
     val [ctx,x,body] = destabs p
     context <ctx>
       match stripForall body
+        case [nil,[],body] => return [ctx,[x],body]
         case [ctx,xs,body] =>
           context <ctx>
             return [ctx,x <+ xs,body]
-        case [body]        => return [ctx,[x],body]
-  stripForall '‹x›' = [x]
+  stripForall '‹x›' = [nil,[],x]
 
 theorem reflPropTrue: '∀p:ℙ. (p = p) = ⊤'
   let 'p:ℙ'
