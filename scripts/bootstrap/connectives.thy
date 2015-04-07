@@ -127,7 +127,7 @@ val conjuncts =
     val c1 = conjunct1 thm
     if c1 == nil
       then [thm]
-      else c1 <+ conjs (conjunct2 thm)
+      else conjs c1 +> conjunct2 thm
   conjs
 
 # [‹p›,‹q›,...‹r›] ↦ ‹p› ∧ ‹q› ∧ ... ∧ ‹r›
