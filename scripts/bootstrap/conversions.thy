@@ -35,8 +35,8 @@ def repeatConv1 c = tm => seqConv [c, tryConv (repeatConv1 c)] tm
 
 def repeatConv c = tryConv (repeatConv1 c)
 
-# Repeat a conversional.
-def repeatConvl [k,c] = tm => sumConv [seqConv [c, repeatConvl [k,k c]], c] tm
+# sumConv [c, k c, k (k c), ...]
+def repeatConvl [k,c] = tm => sumConv [c, repeatConvl [k,k c]] tm
 
 # Applies a conversion as an inference rule.
 def convRule [conv,thm] =

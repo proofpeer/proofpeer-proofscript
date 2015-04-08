@@ -3,6 +3,13 @@ extends CNFTheorems
 
 def binderConv c = randConv (absConv c)
 
+def bindersConv c =
+  tm =>
+    match tm
+      case '∀x. ‹p› x' as tm => binderConv (bindersConv c) tm
+      case '∃x. ‹p› x' as tm => binderConv (bindersConv c) tm
+      case tm                => c tm
+
 # Apply a conversion to both sides of a conjunction or disjunction.
 def propBinaryConv c =
   tm =>
@@ -17,11 +24,12 @@ def
   nnf '¬‹_›'      as tm =
     tryConv
       (seqConv
-        [sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
+        [randConv nnf,
+         sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
                                  [existsDeMorganConv,allDeMorganConv]),
          nnf]) tm
   nnf '‹_› → ‹_›' as tm = seqConv [rewrConv impliesCNF, nnf] tm
-  nnf '‹_› = ‹_›' as tm = seqConv [rewrConv equalCNF,   nnf] tm
+  nnf '(‹_›:ℙ) = ‹_›' as tm = seqConv [rewrConv equalCNF,   nnf] tm
   nnf                tm = sumConv [binderConv nnf, propBinaryConv nnf, idConv] tm
 
 # Conversion from nnf to prenex form.
@@ -36,20 +44,20 @@ def prenex tm =
     rq '(∃x. ‹P› x) ∧ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
                                               binderConv trivAllConv] tm
     rq '(∃x. ‹P› x) ∨ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
-                                     binderConv trivAllConv] tm
-    rq '(∀x. ‹P› x) ∧ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
                                               binderConv trivAllConv] tm
+    rq '(∀x. ‹P› x) ∧ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq] tm
     rq '(∀x. ‹P› x) ∨ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
                                               binderConv trivAllConv] tm
     rq tm                          = zeroConv tm
   val rqComm = sumConv [rq,
                         seqConv [rewrConv1 andComm, rq],
                         seqConv [rewrConv1 orComm,  rq]]
-  def convl c = sumConv [binderConv (binderConv c), binderConv c]
-  sumConv [binderConv prenex,
-           seqConv [propBinaryConv prenex, repeatConvl [convl,rqComm]],
-           idConv]
-          tm
+  def seqConvl c =
+    tm => seqWhenChangedConv [c, binderConv (sumConv [binderConv (seqConvl c),
+                                                      seqConvl c,
+                                                      idConv])] tm
+  tryConv (bindersConv (seqConv [propBinaryConv prenex,
+                                 tryConv (seqConvl rqComm)])) tm
 
 theorem andAssoc: '∀p q r. (p ∧ (q ∧ r)) = (p ∧ q ∧ r)'
   taut '∀p q r. (p ∧ (q ∧ r)) = (p ∧ q ∧ r)'
@@ -72,17 +80,18 @@ val cnf =
     cnfConv '‹_› ∧ ‹_›' as tm =
       seqConv [binaryConv (cnfConv,cnfConv), tryConv andConv] tm
     cnfConv '‹_› ∨ ‹_›' as tm =
-      seqConv [binaryConv (cnfConv,cnfConv), disjConv] tm
+      seqConv [binaryConv (cnfConv,cnfConv), disjConv, tryConv orConv] tm
     cnfConv tm = idConv tm
     disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
       seqConv [rewrConv orDistribRight,
-               binaryConv (disjConv, disjConv),
-               tryConv orConv] tm
+               binaryConv (disjConvOrConv, disjConvOrConv),
+               tryConv andConv] tm
     disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
       seqConv [rewrConv orDistribLeft,
-               binaryConv (disjConv, disjConv),
-               tryConv orConv] tm
+               binaryConv (disjConvOrConv, disjConvOrConv),
+               tryConv andConv] tm
     disjConv tm = idConv tm
+    disjConvOrConv tm = seqConv [disjConv, tryConv orConv] tm
   repeatConvl [binderConv, cnfConv]
 
 val flipConjAll = gsym conjAll
@@ -115,7 +124,7 @@ table skolemThm [a,b] =
       theorem '∃y. ‹p› ‹x› y'
         choose ch:'‹fresh "f"›:‹a› → ‹b›' asm
         val fx = rand (instantiate (ch,x): Term)
-        let ydef:'y = ‹fx›'
+        let ydef:'‹fresh "y"› = ‹fx›'
         convRule (seqConv [randConv (subsConv (gsym ydef)),normalize],
                   instantiate (ch,x))
     equivalence (left,right)
@@ -136,6 +145,7 @@ context
     seqConv [nnf,prenex,cnf,skolemize]
        '∀p q. (∃x y. p x y) = (∃z. q z)'
   val ctm = rhs (cthm: Term)
+  show ctm
   assert ctm ==
     '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
        ∃ g : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
