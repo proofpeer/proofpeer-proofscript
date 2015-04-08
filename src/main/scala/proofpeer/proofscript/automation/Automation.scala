@@ -50,7 +50,7 @@ object Automation {
     tm match {
       case TupleValue(elts,_) =>
         elts.toList match {
-          case (f:Term) :: args =>
+          case TermValue(f) :: args =>
             args.traverse { termOfProofscript(_) }.map { Fun(f,_) }
           case _ => ("Not a term",tm).failureNel[MTerm]
         }
@@ -63,7 +63,7 @@ object Automation {
     tm match {
       case TupleValue(elts,_) =>
         elts.toList match {
-          case List(eq:Term,x,y) if eq == K.equals =>
+          case List(TermValue(eq),x,y) if eq == K.equals =>
             (termOfProofscript(x) |@| termOfProofscript(y)) { Eql(_,_) }
           case (TermValue(p) :: args) =>
             args.traverse { termOfProofscript(_) }.map { MetisPred(p,_) }
@@ -110,7 +110,6 @@ object Automation {
 
     clausesOfProofscript(proofscriptClauses) match {
       case Failure(errs) =>
-        System.out.println(errs)
         mkTuple(
           StateValue.mkStringValue("Error") ::
             errs.list.map {
