@@ -5,6 +5,7 @@ import proofpeer.proofscript.naiveinterpreter.{ Success => _, _}
 import KernelInstances._
 import proofpeer.metis.{Term => MetisTerm, Pred => MetisPred, _}
 import TermInstances._
+import ClauseInstances._
 import scalaz.{Name => _, _}
 import Scalaz._
 import scalaz.std.math._
@@ -19,6 +20,8 @@ object Automation {
   type MClause  = Clause[BigInt,Term,Term]
   def mkTuple(v: StateValue*) = TupleValue(v.toVector,true)
 
+  val funType = Type.Fun(Type.Universe,Type.Fun(Type.Universe,Type.Prop))
+
   def proofscriptOfTerm(tm: MTerm): StateValue =
     tm match {
       case Var(v)      => IntValue(v)
@@ -31,7 +34,7 @@ object Automation {
       case Eql(x,y) =>
         val px = proofscriptOfTerm(x)
         val py = proofscriptOfTerm(y)
-        mkTuple(TermValue(Term.PolyConst(K.equals,Type.Universe)),px,py)
+        mkTuple(TermValue(Term.PolyConst(K.equals,funType)),px,py)
       case MetisPred(p,args) =>
         mkTuple(TermValue(p) +: args.toSeq.map(proofscriptOfTerm(_)):_*)
     }
@@ -63,7 +66,7 @@ object Automation {
     tm match {
       case TupleValue(elts,_) =>
         elts.toList match {
-          case List(TermValue(eq),x,y) if eq == K.equals =>
+          case List(TermValue(Term.PolyConst(eq,ty)),x,y) if eq == K.equals =>
             (termOfProofscript(x) |@| termOfProofscript(y)) { Eql(_,_) }
           case (TermValue(p) :: args) =>
             args.traverse { termOfProofscript(_) }.map { MetisPred(p,_) }
@@ -142,7 +145,7 @@ object Automation {
         val ithmF  = new IThmFactory[BigInt,Term,Term,BigInt,kernel.type](
           kernel,
           nextFree,
-          { case (_,n) => (n+1,n) },
+          { case (m,_) => (m+1,m) },
           litOrd,
           factor)
 
@@ -156,11 +159,11 @@ object Automation {
                 StateValue.mkStringValue("axiom"),
                 proofscriptOfClause(cert.clause))
             case kernel.Assume() =>
-              val lit = cert.clause.lits.filter(_.isPositive).toList match {
-                case List(theLit) => theLit
+              val atom = cert.clause.lits.filter(_.isPositive).toList match {
+                case List(lit) => lit.atom
                 // Otherwise Bug
               }
-              mkTuple(StateValue.mkStringValue("assume"),proofscriptOfLiteral(lit))
+              mkTuple(StateValue.mkStringValue("assume"),proofscriptOfAtom(atom))
             case kernel.Refl() =>
               StateValue.mkStringValue("refl")
             case kernel.Equality(cursor,term) =>
@@ -181,18 +184,7 @@ object Automation {
               mkTuple(
                 proofscriptOfSubst(θ),
                 proofscriptOfCertificate(thm))
-            case kernel.Resolve(l,r) =>
-              val resolvedOn =
-                for (
-                  Literal(true,atm) <- l.clause.lits ++
-                                       r.clause.lits &~
-                                       cert.clause.lits)
-                yield atm
-              val atm = resolvedOn.toList match {
-                case List(theAtom) => theAtom
-                // Otherwise Bug
-              }
-              val (pos,neg) = if (l.clause.lits(Literal(true,atm))) (l,r) else (r,l)
+            case kernel.Resolve(atm,pos,neg) =>
               mkTuple(
                 StateValue.mkStringValue("resolve"),
                 proofscriptOfAtom(atm),
@@ -200,11 +192,11 @@ object Automation {
                 proofscriptOfCertificate(neg))
           }
         }
-
+        import KernelInstances._
         val allThms = sys.distance_nextThms.takeWhile(_.isDefined).flatten
-        val limitThms = allThms.take(2000)
-        (limitThms.lastOption.map { _._2}.filter { _.isContradiction }.map {
-          absurd => proofscriptOfCertificate(absurd.thm) }).getOrElse(NilValue)
+        allThms.find(_._2.isContradiction).map {
+          case (_,thm) => proofscriptOfCertificate(thm.thm)
+        }.getOrElse(NilValue)
     }
   }
 }

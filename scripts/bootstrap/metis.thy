@@ -39,7 +39,7 @@ def
     match splitLeft [destcomb,term]
       case [x]         =>
         val n = env x
-        if n == nil then x else n
+        if n == nil then [x] else n
       case (f <+ args) => f <+ (for arg in args do metisOfComb (env,arg))
 
 def map_term (f, term) =
@@ -206,6 +206,7 @@ def interpretCert [axioms,cert] =
       val negCl = ic negCert
       metisResolve [atm,posCl,negCl]
   ic [axioms,cert]
+
 def
   metis '∃x. ‹p› x' as thm =
     val f = fresh "f"
@@ -217,11 +218,12 @@ def
     for ax in conjuncts thm do
       for cl in clausesOfCNF (ax:Term) do
         axioms = axioms ++ { cl -> initClause ax }
-    show "hi"
     for cl in clausesOfCNF (thm:Term) do
       show cl
     val cert = callmetis (clausesOfCNF (thm:Term))
-    interpretCert [axioms,cert]
+    if cert == nil then
+      nil
+    else interpretCert [axioms,cert]
 
 val unmetis =
   theorem unmetis1: '∀p q. (p ∧ ¬q → ⊥) → p → q'
@@ -259,6 +261,7 @@ def metisAuto [asms:Tuple,conjecture:Term] =
   val conjAsms       = andIntro asms
   val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
   val conv           = seqConv [nnf,prenex,bindersConv cnf,tryConv skolemize]
+  show rhs (normalize (rhs (seqConv [nnf,prenex] conjProblem:Term)):Term)
   val equiv1         = conv conjProblem
   val skolemNGoal    = rhs (equiv1: Term)
   val [ctx,xs,ngoal] = letExistentials skolemNGoal
@@ -268,6 +271,7 @@ def metisAuto [asms:Tuple,conjecture:Term] =
     theorem '‹dngoal› → ⊥'
       assume asm: dngoal
       show rhs (normalize (dngoal:Term))
+      assert (metis asm <> nil)
       clauseThm (metis asm)
 
 # theorem contr: '‹rhs (equiv: Term)› → ⊥'
