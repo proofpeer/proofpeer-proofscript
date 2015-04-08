@@ -1,5 +1,5 @@
 theory Redundancies
-extends Connectives
+extends Metis
 
 theorem impliesAxRedundant:'∀ x, y. (x → y) = ((x ∧ y) = x)'
   let 'x:ℙ'
@@ -25,3 +25,6 @@ choose anonymous: 'anonymous: 𝒰'
   let x:'x'
   let 'y = x'
   reflexive 'y'
+
+theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) → empty = ∅'
+  metisAuto [[empty, ext], '∀empty. (∀x. x ∉ empty) → empty = ∅']

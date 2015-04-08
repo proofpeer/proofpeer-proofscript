@@ -35,10 +35,12 @@ def combOfMetis term =
   else mkcombs (functor term,map (combOfMetis, args term))
 
 def
-  metisOfComb term =
+  metisOfComb [env,term] =
     match splitLeft [destcomb,term]
-      case [x]         => x
-      case (f <+ args) => f <+ (for arg in args do metisOfComb arg)
+      case [x]         =>
+        val n = env x
+        if n == nil then x else n
+      case (f <+ args) => f <+ (for arg in args do metisOfComb (env,arg))
 
 def map_term (f, term) =
   if isVar term then f term
@@ -166,22 +168,32 @@ def metisResolve [atm,cl1,cl2] =
   mkClause [freeAtRes,resBody]
 
 # METIS clauses are sets of METIS term literals.
-def atomOfTerm atm =
-  match metisOfComb atm
+def atomOfTerm [env,atm] =
+  match metisOfComb (env,atm)
     case compound:Tuple => compound
     case p => [p]
 
-def
-  clauseOfTerm '‹p› ∨ ¬‹q›' = clauseOfTerm p ++ {(false, atomOfTerm q)}
-  clauseOfTerm '‹p› ∨ ‹q›'  = clauseOfTerm p ++ {(true,  atomOfTerm q)}
-  clauseOfTerm '¬‹p›'       = {(false, atomOfTerm p)}
-  clauseOfTerm '‹p›'        = {(true,  atomOfTerm p)}
+def clauseOfTerm [env,tm] =
+  def
+    clause '‹p› ∨ ¬‹q›' = clause p ++ {(false, atomOfTerm (env,q))}
+    clause '‹p› ∨ ‹q›'  = clause p ++ {(true,  atomOfTerm (env,q))}
+    clause '¬‹p›'       = {(false, atomOfTerm (env,p))}
+    clause '‹p›'        = {(true,  atomOfTerm (env,p))}
+  clause tm
 
 # Take a CNF term and produce the corresponding METIS clauses
 def clausesOfCNF tm =
-  match tm
-    case '‹p› ∧ ‹q›' => clausesOfCNF p +> clauseOfTerm q
-    case '‹p›'       => [ clauseOfTerm p ]
+  def
+    clauses '‹p› ∧ ‹q›' = clauses p +> withEnvironment ({->},0,q)
+    clauses '‹p›'       = [withEnvironment ({->},0,p)]
+    withEnvironment [env,n,'∀x. ‹p› x'] =
+      val [ctx,x,bod] = destabs p
+      val clause
+      context <ctx>
+        clause = withEnvironment (env ++ { x -> n }, n+1, bod)
+      clause
+    withEnvironment [env,_,tm] = clauseOfTerm (env,tm)
+  clauses tm
 
 def interpretCert [axioms,cert] =
   def
@@ -194,7 +206,6 @@ def interpretCert [axioms,cert] =
       val negCl = ic negCert
       metisResolve [atm,posCl,negCl]
   ic [axioms,cert]
-
 def
   metis '∃x. ‹p› x' as thm =
     val f = fresh "f"
@@ -204,8 +215,12 @@ def
   metis thm =
     val axioms = {->}
     for ax in conjuncts thm do
-      axioms = axioms ++ { clauseOfTerm ax -> initClause ax }
-    val cert = callmetis (clausesOfCNF thm)
+      for cl in clausesOfCNF (ax:Term) do
+        axioms = axioms ++ { cl -> initClause ax }
+    show "hi"
+    for cl in clausesOfCNF (thm:Term) do
+      show cl
+    val cert = callmetis (clausesOfCNF (thm:Term))
     interpretCert [axioms,cert]
 
 val unmetis =
@@ -219,20 +234,47 @@ val unmetis =
       matchmp (unmetis2, thm)
     else unmetised
 
+def letExistentials tm =
+  def
+    letExists (ctx,'∃x. ‹p› x') =
+      val [ctx,x,body] = destabs p
+      context <ctx>
+        val letX
+        val xCtx =
+          context
+            val '‹_›:‹a›' = x
+            let x:'‹fresh "x"›:‹a›'
+            val letX = x
+        match letExists (ctx,body)
+          case [ctx,xs,body] =>
+            context <ctx>
+              return [ctx,x <+ xs,body]
+    letExists (ctx,tm) =
+      return [ctx,[],tm]
+  val ctx =
+    context
+  letExists (ctx,tm)
+
 def metisAuto [asms:Tuple,conjecture:Term] =
-  val conjAsms    = andIntro asms
-  val conjProblem = '‹conjAsms:Term› ∧ ¬‹conjecture›'
-  val conv =
-    seqConv [nnf,prenex,cnf,tryConv skolemize,
-             repeatConvl [binderConv,distribQuants]]
-  show conjProblem
-  show seqConv [nnf,prenex,cnf,repeatConvl [binderConv,distribQuants]]
-         conjProblem
-  val equiv = conv conjProblem
-  show equiv
-  theorem contr: '‹rhs (equiv: Term)› → ⊥'
-    assume asm: (rhs (equiv: Term))
-    show asm
-    clauseThm (metis asm)
-  val unmetised = unmetis (convRule (landConv (rewrConv1 (sym equiv)), contr))
-  modusponens (conjAsms, unmetised)
+  val conjAsms       = andIntro asms
+  val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
+  val conv           = seqConv [nnf,prenex,bindersConv cnf,tryConv skolemize]
+  val equiv1         = conv conjProblem
+  val skolemNGoal    = rhs (equiv1: Term)
+  val [ctx,xs,ngoal] = letExistentials skolemNGoal
+  context <ctx>
+    val equiv2 = distribQuants ngoal
+    val dngoal = rhs (equiv2: Term)
+    theorem '‹dngoal› → ⊥'
+      assume asm: dngoal
+      show rhs (normalize (dngoal:Term))
+      clauseThm (metis asm)
+
+# theorem contr: '‹rhs (equiv: Term)› → ⊥'
+#   assume asm: (rhs (equiv: Term))
+#   val [ctx,_,asm] = chooseAll asm
+#   context <ctx>
+#     show asm
+#     clauseThm (metis asm)
+# val unmetised = unmetis (convRule (landConv (rewrConv1 (sym equiv)), contr))
+# modusponens (conjAsms, unmetised)
