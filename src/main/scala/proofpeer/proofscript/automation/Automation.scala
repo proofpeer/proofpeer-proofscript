@@ -34,7 +34,7 @@ object Automation {
       case Eql(x,y) =>
         val px = proofscriptOfTerm(x)
         val py = proofscriptOfTerm(y)
-        mkTuple(TermValue(Term.PolyConst(K.equals,funType)),px,py)
+        mkTuple(TermValue(Term.PolyConst(K.equals,Type.Universe)),px,py)
       case MetisPred(p,args) =>
         mkTuple(TermValue(p) +: args.toSeq.map(proofscriptOfTerm(_)):_*)
     }
@@ -161,17 +161,21 @@ object Automation {
             case kernel.Assume() =>
               val atom = cert.clause.lits.filter(_.isPositive).toList match {
                 case List(lit) => lit.atom
-                // Otherwise Bug
+                case _         => throw new Exception("METIS Bug!")
               }
               mkTuple(StateValue.mkStringValue("assume"),proofscriptOfAtom(atom))
             case kernel.Refl() =>
-              StateValue.mkStringValue("refl")
+              cert.clause.lits.toList match {
+                case List(Literal(true,Eql(x,y))) if x == y =>
+                  mkTuple(StateValue.mkStringValue("refl"),proofscriptOfTerm(x))
+                case _ => throw new Exception("METIS Bug!")
+              }
             case kernel.Equality(cursor,term) =>
               mkTuple(
-                Vector(
-                  StateValue.mkStringValue("equality"),
-                  proofscriptOfLiteral(cursor.top)) ++
-                  cursor.path.toSeq.map(n => IntValue(BigInt(n))): _*)
+                StateValue.mkStringValue("equality"),
+                proofscriptOfTerm(term),
+                proofscriptOfLiteral(cursor.top),
+                mkTuple(cursor.path.toSeq.map(n => IntValue(BigInt(n))): _*))
             case kernel.RemoveSym(thm) =>
               mkTuple(
                 StateValue.mkStringValue("removeSym"),
