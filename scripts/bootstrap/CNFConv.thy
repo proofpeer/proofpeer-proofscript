@@ -145,7 +145,6 @@ context
     seqConv [nnf,prenex,cnf,skolemize]
        '∀p q. (∃x y. p x y) = (∃z. q z)'
   val ctm = rhs (cthm: Term)
-  show ctm
   assert ctm ==
     '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
        ∃ g : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.

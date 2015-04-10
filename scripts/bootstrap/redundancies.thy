@@ -26,5 +26,5 @@ choose anonymous: 'anonymous: 𝒰'
   let 'y = x'
   reflexive 'y'
 
-theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) → empty = ∅'
-  metisAuto [[empty, ext], '∀empty. (∀x. x ∉ empty) → empty = ∅']
+# theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) → empty = ∅'
+#   metisAuto [[empty, ext], '∀empty. (∀x. x ∉ empty) → empty = ∅']

@@ -40,45 +40,50 @@ theorem orDistribLeft: '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
 theorem contra: '∀p q. ¬p → p → q'
   by taut
 
-theorem existsDeMorgan: '∀P. (¬(∃x. P x)) = (∀x. ¬(P x))'
-  let 'P : 𝒰 → ℙ'
-  theorem left: '(¬(∃x. P x)) → (∀x. ¬(P x))'
-    assume asm:'¬(∃x. P x)'
-    let x:'x'
-    theorem notPx:
-      assume px:'P x'
-      theorem pExists:
-        val y = fresh "y"
-        val asm = let 'y = x'
-        convRule (onceTreeConv (rewrConv1 (sym asm)), px)
-      modusponens (pExists, matchmp (notDefEx, asm))
-    matchmp (impliesNot, notPx)
-  theorem right:
-    assume asm:'∀x. ¬(P x)'
-    theorem notExP:
-      assume exP:'∃x. P x'
-      val px = choose 'x' exP
-      matchmp (notDefEx, instantiate (asm,'x'), px)
-    matchmp (impliesNot, notExP)
-  equivalence (left,right)
+def existsDeMorgan ty =
+  theorem '∀P. (¬(∃x:‹ty›. P x)) = (∀x. ¬(P x))'
+    val x = fresh "x"
+    val P = fresh "P"
+    let '‹P› : ‹ty› → ℙ'
+    theorem left: '(¬(∃x:‹ty›. ‹P› x)) → (∀x. ¬(‹P› x))'
+      assume asm:'¬(∃x:‹ty›. ‹P› x)'
+      let '‹x›:‹ty›'
+      theorem notPx:
+        assume px:'‹P› ‹x›'
+        theorem pExists:
+          val y = fresh "y"
+          val asm = let '‹y› = ‹x›'
+          convRule (onceTreeConv (rewrConv1 (sym asm)), px)
+        modusponens (pExists, matchmp (notDefEx, asm))
+      matchmp (impliesNot, notPx)
+    theorem right:
+      assume asm:'∀x:‹ty›. ¬(‹P› x)'
+      theorem notExP:
+        assume exP:'∃x:‹ty›. ‹P› x'
+        val px = choose '‹x›:‹ty›' exP
+        matchmp (notDefEx, instantiate (asm,'‹x›'), px)
+      matchmp (impliesNot, notExP)
+    equivalence (left,right)
 
-theorem allDeMorgan: '∀P. (¬(∀x. P x)) = (∃x. ¬(P x))'
-  let 'P : 𝒰 → ℙ'
-  val existsDeMorganInst =
-    instantiate(existsDeMorgan,'x ↦ ¬(P x)')
-  seqConv [randConv (randConv (absConv (rewrConv1 (gsym negInvolve)))),
-           onceTreeConv (rewrConv1 (gsym existsDeMorganInst)),
-           rewrConv [negInvolve]] '¬(∀x. P x)'
+def allDeMorgan ty =
+  theorem '∀P. (¬(∀x:‹ty›. P x)) = (∃x. ¬(P x))'
+    val P = fresh "P"
+    let '‹P› : ‹ty› → ℙ'
+    val existsDeMorganInst =
+      instantiate(existsDeMorgan ty,'x ↦ ¬(‹P› x)')
+    seqConv [randConv (randConv (absConv (rewrConv1 (gsym negInvolve)))),
+             onceTreeConv (rewrConv1 (gsym existsDeMorganInst)),
+             rewrConv [negInvolve]] '¬(∀x. ‹P› x)'
 
 # As conversions, so that we can exploit higher-order matching.
 def
-  existsDeMorganConv '(¬(∃x. ‹P› x))' =
-    instantiate (existsDeMorgan, P)
+  existsDeMorganConv '(¬(∃x:‹ty›. ‹P› x))' =
+    instantiate (existsDeMorgan ty, P)
   existsDeMorganConv _ = nil
 
 def
-  allDeMorganConv '¬(∀x. ‹P› x)' =
-    instantiate (allDeMorgan, P)
+  allDeMorganConv '¬(∀x:‹ty›. ‹P› x)' =
+    instantiate (allDeMorgan ty, P)
   allDeMorganConv _ = nil
 
 theorem disjExists: '∀P Q. ((∃x. P x) ∨ (∃x. Q x)) = (∃x. P x ∨ Q x)'

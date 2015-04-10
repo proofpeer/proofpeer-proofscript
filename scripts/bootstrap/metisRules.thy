@@ -14,34 +14,6 @@ def tryRand tm =
     case r => r
     case _ => tm
 
-val followPath =
-  def
-    follow [[],tm,acc]      = [acc,tm]
-    follow [i <+ is,tm,acc] =
-      val ri = noArgs tm - i - 1
-      follow [is,tryRand (iterate [ri,rator,tm]),acc +> ri]
-  [is,tm] => follow [is,tm,[]]
-
-def metisxiom thm = thm
-def metisAssume p = instantiate (excludedMiddle,p)
-def metisRefl x = reflexive x
-def metisEquality [is,lit,rhs] =
-  val flipImpliesCNF =
-    convRule (binderConv (binderConv (randConv (rewrConv1 orComm))), impliesCNF)
-  val [ris,lhs] = followPath [is,lit]
-  theorem imp:
-    assume lit
-    assume eq:'‹lhs› = ‹rhs›'
-    def
-      equality []          = subsConv eq
-      equality (ri <+ ris) =
-        iterate
-          [ri,
-           ratorConv,
-           tryConvL [randConv,equality ris]]
-    equality ris lit
-  convRule (seqConv [rewrConv impliesCNF, randConv (rewrConv impliesCNF)], imp)
-
 val congruence =
   theorem deleteLeft: '∀p q p2. q = ⊥ → p = p2 → (p ∨ q) = p2'
     taut '∀p q p2. q = ⊥ → p = p2 → (p ∨ q) = p2'
@@ -108,6 +80,7 @@ theorem swapRight: '∀p q r. ((p ∨ q) ∨ r) = ((p ∨ r) ∨ q)'
 def pullOut p =
   def
     conv '‹_› ∨ ‹q›' as tm if p == q = idConv tm
+    conv '‹q› ∨ ‹r›' as tm if p == q = rewrConv1 orComm tm
     conv '‹q› ∨ ‹r›' as tm =
       seqConv
         [landConv conv,
@@ -127,15 +100,3 @@ theorem resolveTriv2: '∀p r. (p ∨ r) → ¬r → p'
 
 theorem finalResolve: '∀p. p → ¬p → ⊥'
   taut '∀p. p → ¬p → ⊥'
-
-def metisResolution [atm,pos,neg] =
-  val pos1 = convRule (pullOut atm, pos)
-  val neg1 = convRule (pullOut '¬‹atm›', neg)
-  val res  = matchmp (resolveLeft, pos1, neg1)
-  if res == nil then
-    res = matchmp (resolveTriv1, pos1, neg1)
-  if res == nil then
-    res = matchmp (resolveTriv2, pos1, neg1)
-  if res == nil then
-    res = matchmp (finalResolve, pos1, neg1)
-  convRule (nubClauseConv, res)

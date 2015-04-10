@@ -21,18 +21,18 @@ def isVar term =
 
 def mkTerm [f,args] = f <+ args
 
-def vars term =
+def termVars term =
   if isVar term then
     {term}
   else
     val vs = {}
     for arg in args term do
-      vs = vs ++ vars arg
+      vs = vs ++ termVars arg
     vs
 
-def combOfMetis term =
+def termOfMetis term =
   if isVar term then term
-  else mkcombs (functor term,map (combOfMetis, args term))
+  else mkcombs (functor term,map (termOfMetis, args term))
 
 def
   metisOfComb [env,term] =
@@ -49,35 +49,43 @@ def map_term (f, term) =
 # METIS literals are a pair whose first element answers whether the literal is
 # positive, and the second element is a METIS atom, represented by a METIS term.
 
-def
-  isPositive [isPos,_] = isPos
-  isPositive _         = fail "Not a literal"
+def atomOfLiteral [_,atm] = atm
 
-def
-  atom [_,atm] = atm
-  atom _       = fail "Not an atom"
-
-def atomOfMetis atm = combOfMetis atm
+def atomOfMetis atm = termOfMetis atm
 
 def
   literalOfMetis [true,atm]  = atomOfMetis atm
   literalOfMetis [false,atm] = '¬‹atomOfMetis atm›'
 
-# A clause is a pair whose first element is a tuple, associating each quantifier in
-# turn with a Metis free-variable [fvs,tm]
+val map_atom = map_term
+
+val atomVars = termVars
+
+def map_literal [f,[isPositive,atm]] = [isPositive,map_atom [f,atm]]
+
+def literalVars lit = atomVars (atomOfLiteral lit)
+
+# A clause is a pair whose second element is a theorem thm and whose first element is
+# a tuple, associating each of thm's quantifiers in turn with a Metis free-variable
 def inClauseFreeAt [freeAt,_]   = freeAt
 def clauseThm      [_,thm]      = thm
-def mkClause       [freeAt,thm] = [freeAt,thm]
+def mkClause       [freeAt,thm] =
+  val [_,xs,_] = stripForall thm
+  assert (size xs == size freeAt)
+  [freeAt,thm]
 
 def initClause tm =
   val [_,xs,_] = stripForall tm
   [(0 to size xs - 1), tm]
 
-# Generate n fresh variables, returning a context containing them all, and a map from
-# each to the index of the implicit quantifier, outermost first. For example, given
-#   freshVars 3 == [ctx, { x -> 1, y -> 2, z -> 3 }]
-# lifting a theorem p out of ctx will produce ∀x y z. ‹p›
-def freshVars (fvs:Tuple) =
+# Generate n fresh variables for each of the given METIS free variables, returning a
+# context containing them all, and a map from the METIS free to the new fresh
+# variable. For example:
+#   freshVars [7,1,12] == [ctx, { z -> 7, x -> 1, y -> 12 }]
+# The metalevel quantifiers are ordered according to the input tuple. Thus, on
+# lifting p out of this context, we have
+#   '∀z x y. ‹p›'
+def freshVars fvs =
   def
     freshs [[],freeAt,ctx] =
       [ctx,freeAt]
@@ -106,16 +114,17 @@ def metisInstantiate [cl,sub:Map] =
   val newFreeAt =
     val fvset = {}
     for [_,tm] in sub do
-      for v in vars tm do
+      for v in termVars tm do
         fvset = fvset ++ {v}
     fvset: Tuple
-  val [ctx,freeIndex] = freshVars newFreeAt
+  val [ctx,varOfMetis] = freshVars (newFreeAt:Tuple)
+  val clThm = clauseThm cl
   context <ctx>
     for v in freeAt do
-      val tm = combOfMetis (map_term (freeIndex cl, sub v))
-      clThm  = instantiate (clauseThm cl,tm)
+      val tm = termOfMetis (map_term (varOfMetis, sub v))
+      clThm = instantiate (clThm,tm)
     clThm = convRule (nubClauseConv, clThm)
-  mkClause [newFreeAt,clThm]
+  mkClause (newFreeAt,clThm)
 
 def
   destOr '‹p› ∨ ‹q›' = [p,q]
@@ -125,47 +134,85 @@ def
   destNeg '¬‹p›'   = p
   destNeg (p:Term) = p
 
-def termFrees tm =
+def atomicInTerm tm =
+  val tms = {}
   match splitLeft [destcomb, tm]
-    case _ <+ args => map [termFrees, args]
-    case v         => [v]
+    case [v]       => tms = {v}
+    case _ <+ args =>
+      for arg in args do
+        tms = tms ++ atomicInTerm arg
+  tms
 
-def bodyFrees cl =
+def atomicInClause cl =
+  val tms = {}
   for lit in split [destOr,cl:Term] do
     for (atm:Term) in [lit, destNeg lit] do
       match splitLeft [destcomb, atm]
-        case _ <+ args => map [termFrees, args]
-        case _         => []
+        case _ <+ args =>
+          for arg in args do
+            tms = tms ++ atomicInTerm arg
+        case _         =>
+  tms
+
+def metisResolution [atm,pos,neg] =
+  val pos1 = convRule (pullOut atm, pos)
+  val neg1 = convRule (pullOut '¬‹atm›', neg)
+  val res  = matchmp (resolveLeft, pos1, neg1)
+  if res == nil then
+    res = matchmp (resolveTriv1, pos1, neg1)
+  if res == nil then
+    res = matchmp (resolveTriv2, pos1, neg1)
+  if res == nil then
+    res = matchmp (finalResolve, pos1, neg1)
+  convRule (nubClauseConv, res)
 
 def metisResolve [atm,cl1,cl2] =
   val freeAt1 = inClauseFreeAt cl1
   val freeAt2 = inClauseFreeAt cl2
-  val [ctx,freeIndex1] = freshVars freeAt1
-  val freeAtRes = freeAt1
+  val [ctx,varOfMetis1] = freshVars freeAt1
   val resBody
+  val freeAtRes
   context <ctx>
     def
-      stripforall2 [[],thm2,ctx] = [thm2,ctx]
-      stripforall2 [v2 <+ vs,thm2,ctx] =
-        val vi1 = freeIndex1 v2
-        if vi1 == nil then
+      stripforall2 [[],thm2,ctx,freeAtRes,metisOfVar] =
+        [thm2,ctx,freeAtRes,metisOfVar]
+      stripforall2 [v2 <+ vs,thm2,ctx,freeAtRes,metisOfVar] =
+        val v1 = varOfMetis1 v2
+        if v1 == nil then
           val newThm2
+          val fx
           val newCtx =
             context <ctx>
               let x:'‹fresh "x"›'
-              freeAtRes = freeAtRes +> x
-              newThm2 = stripforall2 [vs,instantiate (thm2,x)]
-          stripforall2 [vs,newThm2,newCtx]
+              fx = x
+          context <newCtx>
+            newThm2 =
+              stripforall2 (vs,
+                            instantiate (thm2,fx),
+                            newCtx,
+                            freeAtRes +> v2,
+                            metisOfVar ++ {fx -> v2})
+          newThm2
         else
-          val v1 = freeIndex1 vi1
-          stripforall2 [vs,instantiate [thm2,v1],ctx]
-    val body1       = instantiate (clauseThm cl1 <+ freeAt1)
-    val [body2,ctx] = stripforall2 [freeAt2,clauseThm cl2,ctx]
+          stripforall2 (vs,instantiate [thm2,v1],ctx,freeAtRes,metisOfVar)
+    val body1       =
+      instantiate (clauseThm cl1 <+ (for x in freeAt1 do varOfMetis1 x))
+    val metisOfVar = {->}
+    for [v,mv] in varOfMetis1 do
+      metisOfVar = metisOfVar ++ {mv -> v}
+    val [body2,ctx,newFreeAtRes,metisOfVar] =
+      stripforall2 (freeAt2,clauseThm cl2,ctx,freeAt1,metisOfVar)
+    freeAtRes = newFreeAtRes
     context <ctx>
-      resBody         = metisResolution [atomOfMetis atm, body1, body2]
-      val resFrees    = bodyFrees resBody
-      freeAtRes       = for fv if elem [fv,resFrees] in freeAtRes do fv
-  mkClause [freeAtRes,resBody]
+      resBody = metisResolution
+                  (atomOfMetis (map_atom (varOfMetis1, atm)), body1, body2)
+      val isAtomicMetis = {}
+      for x in atomicInClause resBody do
+        val mv = metisOfVar x
+        if mv <> nil then
+          isAtomicMetis = isAtomicMetis ++ {mv}
+      freeAtRes = for fv if isAtomicMetis fv in freeAtRes do fv
+  mkClause (freeAtRes,resBody)
 
 # METIS clauses are sets of METIS term literals.
 def atomOfTerm [env,atm] =
@@ -195,16 +242,95 @@ def clausesOfCNF tm =
     withEnvironment [env,_,tm] = clauseOfTerm (env,tm)
   clauses tm
 
+theorem refl: '∀x. x = x'
+  let 'x'
+  reflexive 'x'
+
+val followPath =
+  def
+    follow [[0],tm,acc]     = [acc,tm]
+    follow [i <+ is,tm,acc] =
+      val ri = noArgs tm - i - 1
+      follow [is,tryRand (iterate [ri,rator,tm]),acc +> ri]
+  [is,tm] => follow [is,tm,[]]
+
+def metisEquality [is,lit,rhs] =
+  val flipImpliesCNF =
+    convRule (binderConv (binderConv (randConv (rewrConv1 orComm))), impliesCNF)
+  val [ris,lhs] =
+    match lit
+      case '¬‹p›' => followPath [is,p]
+      case _      => followPath [is,lit]
+  def maybeNegConv conv =
+    tm =>
+      match tm
+        case '¬‹p›' => randConv conv tm
+        case _      => conv tm
+  theorem imp:
+    assume asm: lit
+    assume eq:'‹lhs› = ‹rhs›'
+    def
+      equality []          = subsConv eq
+      equality (ri <+ ris) =
+        iterate
+          [ri,
+           ratorConv,
+           tryConvL [randConv,equality ris]]
+    convRule (maybeNegConv (equality ris), asm)
+  convRule (seqConv [rewrConv1 impliesCNF,
+                     landConv (tryConv (rewrConv1 negInvolve)),
+                     randConv (rewrConv1 impliesCNF),
+                     rewrConv1 orComm],
+            imp)
+
 def interpretCert [axioms,cert] =
   def
     ic ["axiom",cl] =
-      axioms cl
+      assertNotNil (axioms cl)
+    ic ["assume",atom] =
+      val freeAt = atomVars atom: Tuple
+      val [ctx,varOfMetis] = freshVars freeAt
+      val thm
+      context <ctx>
+        thm = instantiate (excludedMiddle, atomOfMetis (map_atom [varOfMetis,atom]))
+      mkClause (freeAt,thm)
+    ic ["refl",x] =
+      val freeAt  = termVars x: Tuple
+      val [ctx,_] = freshVars freeAt
+      val thm
+      context <ctx>
+        thm = reflexive (termOfMetis x)
+      mkClause (freeAt,thm)
     ic [subst:Map, cert] =
-      metisInstantiate [ic cert,subst]
+      assertNotNil (metisInstantiate [ic cert,subst])
     ic ["resolve", atm, posCert, negCert] =
       val posCl = ic posCert
       val negCl = ic negCert
-      metisResolve [atm,posCl,negCl]
+      assertNotNil (metisResolve [atm,posCl,negCl])
+    ic ["irreflexive",cert] =
+      val cl = ic cert
+      val freeAt = inClauseFreeAt cl
+      val [ctx,varOfMetis] = freshVars freeAt
+      val newFreeAt
+      val newThm
+      context <ctx>
+        newThm =
+          metisRemoveIrrefl
+            (instantiate (clauseThm cl <+ (for x in freeAt do varOfMetis x)))
+        val isFreeVar = {}
+        for x in atomicInClause newThm do
+          isFreeVar = isFreeVar ++ {varOfMetis x}
+        newFreeAt = for fv if isFreeVar in freeAt do fv
+      mkClause (newFreeAt, newThm)
+    ic ["equality",term,literal,path] =
+      val newVars = (literalVars literal ++ termVars term):Tuple
+      val [ctx,varOfMetis] = freshVars (newVars:Tuple)
+      val thm
+      context <ctx>
+        val lit = literalOfMetis (map_literal [varOfMetis,literal])
+        val tm  = termOfMetis (map_term [varOfMetis,term])
+        thm = metisEquality [path,lit,tm]
+      mkClause (newVars,thm)
   ic [axioms,cert]
 
 def
@@ -218,23 +344,10 @@ def
     for ax in conjuncts thm do
       for cl in clausesOfCNF (ax:Term) do
         axioms = axioms ++ { cl -> initClause ax }
-    for cl in clausesOfCNF (thm:Term) do
-      show cl
     val cert = callmetis (clausesOfCNF (thm:Term))
     if cert == nil then
       nil
     else interpretCert [axioms,cert]
-
-val unmetis =
-  theorem unmetis1: '∀p q. (p ∧ ¬q → ⊥) → p → q'
-    taut '∀p q. (p ∧ ¬q → ⊥) → p → q'
-  theorem unmetis2: '∀p. (¬p → ⊥) → ⊤ → p'
-    taut '∀p. (¬p → ⊥) → ⊤ → p'
-  thm =>
-    val unmetised = matchmp (unmetis1, thm)
-    if unmetised == nil then
-      matchmp (unmetis2, thm)
-    else unmetised
 
 def letExistentials tm =
   def
@@ -257,28 +370,61 @@ def letExistentials tm =
     context
   letExists (ctx,tm)
 
-def metisAuto [asms:Tuple,conjecture:Term] =
+def debugConv [name,c] =
+  tm =>
+    show "Enter"
+    show name
+    show tm
+    val cthm = c tm
+    show "Exit"
+    show name
+    match cthm
+      case '‹_› = ‹y›': Theorem => show y
+      case _                    => show "failed"
+    cthm
+
+val unmetis =
+  theorem unmetis1: '∀p q. ¬(p ∧ ¬q) → p → q'
+    taut '∀p q. ¬(p ∧ ¬q) → p → q'
+  theorem unmetis2: '∀p. ¬(⊤ ∧ ¬p) → ⊤ → p'
+    taut '∀p. ¬(⊤ ∧ ¬p) → ⊤ → p'
+  thm =>
+    val unmetised = matchmp (unmetis1, thm)
+    if unmetised == nil then
+      matchmp (unmetis2, thm)
+    else unmetised
+
+def metisAuto [conjecture:Term,asms:Tuple] =
   val conjAsms       = andIntro asms
   val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
   val conv           = seqConv [nnf,prenex,bindersConv cnf,tryConv skolemize]
-  show rhs (normalize (rhs (seqConv [nnf,prenex] conjProblem:Term)):Term)
   val equiv1         = conv conjProblem
   val skolemNGoal    = rhs (equiv1: Term)
   val [ctx,xs,ngoal] = letExistentials skolemNGoal
+  val contr
   context <ctx>
     val equiv2 = distribQuants ngoal
     val dngoal = rhs (equiv2: Term)
-    theorem '‹dngoal› → ⊥'
+    theorem refute: '‹dngoal› → ⊥'
       assume asm: dngoal
-      show rhs (normalize (dngoal:Term))
-      assert (metis asm <> nil)
       clauseThm (metis asm)
+    val nequiv2 = combine (reflexive 'not', sym equiv2)
+    contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
+  show contr
+  def existsDeMorganSym ty = gsym (existsDeMorgan ty)
+  def
+    existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
+      instantiate (existsDeMorganSym ty, P)
+    existsDeMorganSymConv _ = nil
+  def
+    upBinderConv tm =
+      sumConv [existsDeMorganSymConv,
+               seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
+  contr = modusponens (convRule (upBinderConv, contr),
+                       combine (reflexive 'not', sym equiv1))
+  modusponens (conjAsms, unmetis contr)
 
-# theorem contr: '‹rhs (equiv: Term)› → ⊥'
-#   assume asm: (rhs (equiv: Term))
-#   val [ctx,_,asm] = chooseAll asm
-#   context <ctx>
-#     show asm
-#     clauseThm (metis asm)
-# val unmetised = unmetis (convRule (landConv (rewrConv1 (sym equiv)), contr))
-# modusponens (conjAsms, unmetised)
+theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) → empty = ∅'
+  metisAuto ['∀empty. (∀x. x ∉ empty) → empty = ∅',[empty, ext]]
+
+show uniqueEmpty
