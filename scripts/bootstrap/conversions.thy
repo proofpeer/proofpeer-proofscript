@@ -38,6 +38,9 @@ def repeatConv c = tryConv (repeatConv1 c)
 # sumConv [c, k c, k (k c), ...]
 def repeatConvl [k,c] = tm => sumConv [c, repeatConvl [k,k c]] tm
 
+# seqConv [c, k c, k (k c), ...] until failure
+def seqConvl [k,c] = tm => seqConv [c, tryConv (seqConvl [k,k c])] tm
+
 # Applies a conversion as an inference rule.
 def convRule [conv,thm] =
   match conv (thm: Term)

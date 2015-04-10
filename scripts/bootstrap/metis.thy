@@ -174,9 +174,9 @@ def metisResolve [atm,cl1,cl2] =
   val freeAtRes
   context <ctx>
     def
-      stripforall2 [[],thm2,ctx,freeAtRes,metisOfVar] =
-        [thm2,ctx,freeAtRes,metisOfVar]
-      stripforall2 [v2 <+ vs,thm2,ctx,freeAtRes,metisOfVar] =
+      stripforall2 [[],thm2,ctx,freeAtRes,varOfMetis] =
+        [thm2,ctx,freeAtRes,varOfMetis]
+      stripforall2 [v2 <+ vs,thm2,ctx,freeAtRes,varOfMetis] =
         val v1 = varOfMetis1 v2
         if v1 == nil then
           val newThm2
@@ -191,27 +191,22 @@ def metisResolve [atm,cl1,cl2] =
                             instantiate (thm2,fx),
                             newCtx,
                             freeAtRes +> v2,
-                            metisOfVar ++ {fx -> v2})
+                            varOfMetis ++ {v2 -> fx})
           newThm2
         else
-          stripforall2 (vs,instantiate [thm2,v1],ctx,freeAtRes,metisOfVar)
+          stripforall2 (vs,instantiate [thm2,v1],ctx,freeAtRes,varOfMetis)
     val body1       =
       instantiate (clauseThm cl1 <+ (for x in freeAt1 do varOfMetis1 x))
-    val metisOfVar = {->}
-    for [v,mv] in varOfMetis1 do
-      metisOfVar = metisOfVar ++ {mv -> v}
-    val [body2,ctx,newFreeAtRes,metisOfVar] =
-      stripforall2 (freeAt2,clauseThm cl2,ctx,freeAt1,metisOfVar)
+    val [body2,ctx,newFreeAtRes,varOfMetis] =
+      stripforall2 (freeAt2,clauseThm cl2,ctx,freeAt1,varOfMetis1)
     freeAtRes = newFreeAtRes
     context <ctx>
       resBody = metisResolution
                   (atomOfMetis (map_atom (varOfMetis1, atm)), body1, body2)
-      val isAtomicMetis = {}
+      val isAtomic = {}
       for x in atomicInClause resBody do
-        val mv = metisOfVar x
-        if mv <> nil then
-          isAtomicMetis = isAtomicMetis ++ {mv}
-      freeAtRes = for fv if isAtomicMetis fv in freeAtRes do fv
+        isAtomic = isAtomic ++ {x}
+      freeAtRes = for fv if isAtomic (varOfMetis fv) in freeAtRes do fv
   mkClause (freeAtRes,resBody)
 
 # METIS clauses are sets of METIS term literals.
@@ -311,16 +306,17 @@ def interpretCert [axioms,cert] =
       val cl = ic cert
       val freeAt = inClauseFreeAt cl
       val [ctx,varOfMetis] = freshVars freeAt
+      val metisOfVar = {->}
       val newFreeAt
       val newThm
       context <ctx>
         newThm =
           metisRemoveIrrefl
             (instantiate (clauseThm cl <+ (for x in freeAt do varOfMetis x)))
-        val isFreeVar = {}
+        val isAtomic = {}
         for x in atomicInClause newThm do
-          isFreeVar = isFreeVar ++ {varOfMetis x}
-        newFreeAt = for fv if isFreeVar in freeAt do fv
+          isAtomic = isAtomic ++ {x}
+        newFreeAt = for fv if isAtomic (varOfMetis fv) in freeAt do fv
       mkClause (newFreeAt, newThm)
     ic ["equality",term,literal,path] =
       val newVars = (literalVars literal ++ termVars term):Tuple
@@ -410,7 +406,6 @@ def metisAuto [conjecture:Term,asms:Tuple] =
       clauseThm (metis asm)
     val nequiv2 = combine (reflexive 'not', sym equiv2)
     contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
-  show contr
   def existsDeMorganSym ty = gsym (existsDeMorgan ty)
   def
     existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
@@ -424,7 +419,7 @@ def metisAuto [conjecture:Term,asms:Tuple] =
                        combine (reflexive 'not', sym equiv1))
   modusponens (conjAsms, unmetis contr)
 
-theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) → empty = ∅'
-  metisAuto ['∀empty. (∀x. x ∉ empty) → empty = ∅',[empty, ext]]
+theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) = (empty = ∅)'
+  metisAuto ['∀empty. (∀x. x ∉ empty) = (empty = ∅)',[empty, ext]]
 
 show uniqueEmpty

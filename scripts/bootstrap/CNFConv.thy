@@ -53,29 +53,31 @@ def prenex tm =
                         seqConv [rewrConv1 andComm, rq],
                         seqConv [rewrConv1 orComm,  rq]]
   def seqConvl c =
-    tm => seqWhenChangedConv [c, binderConv (sumConv [binderConv (seqConvl c),
-                                                      seqConvl c,
-                                                      idConv])] tm
+    tm => seqConv [c, binderConv (sumConv [binderConv (seqConvl c),
+                                           seqConvl c,
+                                           idConv])] tm
   tryConv (bindersConv (seqConv [propBinaryConv prenex,
                                  tryConv (seqConvl rqComm)])) tm
 
-theorem andAssoc: '∀p q r. (p ∧ (q ∧ r)) = (p ∧ q ∧ r)'
-  taut '∀p q r. (p ∧ (q ∧ r)) = (p ∧ q ∧ r)'
+theorem andAssoc: '∀p q r. (p ∧ (q ∧ r)) = (p ∧ r ∧ q)'
+  taut '∀p q r. (p ∧ (q ∧ r)) = (p ∧ r ∧ q)'
 
-theorem orAssoc: '∀p q r. (p ∨ (q ∨ r)) = (p ∨ q ∨ r)'
-  taut '∀p q r. (p ∨ (q ∨ r)) = (p ∨ q ∨ r)'
+theorem orAssoc: '∀p q r. (p ∨ (q ∨ r)) = (p ∨ r ∨ q)'
+  taut '∀p q r. (p ∨ (q ∨ r)) = (p ∨ r ∨ q)'
 
 # Conversion from an nnf matrix to cnf.
 # TODO: Need to eliminate ⊤ and ⊥ *after* descending into left and right
 val cnf =
   val andConv =
-    sumConv (for thm in [andLeftId, andRightId, andLeftZero, andRightZero,
-                         andAssoc] do
-               rewrConv1 thm)
+    seqConv
+      [sumConv ((for thm in [andLeftId, andRightId, andLeftZero, andRightZero] do
+                   rewrConv1 thm) +> idConv),
+       tryConv (rewrConv andAssoc)]
   val orConv =
-    sumConv (for thm in [orLeftId, orRightId, orLeftZero, orRightZero,
-                         orAssoc] do
-               rewrConv1 thm)
+    seqConv
+      [sumConv ((for thm in [orLeftId, orRightId, orLeftZero, orRightZero] do
+                   rewrConv1 thm) +> idConv),
+       tryConv (rewrConv orAssoc)]
   def
     cnfConv '‹_› ∧ ‹_›' as tm =
       seqConv [binaryConv (cnfConv,cnfConv), tryConv andConv] tm
@@ -135,15 +137,17 @@ val skolem1 =
     skolem1 tm = zeroConv tm
   seqConv [skolem1,normalize]
 
-def skolemize tm =
-  sumConv [seqConv [skolem1, tryConv skolemize],
-           seqConv [binderConv skolemize,
-                    tryConv (seqConv [skolem1, skolemize])]] tm
+def
+  skolemize '∀x:‹_›. ‹P› x' as tm =
+    seqConv [binderConv skolemize,
+             tryConv (seqConvl [binderConv, skolem1])] tm
+  skolemize tm = tryConv (binderConv skolemize) tm
 
 context
   val cthm =
     seqConv [nnf,prenex,cnf,skolemize]
        '∀p q. (∃x y. p x y) = (∃z. q z)'
+  show rhs (normalize (rhs (cthm: Term)): Term)
   val ctm = rhs (cthm: Term)
   assert ctm ==
     '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
