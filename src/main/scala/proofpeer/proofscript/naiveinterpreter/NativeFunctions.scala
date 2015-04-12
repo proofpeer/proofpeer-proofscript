@@ -20,8 +20,6 @@ object NativeFunctions {
       wrap("modusponens", modusponens),
       wrap("equivalence", equivalence),
       wrap("abstract", abs),
-      //wrap("term", convert_to_term),
-      //wrap("string", convert_to_string),
       wrap("size", compute_size),
       wrap("fresh", fresh),
       wrap("destcomb", destcomb),
