@@ -9,11 +9,13 @@ object OutputKindSerializer extends TransformSerializer[OutputKind, Int](IntSeri
     kind match {
       case OutputKind.SHOW => 0
       case OutputKind.FAILURE => 1
+      case OutputKind.TIMEIT => 2
     },
   (kind : Int) =>
     kind match {
       case 0 => OutputKind.SHOW
       case 1 => OutputKind.FAILURE
+      case 2 => OutputKind.TIMEIT
     })
 
 object CapturedOutputSerializer {

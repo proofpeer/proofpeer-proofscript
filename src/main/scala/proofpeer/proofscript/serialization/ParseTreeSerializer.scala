@@ -97,80 +97,81 @@ extends Serializer[ParseTree]
       val IF = -10
       val WHILE = 11
       val FOR = -11
-      val MATCHCASE = 12
-      val MATCH = -12
-      val CONTEXTCONTROL = 13
-      val NEG = -13
-      val NOT = 14
-      val RANGETO = -14
-      val RANGEDOWNTO = 15
-      val ADD = -15
-      val SUB = 16
-      val MUL = -16
-      val DIV = 17
-      val MOD = -17
-      val AND = 18
-      val OR = -18
-      val PREPEND = 19
-      val APPEND = -19
-      val CONCAT = 20
-      val MINUS = -20
-      val EQ = 21
-      val NEQ = -21
-      val LE = 22
-      val LEQ = -22
-      val GR = 23
-      val GEQ = -23
-      val PANY = 24
-      val PID = -24
-      val PINT = 25
-      val PBOOL = -25
-      val PSTRING = 26
-      val PLOGICTERM = -26
-      val PLOGICTYPE = 27
-      val PTUPLE = -27
-      val PPREPEND = 28
-      val PAPPEND = -28
-      val PIF = 29
-      val PAS = -29
-      val PNIL = 30
-      val PTYPE = -30
-      val TYANY = 31
-      val TYNIL = -31
-      val TYCONTEXT = 32
-      val TYTHEOREM = -32
-      val TYTERM = 33
-      val TYTYPE = -33
-      val TYBOOLEAN = 34
-      val TYINTEGER = -34
-      val TYFUNCTION = 35
-      val TYSTRING = -35
-      val TYTUPLE = 36
-      val TYMAP = -36
-      val TYSET = 37
-      val TYOPTION = -37
-      val TYUNION = 38
-      val COMMENT = -38
-      val STCOMMENT = 39
-      val STEXPR = -39
-      val STCONTROLFLOW = 40
-      val STSHOW = -40
-      val STFAIL = 41
-      val STASSERT = -41
-      val STFAILURE = 42
-      val STVAL = -42
-      val STVALINTRO = 43
-      val STASSIGN = -43
-      val STDEF = 44
-      val DEFCASE = -44
-      val STRETURN = 45
-      val STASSUME = -45
-      val STLET = 46
-      val STCHOOSE = -46
-      val STTHEOREM = 47
-      val STTHEOREMBY = -47
-      val STTHEORY = 48
-      val BLOCK = -48
+      val TIMEIT = 12
+      val MATCHCASE = -12
+      val MATCH = 13
+      val CONTEXTCONTROL = -13
+      val NEG = 14
+      val NOT = -14
+      val RANGETO = 15
+      val RANGEDOWNTO = -15
+      val ADD = 16
+      val SUB = -16
+      val MUL = 17
+      val DIV = -17
+      val MOD = 18
+      val AND = -18
+      val OR = 19
+      val PREPEND = -19
+      val APPEND = 20
+      val CONCAT = -20
+      val MINUS = 21
+      val EQ = -21
+      val NEQ = 22
+      val LE = -22
+      val LEQ = 23
+      val GR = -23
+      val GEQ = 24
+      val PANY = -24
+      val PID = 25
+      val PINT = -25
+      val PBOOL = 26
+      val PSTRING = -26
+      val PLOGICTERM = 27
+      val PLOGICTYPE = -27
+      val PTUPLE = 28
+      val PPREPEND = -28
+      val PAPPEND = 29
+      val PIF = -29
+      val PAS = 30
+      val PNIL = -30
+      val PTYPE = 31
+      val TYANY = -31
+      val TYNIL = 32
+      val TYCONTEXT = -32
+      val TYTHEOREM = 33
+      val TYTERM = -33
+      val TYTYPE = 34
+      val TYBOOLEAN = -34
+      val TYINTEGER = 35
+      val TYFUNCTION = -35
+      val TYSTRING = 36
+      val TYTUPLE = -36
+      val TYMAP = 37
+      val TYSET = -37
+      val TYOPTION = 38
+      val TYUNION = -38
+      val COMMENT = 39
+      val STCOMMENT = -39
+      val STEXPR = 40
+      val STCONTROLFLOW = -40
+      val STSHOW = 41
+      val STFAIL = -41
+      val STASSERT = 42
+      val STFAILURE = -42
+      val STVAL = 43
+      val STVALINTRO = -43
+      val STASSIGN = 44
+      val STDEF = -44
+      val DEFCASE = 45
+      val STRETURN = -45
+      val STASSUME = 46
+      val STLET = -46
+      val STCHOOSE = 47
+      val STTHEOREM = -47
+      val STTHEOREMBY = 48
+      val STTHEORY = -48
+      val BLOCK = 49
     }
 
     object Serializers {
@@ -196,6 +197,7 @@ extends Serializer[ParseTree]
       val IF = TripleSerializer(ExprSerializer,BlockSerializer,BlockSerializer)
       val WHILE = PairSerializer(ExprSerializer,BlockSerializer)
       val FOR = TripleSerializer(PatternSerializer,ExprSerializer,BlockSerializer)
+      val TIMEIT = BlockSerializer
       val MATCHCASE = PairSerializer(PatternSerializer,BlockSerializer)
       val MATCH = PairSerializer(ExprSerializer,VectorSerializer(MatchCaseSerializer))
       val CONTEXTCONTROL = PairSerializer(OptionSerializer(ExprSerializer),BlockSerializer)
@@ -284,6 +286,8 @@ extends Serializer[ParseTree]
           (Kind.WHILE, Some(Serializers.WHILE.serialize(While.unapply(t).get)))
         case t : For =>
           (Kind.FOR, Some(Serializers.FOR.serialize(For.unapply(t).get)))
+        case Timeit(x) =>
+          (Kind.TIMEIT, Some(Serializers.TIMEIT.serialize(x)))
         case t : MatchCase =>
           (Kind.MATCHCASE, Some(Serializers.MATCHCASE.serialize(MatchCase.unapply(t).get)))
         case t : Match =>
@@ -484,6 +488,8 @@ extends Serializer[ParseTree]
           While.tupled(Serializers.WHILE.deserialize(args.get))
         case Kind.FOR if args.isDefined => 
           For.tupled(Serializers.FOR.deserialize(args.get))
+        case Kind.TIMEIT if args.isDefined => 
+          Timeit(Serializers.TIMEIT.deserialize(args.get))
         case Kind.MATCHCASE if args.isDefined => 
           MatchCase.tupled(Serializers.MATCHCASE.deserialize(args.get))
         case Kind.MATCH if args.isDefined => 
@@ -637,6 +643,7 @@ extends Serializer[ParseTree]
     }
 
   }
+
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -701,6 +708,7 @@ object ParseTreeSerializerGenerator {
     ("If", "ExprSerializer", "BlockSerializer", "BlockSerializer"),
     ("While", "ExprSerializer", "BlockSerializer"),
     ("For", "PatternSerializer", "ExprSerializer", "BlockSerializer"),
+    ("Timeit", "BlockSerializer"),
     ("MatchCase", "PatternSerializer", "BlockSerializer"),
     ("Match", "ExprSerializer", "VectorSerializer(MatchCaseSerializer)"),
     ("ContextControl", "OptionSerializer(ExprSerializer)", "BlockSerializer"),

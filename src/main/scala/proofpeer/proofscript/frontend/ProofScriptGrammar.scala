@@ -99,6 +99,7 @@ def g_literals =
   keyword("In", "in") ++ 
   keyword("Match", "match") ++ 
   keyword("Case", "case") ++ 
+  keyword("Timeit", "timeit") ++ 
   keyword("Return", "return") ++ 
   keyword("Assume", "assume") ++ 
   keyword("Let", "let") ++ 
@@ -384,6 +385,13 @@ val g_for =
   arule("ForExpr", "For Pattern In PExpr Do Block",
       c => For(c.Pattern, c.PExpr, c.Block))
 
+val g_timeit = 
+  arule("STTimeit", "Timeit Block",
+      CS.Indent("Timeit", "Block"),
+      c => Timeit(c.Block)) ++
+  arule("TimeitExpr", "Timeit Block",
+      c => Timeit(c.Block))
+
 val g_match = 
   arule("STMatch", "Match PExpr STMatchCases",
       CS.and(
@@ -420,19 +428,21 @@ val g_context =
   arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr[Any]))
       
 val g_controlflow = 
-  g_do ++ g_if ++ g_while ++ g_for ++ g_match ++ g_context ++
+  g_do ++ g_if ++ g_while ++ g_for ++ g_match ++ g_context ++ g_timeit ++
   arule("STControlFlow", "STDo", _.STDo[Any]) ++  
   arule("STControlFlow", "STIf", _.STIf[Any]) ++
   arule("STControlFlow", "STWhile", _.STWhile[Any]) ++
   arule("STControlFlow", "STFor", _.STFor[Any]) ++
   arule("STControlFlow", "STMatch", _.STMatch[Any]) ++
   arule("STControlFlow", "STContext", _.STContext[Any]) ++
+  arule("STControlFlow", "STTimeit", _.STTimeit[Any]) ++
   arule("ControlFlowExpr", "DoExpr", _.DoExpr[Any]) ++  
   arule("ControlFlowExpr", "IfExpr", _.IfExpr[Any]) ++
   arule("ControlFlowExpr", "WhileExpr", _.WhileExpr[Any]) ++
   arule("ControlFlowExpr", "ForExpr", _.ForExpr[Any]) ++
   arule("ControlFlowExpr", "MatchExpr", _.MatchExpr[Any]) ++
-  arule("ControlFlowExpr", "ContextExpr", _.ContextExpr[Any])
+  arule("ControlFlowExpr", "ContextExpr", _.ContextExpr[Any]) ++
+  arule("ControlFlowExpr", "TimeitExpr", _.TimeitExpr[Any])
 
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++

@@ -307,12 +307,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					evalExpr[T](state.freeze, expr,  {
 						case f : Failed[_] => cont(fail(f)) 
 						case Success(value, _) => 
-							val location : String = 
-								st.sourcePosition.span match {
-									case None => ""
-									case Some(span) => ":" + (span.firstRow + 1)
-								}
-							output.add(namespace, st.sourcePosition.span, OutputKind.SHOW, display(state, value))
+							output.add(namespace, locationOf(st), OutputKind.SHOW, display(state, value))
 							cont(success(state))
 					})
 				case STFail(None) => cont(fail(st, "fail"))
@@ -1228,7 +1223,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case _ => false
 			}	
 		if (wrapMultiple) {
-			evalControlFlowSwitch[T](state.setCollect(Collect.emptyMultiple), controlflow,  {
+			evalControlFlowSwitch[T](state.setCollect(Collect.emptyMultiple), controlflow, {
 				case f : Failed[_] => cont(f)
 				case su @ Success(state, isReturnValue) =>
 					if (isReturnValue) cont(su)
@@ -1247,6 +1242,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case c : While => evalWhile[T](state, c, cont)
 			case c : For => evalFor[T](state, c, cont)
 			case c : Match => evalMatch[T](state, c, cont)
+			case c : Timeit => evalTimeit[T](state, c, cont)
 			case c : ContextControl => evalContextControl[T](state, c,  cont)
 			case _ => cont(fail(controlflow, "controlflow not implemented yet: "+controlflow))
 		}
@@ -1370,6 +1366,49 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Success(v, _) => cont(fail(expr, "context or theorem expected, found: " + display(state, v)))
 				})
 		}
+	}
+
+	def locationOf(t : TracksSourcePosition) : Option[Span] = {
+		if (t == null || t.sourcePosition == null) None
+		else t.sourcePosition.span
+	}
+
+	def evalTimeit[T](state : State, control : Timeit, cont : RC[State, T]) : Thunk[T] = {
+		val startTime = System.currentTimeMillis
+		def reportTime() {
+			val stopTime = System.currentTimeMillis
+			output.addTiming(namespace, locationOf(control), stopTime - startTime)
+		}
+		val timingState = 
+			state.collect match {
+				case Collect.Zero => state.setCollect(Collect.emptyMultiple)
+				case _ : Collect.One => state.setCollect(Collect.emptyMultiple)
+				case _ : Collect.Multiple => state 
+			}
+		evalBlock[T](timingState, control.body, {
+			case f: Failed[_] => 
+				reportTime()
+				cont(f)
+			case su@(Success(updatedState, isReturnValue)) =>
+				reportTime()
+				if (isReturnValue) cont(su) 
+				else {
+					state.collect match {
+						case Collect.Zero => 
+							cont(success(state.setContext(updatedState.context)))
+						case _ : Collect.One => 
+							updatedState.reapCollect match {
+								case TupleValue(value, _) if !value.isEmpty =>
+									val c = Collect.One(Some(value(value.size - 1)))
+									cont(success(state.setContext(updatedState.context).setCollect(c)))
+								case _ => 
+									cont(fail(control, "timeit did not yield a value"))
+							}
+						case _ : Collect.Multiple => 
+							cont(success(state.subsume(updatedState)))
+					}
+				}
+		})
 	}
 
 	type Matchings = Map[String, StateValue]

@@ -190,6 +190,20 @@ assert sqrt 1 == 1
 assert sqrt 4 == 2
 failure sqrt 10
 
+# timeit
+  -------------------------------
+
+val _ = timeit 100
+
+assert (timeit 
+  "A"
+  "B"
+  "C") == "C"
+
+timeit
+  "A"
+  "B"
+  "C"
 
 
 

@@ -163,6 +163,10 @@ object ParseTree {
     protected def calcFreeVars = cases.foldLeft(expr.freeVars)((fvars, mc) => fvars ++ mc.freeVars) 
   }
 
+  case class Timeit(body : Block) extends ControlFlow {
+    protected def calcFreeVars = body.freeVars
+  }
+
   case class ContextControl(ctx : Option[Expr], body : Block) extends ControlFlow {
     protected def calcFreeVars = 
       if (ctx.isDefined) ctx.get.freeVars ++ body.freeVars else body.freeVars

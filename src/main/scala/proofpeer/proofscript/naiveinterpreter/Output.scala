@@ -7,10 +7,14 @@ sealed trait OutputKind
 object OutputKind {
   case object SHOW extends OutputKind
   case object FAILURE extends OutputKind
+  case object TIMEIT extends OutputKind
 }
 
 trait Output {
   def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) 
+  def addTiming(namespace : Namespace, location : Option[Span], duration : Long) {
+    add(namespace, location, OutputKind.TIMEIT, duration + "ms")
+  }
 }
 
 object DefaultOutput extends Output {
@@ -44,6 +48,7 @@ object Output {
       kind match {
         case OutputKind.SHOW => "show"
         case OutputKind.FAILURE => "failure intercepted"
+        case OutputKind.TIMEIT => "timeit"
       }
     "** " + skind + " ("+namespace+slocation+"): " + output
   }
