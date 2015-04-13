@@ -307,7 +307,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					evalExpr[T](state.freeze, expr,  {
 						case f : Failed[_] => cont(fail(f)) 
 						case Success(value, _) => 
-							output.add(namespace, locationOf(st), OutputKind.SHOW, display(state, value))
+							val (ns, span) = locationOf(st)
+							output.add(ns, span, OutputKind.SHOW, display(state, value))
 							cont(success(state))
 					})
 				case STFail(None) => cont(fail(st, "fail"))
@@ -326,12 +327,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case STFailure(block) =>
 					evalBlock[T](state.freeze.setCollect(Collect.emptyMultiple), block,  {
 						case f : Failed[_] => 
-							val location : String = 
-								st.sourcePosition.span match {
-									case None => ""
-									case Some(span) => ":" + (span.firstRow + 1)
-								}						
-							output.add(namespace, st.sourcePosition.span, OutputKind.FAILURE, f.error)
+							val (ns, span) = locationOf(st)
+							output.add(ns, span, OutputKind.FAILURE, f.error)
 							cont(success(state))
 						case Success(newState, _) =>
 							val value = newState.reapCollect 
@@ -1368,16 +1365,19 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def locationOf(t : TracksSourcePosition) : Option[Span] = {
-		if (t == null || t.sourcePosition == null) None
-		else t.sourcePosition.span
+	def locationOf(t : TracksSourcePosition) : (Namespace, Option[Span]) = {
+		if (t == null || t.sourcePosition == null)
+			(namespace, None)
+		else 
+			(t.sourcePosition.source.namespace, t.sourcePosition.span)
 	}
 
 	def evalTimeit[T](state : State, control : Timeit, cont : RC[State, T]) : Thunk[T] = {
 		val startTime = System.currentTimeMillis
 		def reportTime() {
 			val stopTime = System.currentTimeMillis
-			output.addTiming(namespace, locationOf(control), stopTime - startTime)
+			val (ns, span) = locationOf(control)
+			output.addTiming(ns, span, stopTime - startTime)
 		}
 		val timingState = 
 			state.collect match {

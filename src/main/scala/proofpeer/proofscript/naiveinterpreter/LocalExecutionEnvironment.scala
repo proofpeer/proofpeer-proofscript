@@ -88,7 +88,7 @@ object LocalExecutionEnvironment {
 
   case class TheoryFile(namespace : Namespace, source : Source, content : String, contentKey : Bytes)
 
-  private def sourceFromFile(f : File) = new Source(Namespace(""), f.toString)
+  private def sourceFromFile(namespace : Namespace, f : File) = new Source(namespace, f.toString)
 
   def create(compileDir : File, directories : Seq[String], loadedAction : Namespace => Unit) : (ExecutionEnvironment, Set[Namespace]) = {
     var theoryFiles : List[TheoryFile] = List()
@@ -115,7 +115,7 @@ object LocalExecutionEnvironment {
         val code = source.getLines.mkString("\n")
         source.close()
         val key = Bytes.fromString(code).sha256
-        theoryFiles = TheoryFile(ns, sourceFromFile(f), code, key) :: theoryFiles
+        theoryFiles = TheoryFile(ns, sourceFromFile(ns, f), code, key) :: theoryFiles
       }
     }
     theoryFiles
