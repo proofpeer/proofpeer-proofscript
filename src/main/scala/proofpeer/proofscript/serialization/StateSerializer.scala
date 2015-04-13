@@ -228,7 +228,7 @@ extends NestedSerializer[State]
 
   val SourcePositionSerializer : Serializer[SourcePosition] = new BasicSourcePositionSerializer(new CustomizableSourceSerializer(store))
   val ParseTreeSerializer = new CustomizableParseTreeSerializer(SourcePositionSerializer, 
-    kernelSerializers.IndexedNameSerializer, kernelSerializers.NamespaceSerializer, kernelSerializers.NameSerializer)
+    kernelSerializers.IndexedNameSerializer, kernelSerializers.NamespaceSerializer, kernelSerializers.NameSerializer).ParseTreeSerializer
   val StateValueSerializer = new CustomizableStateValueSerializer(store, this, kernelSerializers, ParseTreeSerializer)
   val EnvSerializer = new UniquelyIdentifiableSerializer(store, new BasicEnvSerializer(StateValueSerializer), UISTypeCodes.ENV)
   val CollectSerializer = new CustomizableCollectSerializer(StateValueSerializer)

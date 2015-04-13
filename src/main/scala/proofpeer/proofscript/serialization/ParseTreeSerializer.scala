@@ -37,22 +37,23 @@ final class CustomizableParseTreeSerializer(
   IndexedNameSerializer : Serializer[IndexedName],
   NamespaceSerializer : Serializer[Namespace],
   NameSerializer : Serializer[Name]) 
-extends Serializer[ParseTree] 
+extends Serializer[TracksSourcePosition] 
 {
 
-  private val ParseTreeSerializer = this
+  val ParseTreeSerializer = new TypecastSerializer[ParseTree, TracksSourcePosition](this)
+  private val TracksSourcePositionSerializer = this
 
   val PretermSerializer = new CustomizablePretermSerializer(SourcePositionSerializer, IndexedNameSerializer, 
-    NamespaceSerializer, NameSerializer, this)
+    NamespaceSerializer, NameSerializer, ParseTreeSerializer)
 
   val PretypeSerializer = PretermSerializer.PretypeSerializer
 
   private class PTSerializer[Special <: TracksSourcePosition] extends Serializer[Special] {
 
-    def serialize(special : Special) = ParseTreeSerializerBase.serialize(special)
+    def serialize(special : Special) = TracksSourcePositionSerializer.serialize(special)
 
     def deserialize(serialized : Any) : Special = {
-      ParseTreeSerializerBase.deserialize(serialized).asInstanceOf[Special]
+      TracksSourcePositionSerializer.deserialize(serialized).asInstanceOf[Special]
     }
   
   }
@@ -652,7 +653,7 @@ extends Serializer[ParseTree]
     }
   }
 
-  def serialize(parsetree : ParseTree)  = {
+  def serialize(parsetree : TracksSourcePosition)  = {
     val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
     val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
     args match {
@@ -661,18 +662,18 @@ extends Serializer[ParseTree]
     }
   }
 
-  def deserialize(serialized : Any) : ParseTree = {
+  def deserialize(serialized : Any) : TracksSourcePosition = {
     serialized match {
       case Vector(_kind, serializedSourcePosition) =>
         val kind = decodeInt(_kind)
         val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
-        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None).asInstanceOf[ParseTree]
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None)
         tree.sourcePosition = sourcePosition
         tree
       case Vector(_kind, serializedSourcePosition, args) =>
         val kind = decodeInt(_kind)
         val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
-        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args)).asInstanceOf[ParseTree]
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args))
         tree.sourcePosition = sourcePosition
         tree
       case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
