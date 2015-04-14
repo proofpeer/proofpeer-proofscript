@@ -26,5 +26,7 @@ choose anonymous: 'anonymous: 𝒰'
   let 'y = x'
   reflexive 'y'
 
-# theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) → empty = ∅'
-#   metisAuto [[empty, ext], '∀empty. (∀x. x ∉ empty) → empty = ∅']
+theorem '∃one. ∀x. x ∈ one = (x = ∅)'
+  let one:'one = 𝒫 ∅'
+  assume subset: '∀x y. x ⊂ y = (∀z. z ∈ x → z ∈ y)'
+  metisAuto ('∀x. x ∈ one = (x = ∅)', [empty,one,power,subset,ext])
