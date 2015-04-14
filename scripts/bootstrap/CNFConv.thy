@@ -147,7 +147,6 @@ context
   val cthm =
     seqConv [nnf,prenex,cnf,skolemize]
        '∀p q. (∃x y. p x y) = (∃z. q z)'
-  show rhs (normalize (rhs (cthm: Term)): Term)
   val ctm = rhs (cthm: Term)
   assert ctm ==
     '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
