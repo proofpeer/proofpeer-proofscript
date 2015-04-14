@@ -105,6 +105,16 @@ object Automation {
     }
   }
 
+  import KernelInstances._
+  def TPTPOfClause(cl: MClause, n: Int) =
+    Cord("fof(") ++ n.show ++ Cord(", unknown, ") ++ Debug.TPTPOfClause(cl) ++
+  Cord(").")
+
+  def TPTPOfClauses(cls: List[MClause]) =
+    Cord.mkCord("\n",cls.zipWithIndex.map {
+      case (cl,i) => TPTPOfClause(cl, i)
+    }:_*)
+
   def prove(ctx: Context, tm: Term, thms: Vector[Theorem]): Option[Theorem] = None
 
   def throughMetis(proofscriptClauses: StateValue) : StateValue = {
@@ -123,6 +133,22 @@ object Automation {
             }:_*)
       case Success(cls) =>
         System.out.println("Interpreted clauses")
+
+        import java.io._
+        var (pw: PrintWriter) = null
+        try {
+          val file = File.createTempFile("Problem",".p")
+          pw = new PrintWriter(file)
+          pw.write(TPTPOfClauses(cls).toString)
+          System.out.println("Written: " ++ file.toString)
+        }
+        catch {
+          case exception:IOException =>
+            System.out.println("Couldn't write clause file")
+        }
+        finally {
+          pw.close()
+        }
 
         // Need Order instance for Term
         implicit val termIsOrder = new Order[Term] {
