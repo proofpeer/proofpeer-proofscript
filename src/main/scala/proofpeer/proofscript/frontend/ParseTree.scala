@@ -366,15 +366,25 @@ object ParseTree {
     protected def calcVars = (pat.freeVars ++ body.freeVars, Set())
   }
   
-  case class STDef(cases : Map[String, Vector[DefCase]], memoize : Boolean) extends Statement {
-    protected def calcVars = {
+  case class STDef(cases : Map[String, Vector[DefCase]], memoize : Boolean, contextParam : Option[Expr]) extends Statement {
+    protected def calcDefVars : (Set[String], Set[String]) = {
       var names = Set[String]()
       var frees = Set[String]()
       for ((name, cs) <- cases) {
         names = names + name
         for (c <- cs) frees = frees ++ c.freeVars
       }
-      (frees -- names, names)
+      (frees -- names, names)      
+    }
+    lazy val defVars = calcDefVars
+    protected def calcVars = {
+      val (frees, intros) = defVars
+      val contextParamFrees : Set[String] = 
+        contextParam match {
+          case None => Set()
+          case Some(c) => c.freeVars
+        }
+      (frees ++ contextParamFrees, intros)
     }
   }
     

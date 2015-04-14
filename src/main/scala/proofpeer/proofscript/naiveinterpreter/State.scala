@@ -69,7 +69,7 @@ case class IntValue(value : BigInt) extends StateValue {
 case class SimpleFunctionValue(state : State, f : ParseTree.Fun) extends StateValue {
 	def isComparable = false
 }
-case class RecursiveFunctionValue(var state : State, var cases : Vector[ParseTree.DefCase], var cache : Map[StateValue, StateValue]) extends StateValue {
+case class RecursiveFunctionValue(var state : State, var cases : Vector[ParseTree.DefCase], var cache : Map[StateValue, StateValue], var context : Option[Context]) extends StateValue {
 	def isComparable = false	
 }
 case class NativeFunctionValue(nativeFunction : NativeFunctions.F) extends StateValue {

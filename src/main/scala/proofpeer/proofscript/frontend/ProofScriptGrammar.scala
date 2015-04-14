@@ -534,7 +534,7 @@ val g_assign =
           CS.or(CS.Line("Eq", "Block"), CS.Indent("Pattern", "Block"))),
       c => STAssign(c.Pattern, c.Block))
   
-def mkSTDef(cases : Vector[DefCase], memoize : Boolean) : STDef = {
+def mkSTDef(cases : Vector[DefCase], memoize : Boolean, contextParam : Option[Expr]) : STDef = {
   var result : Map[String, Vector[DefCase]] = Map()
   for (c <- cases) {
     result.get(c.name) match {
@@ -542,34 +542,40 @@ def mkSTDef(cases : Vector[DefCase], memoize : Boolean) : STDef = {
       case Some(cs) => result = result + (c.name -> (cs :+ c))
     }
   }
-  STDef(result, memoize)
+  STDef(result, memoize, contextParam)
 }
 
 val g_def =
-  arule("ST", "Def DefCases",
-      CS.Indent("Def", "DefCases"),
-      c => mkSTDef(c.DefCases, false)) ++
-  arule("ST", "Def IndexedName ArgumentPattern DefType Eq Block", 
+  arule("ST", "Def OptContextParam DefCases",
+      CS.and(
+        CS.Indent("Def", "OptContextParam"),
+        CS.Indent("Def", "DefCases")),
+      c => mkSTDef(c.DefCases, false, c.OptContextParam)) ++
+  arule("ST", "Def OptContextParam IndexedName ArgumentPattern DefType Eq Block", 
       CS.and(
         CS.SameLine("Def", "IndexedName"),
+        CS.Indent("Def", "OptContextParam"),
         CS.Indent("Def", "ArgumentPattern"),
         CS.Indent("Def", "DefType"),
         CS.Indent("Def", "Eq"),
         CS.Indent("Def", "Block"), 
         CS.not(CS.SameLine("Def", "Block"))),
-      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), false)) ++
-  arule("ST", "Table DefCases",
-      CS.Indent("Table", "DefCases"),
-      c => mkSTDef(c.DefCases, true)) ++
-  arule("ST", "Table IndexedName ArgumentPattern DefType Eq Block", 
+      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), false, c.OptContextParam)) ++
+  arule("ST", "Table OptContextParam DefCases",
+      CS.and(
+        CS.Indent("Table", "OptContextParam"),
+        CS.Indent("Table", "DefCases")),
+      c => mkSTDef(c.DefCases, true, c.OptContextParam)) ++
+  arule("ST", "Table OptContextParam IndexedName ArgumentPattern DefType Eq Block", 
       CS.and(
         CS.SameLine("Table", "IndexedName"),
+        CS.Indent("Table", "OptContextParam"),
         CS.Indent("Table", "ArgumentPattern"),
         CS.Indent("Table", "DefType"),
         CS.Indent("Table", "Eq"),
         CS.Indent("Table", "Block"), 
         CS.not(CS.SameLine("Table", "Block"))),
-      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), true)) ++
+      c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), true, c.OptContextParam)) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
   arule("DefCases", "DefCases DefCase", 
       CS.Align("DefCases", "DefCase"),

@@ -227,7 +227,7 @@ extends Serializer[TracksSourcePosition]
       val STVAL = PairSerializer(PatternSerializer,BlockSerializer)
       val STVALINTRO = ListSerializer(IdSerializer)
       val STASSIGN = PairSerializer(PatternSerializer,BlockSerializer)
-      val STDEF = PairSerializer(MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer)),BooleanSerializer)
+      val STDEF = TripleSerializer(MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer)),BooleanSerializer,OptionSerializer(ExprSerializer))
       val DEFCASE = QuadrupleSerializer(StringSerializer,PatternSerializer,OptionSerializer(ValueTypeSerializer),BlockSerializer)
       val STRETURN = OptionSerializer(ExprSerializer)
       val STASSUME = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
@@ -645,42 +645,42 @@ extends Serializer[TracksSourcePosition]
 
   }
 
-  private def decodeInt(b : Any) : Int = {
-    b match {
-      case i : Int => i
-      case l : Long => l.toInt
-      case _ => throw new RuntimeException("ParseTreeSerializer.decodeInt " + b + " failed")
+    private def decodeInt(b : Any) : Int = {
+      b match {
+        case i : Int => i
+        case l : Long => l.toInt
+        case _ => throw new RuntimeException("ParseTreeSerializer.decodeInt " + b + " failed")
+      }
     }
-  }
 
-  def serialize(parsetree : TracksSourcePosition)  = {
-    val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
-    val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
-    args match {
-      case None => Vector(kind, serializedSourcePosition)
-      case Some(args) => Vector(kind, serializedSourcePosition, args)
+    def serialize(parsetree : TracksSourcePosition)  = {
+      val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
+      val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
+      args match {
+        case None => Vector(kind, serializedSourcePosition)
+        case Some(args) => Vector(kind, serializedSourcePosition, args)
+      }
     }
-  }
 
-  def deserialize(serialized : Any) : TracksSourcePosition = {
-    serialized match {
-      case Vector(_kind, serializedSourcePosition) =>
-        val kind = decodeInt(_kind)
-        val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
-        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None)
-        tree.sourcePosition = sourcePosition
-        tree
-      case Vector(_kind, serializedSourcePosition, args) =>
-        val kind = decodeInt(_kind)
-        val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
-        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args))
-        tree.sourcePosition = sourcePosition
-        tree
-      case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
+    def deserialize(serialized : Any) : TracksSourcePosition = {
+      serialized match {
+        case Vector(_kind, serializedSourcePosition) =>
+          val kind = decodeInt(_kind)
+          val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
+          val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None)
+          tree.sourcePosition = sourcePosition
+          tree
+        case Vector(_kind, serializedSourcePosition, args) =>
+          val kind = decodeInt(_kind)
+          val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
+          val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args))
+          tree.sourcePosition = sourcePosition
+          tree
+        case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
+      }
     }
-  }
 
-}
+  }
 
 /** This is code used to create most of the above code. It is not needed during runtime, just during programming. */
 object ParseTreeSerializerGenerator {
@@ -774,7 +774,7 @@ object ParseTreeSerializerGenerator {
     ("STVal", "PatternSerializer", "BlockSerializer"),
     ("STValIntro", "ListSerializer(IdSerializer)"),
     ("STAssign", "PatternSerializer", "BlockSerializer"),
-    ("STDef", "MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))", "BooleanSerializer"),
+    ("STDef", "MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))", "BooleanSerializer", "OptionSerializer(ExprSerializer)"),
     ("DefCase", "StringSerializer", "PatternSerializer", "OptionSerializer(ValueTypeSerializer)", "BlockSerializer"),
     ("STReturn", "OptionSerializer(ExprSerializer)"),
     ("STAssume", "OptionSerializer(StringSerializer)", "ExprSerializer"),

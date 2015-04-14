@@ -95,7 +95,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       val BOOLVALUE = BooleanSerializer
       val INTVALUE = BigIntSerializer
       val SIMPLEFUNCTIONVALUE = PairSerializer(StateSerializer,PTFunSerializer)
-      val RECURSIVEFUNCTIONVALUE = TripleSerializer(StateSerializer,VectorSerializer(PTDefCaseSerializer),NullableSerializer(MapSerializer(StateValueSerializer, StateValueSerializer)))
+      val RECURSIVEFUNCTIONVALUE = QuadrupleSerializer(StateSerializer,VectorSerializer(PTDefCaseSerializer),NullableSerializer(MapSerializer(StateValueSerializer, StateValueSerializer)),OptionSerializer(ContextSerializer))
       val NATIVEFUNCTIONVALUE = NativeFunctionSerializer
       val STRINGVALUE = VectorSerializer(IntSerializer)
       val TUPLEVALUE = PairSerializer(VectorSerializer(StateValueSerializer),BooleanSerializer)
@@ -172,10 +172,11 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
     }
 
   }
+
   def create(b : Any) : StateValue = {
     StateValueSerializerBase.determineKind(b) match {
       case StateValueSerializerBase.Kind.RECURSIVEFUNCTIONVALUE =>
-        RecursiveFunctionValue(null, null, null)
+        RecursiveFunctionValue(null, null, null, null)
       case _ => null
     }
   }
@@ -187,6 +188,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
         w.state = v.state
         w.cases = v.cases
         w.cache = v.cache
+        w.context = v.context
         dest
       case _ =>
         src
@@ -251,7 +253,7 @@ object StateSerializerGenerator {
     ("BoolValue", "BooleanSerializer"),
     ("IntValue", "BigIntSerializer"),
     ("SimpleFunctionValue", "StateSerializer", "PTFunSerializer"),
-    ("RecursiveFunctionValue", "StateSerializer", "VectorSerializer(PTDefCaseSerializer)", "NullableSerializer(MapSerializer(StateValueSerializer, StateValueSerializer))"),
+    ("RecursiveFunctionValue", "StateSerializer", "VectorSerializer(PTDefCaseSerializer)", "NullableSerializer(MapSerializer(StateValueSerializer, StateValueSerializer))", "OptionSerializer(ContextSerializer)"),
     ("NativeFunctionValue", "NativeFunctionSerializer"),
     ("StringValue", "VectorSerializer(IntSerializer)"),
     ("TupleValue", "VectorSerializer(StateValueSerializer)", "BooleanSerializer"),

@@ -346,24 +346,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							if (isReturnValue) cont(su)
 							else cont(success(if (changedCollect) value.setCollect(state.collect) else value))
 					})
+				case stdef : STDef if !stdef.contextParam.isDefined =>
+					evalSTDef[T](state, stdef, None, cont)
 				case stdef : STDef =>
-					lookupVars(state, stdef.freeVars) match {
-						case Right(xs) =>
-							var error = "definition depends on unknown free variables:"
-							for (x <- xs) error = error + " " + x
-							cont(fail(stdef, error))
-						case Left(bindings) =>
-							var functions : Map[String, RecursiveFunctionValue] = Map()
-							var nonlinear = bindings
-							for ((name, cs) <- stdef.cases) {
-								val f = RecursiveFunctionValue(null, cs, if (stdef.memoize) Map() else null)
-								nonlinear = nonlinear + (name -> f)
-								functions = functions + (name -> f)
-							}
-							var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
-							for ((_, f) <- functions) f.state = defstate
-							cont(success(state.bind(functions)))
-					}
+					val expr = stdef.contextParam.get
+					evalExpr[T](state.freeze, expr, {
+						case f: Failed[_] => cont(fail(f))
+						case Success(ContextValue(context), _) => evalSTDef[T](state, stdef, Some(context), cont)
+						case Success(TheoremValue(thm), _) => evalSTDef[T](state, stdef, Some(thm.context), cont)
+						case Success(v, _) => cont(fail(expr, "context or theorem expected, found: " + display(state, v)))
+					})
 				case st if isLogicStatement(st) => 
 					evalLogicStatement[T](state, st,  {
 						case f : Failed[_] => cont(fail(f))
@@ -386,6 +378,26 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	  } finally {
 	  	decEvalDepth()
 	  }
+	}
+
+	def evalSTDef[T](state : State, stdef : STDef, inContext : Option[Context], cont : RC[State, T]) : Thunk[T] = {
+		lookupVars(state, stdef.defVars._1) match {
+			case Right(xs) =>
+				var error = "definition depends on unknown free variables:"
+				for (x <- xs) error = error + " " + x
+				cont(fail(stdef, error))
+			case Left(bindings) =>
+				var functions : Map[String, RecursiveFunctionValue] = Map()
+				var nonlinear = bindings
+				for ((name, cs) <- stdef.cases) {
+					val f = RecursiveFunctionValue(null, cs, if (stdef.memoize) Map() else null, inContext)
+					nonlinear = nonlinear + (name -> f)
+					functions = functions + (name -> f)
+				}
+				var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+				for ((_, f) <- functions) f.state = defstate
+				cont(success(state.bind(functions)))
+		}
 	}
 
 	def evalBlocki[T](state : State, block : Block, i : Int, cont : RC[State, T]) : Thunk[T] = {
@@ -843,12 +855,17 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case f : SimpleFunctionValue =>
 				evalSimpleApply[T](f.state.setContext(state.context), f.f.param, f.f.body, x, cont)
 			case f : RecursiveFunctionValue =>
+				val context = 
+					f.context match {
+						case None => state.context
+						case Some(context) => context
+					}
 				if (f.cache != null) {
 					if (x.isComparable) {
 						f.cache.get(x) match {
 							case Some(y) => cont(success(y))
 							case None => 
-								evalApply[T](f.state.setContext(state.context), f.cases, x, {
+								evalApply[T](f.state.setContext(context), f.cases, x, {
 									case failed : Failed[_] => cont(failed)
 									case s @ Success(y, _) => 
 										f.cache = f.cache + (x -> y)
@@ -857,7 +874,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 					} else cont(fail(locx, "value cannot be a table header: " + display(state, x)))
 				} else
-					evalApply[T](f.state.setContext(state.context), f.cases, x,  cont)
+					evalApply[T](f.state.setContext(context), f.cases, x,  cont)
 			case f : NativeFunctionValue =>
 				f.nativeFunction(this, state, x) match {
 					case Left(value) => cont(success(value))
