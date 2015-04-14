@@ -306,7 +306,6 @@ def interpretCert [axioms,cert] =
       val cl = ic cert
       val freeAt = inClauseFreeAt cl
       val [ctx,varOfMetis] = freshVars freeAt
-      val metisOfVar = {->}
       val newFreeAt
       val newThm
       context <ctx>
@@ -419,7 +418,5 @@ def metisAuto [conjecture:Term,asms:Tuple] =
                        combine (reflexive 'not', sym equiv1))
   modusponens (conjAsms, unmetis contr)
 
-theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) = (empty = ∅)'
-  metisAuto ['∀empty. (∀x. x ∉ empty) = (empty = ∅)',[empty, ext]]
-
-show uniqueEmpty
+# theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) = (empty = ∅)'
+#   metisAuto ['∀empty. (∀x. x ∉ empty) = (empty = ∅)',[empty, ext]]
