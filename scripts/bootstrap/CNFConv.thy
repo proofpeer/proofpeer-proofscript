@@ -62,7 +62,7 @@ def prenex tm =
     seqConv [rqComm, tryConv (binderConv (bindersConv repeatRq))] tm
 
   def prenex1 tm =
-    tryConv (seqConv [propBinaryConv prenex, tryConv (debugConv ("rq",repeatRq))]) tm
+    tryConv (seqConv [propBinaryConv prenex, tryConv repeatRq]) tm
 
   sumConv [bindersConv prenex1, prenex1] tm
 
