@@ -24,8 +24,7 @@ def
   nnf '¬‹_›'      as tm =
     tryConv
       (seqConv
-        [randConv nnf,
-         sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
+        [sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
                                  [existsDeMorganConv,allDeMorganConv]),
          nnf]) tm
   nnf '‹_› → ‹_›' as tm = seqConv [rewrConv impliesCNF, nnf] tm
@@ -41,46 +40,53 @@ def prenex tm =
     rq '(∀x. ‹P› x) ∨ (∀x. ‹Q› x)' = instantiate (disjAll,P,Q)
     rq '(∃x. ‹P› x) ∧ (∀x. ‹Q› x)' = instantiate (conjExistsAll,P,Q)
     rq '(∃x. ‹P› x) ∨ (∀x. ‹Q› x)' = instantiate (disjExistsAll,P,Q)
-    rq '(∃x. ‹P› x) ∧ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
-                                              binderConv trivAllConv] tm
-    rq '(∃x. ‹P› x) ∨ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
-                                              binderConv trivAllConv] tm
-    rq '(∀x. ‹P› x) ∧ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq] tm
-    rq '(∀x. ‹P› x) ∨ ‹q›' as tm   = seqConv [randConv trivUnAllConv, rq,
-                                              binderConv trivAllConv] tm
+    rq '(∃x. ‹P› x) ∧ ‹q›'         =
+      convRule (binaryConv (randConv trivAllConv, binderConv trivAllConv),
+                instantiate (conjExistsAll,P,'x ↦ ‹q›'))
+    rq '(∃x. ‹P› x) ∨ ‹q›'         =
+      convRule (binaryConv (randConv trivAllConv, binderConv trivAllConv),
+                instantiate (disjExistsAll,P,'x ↦ ‹q›'))
+    rq '(∀x. ‹P› x) ∧ ‹q›'         =
+      convRule (landConv (randConv trivAllConv),
+                instantiate (conjAll, P, 'x ↦ ‹q›'))
+    rq '(∀x. ‹P› x) ∨ ‹q›'         =
+      convRule (binaryConv (randConv trivAllConv, binderConv trivAllConv),
+                instantiate (disjAll, P, 'x ↦ ‹q›'))
     rq tm                          = zeroConv tm
+
   val rqComm = sumConv [rq,
                         seqConv [rewrConv1 andComm, rq],
                         seqConv [rewrConv1 orComm,  rq]]
-  def seqConvl c =
-    tm => seqConv [c, binderConv (sumConv [binderConv (seqConvl c),
-                                           seqConvl c,
-                                           idConv])] tm
-  tryConv (bindersConv (seqConv [propBinaryConv prenex,
-                                 tryConv (seqConvl rqComm)])) tm
+
+  def repeatRq tm =
+    seqConv [rqComm, tryConv (binderConv (bindersConv repeatRq))] tm
+
+  def prenex1 tm =
+    tryConv (seqConv [propBinaryConv prenex, tryConv (debugConv ("rq",repeatRq))]) tm
+
+  sumConv [bindersConv prenex1, prenex1] tm
 
 theorem andAssoc: '∀p q r. (p ∧ (q ∧ r)) = (p ∧ r ∧ q)'
-  taut '∀p q r. (p ∧ (q ∧ r)) = (p ∧ r ∧ q)'
+  by taut
 
 theorem orAssoc: '∀p q r. (p ∨ (q ∨ r)) = (p ∨ r ∨ q)'
-  taut '∀p q r. (p ∨ (q ∨ r)) = (p ∨ r ∨ q)'
+  by taut
 
 # Conversion from an nnf matrix to cnf.
-# TODO: Need to eliminate ⊤ and ⊥ *after* descending into left and right
 val cnf =
   val andConv =
     seqConv
       [sumConv ((for thm in [andLeftId, andRightId, andLeftZero, andRightZero] do
                    rewrConv1 thm) +> idConv),
-       tryConv (rewrConv andAssoc)]
+       tryConv (debugConv ("rewriting and-assoc",rewrConv andAssoc))]
   val orConv =
     seqConv
       [sumConv ((for thm in [orLeftId, orRightId, orLeftZero, orRightZero] do
                    rewrConv1 thm) +> idConv),
-       tryConv (rewrConv orAssoc)]
+       tryConv rewrConv orAssoc]
   def
     cnfConv '‹_› ∧ ‹_›' as tm =
-      seqConv [binaryConv (cnfConv,cnfConv), tryConv andConv] tm
+      seqConv [binaryConv (cnfConv,cnfConv), andConv] tm
     cnfConv '‹_› ∨ ‹_›' as tm =
       seqConv [binaryConv (cnfConv,cnfConv), disjConv, tryConv orConv] tm
     cnfConv tm = idConv tm
@@ -102,17 +108,18 @@ val flipConjAll = gsym conjAll
 # become redundant.
 def distribQuants tm =
   def
-    db1 '(∀x. ‹P› x ∧ ‹Q› x)' = instantiate (flipConjAll, P, Q)
-    db1 p                     = idConv p
+    repeat tm = seqConv [binaryConv [tryConv trivAllConv, tryConv trivAllConv],
+                         landConv db1] tm
 
-  val simpdb1 =
-    seqConv [db1, binaryConv [tryConv trivAllConv,tryConv trivAllConv]]
+    db1 '(∀x. ‹P› x ∧ ‹Q› x)' as tm =
+      val flippedConjAll = instantiate (flipConjAll, P, Q)
+      flippedConjAll = modusponens (flippedConjAll, normalize (flippedConjAll:Term))
+      convRule (randConv repeat, flippedConjAll)
+    db1 p = idConv p
 
-  def db tm = seqConv [simpdb1, tryConv (landConv db)] tm
+  def db tm = tryConv (seqConv [binderConv db, db1]) tm
 
-  def repeat tm = sumConv [seqConv [binderConv repeat, db], db] tm
-
-  repeat tm
+  db tm
 
 table skolemThm [a,b] =
   theorem '∀p. (∀x. ∃y. p x y) = (∃f: ‹a› → ‹b›. ∀x. p x (f x))'

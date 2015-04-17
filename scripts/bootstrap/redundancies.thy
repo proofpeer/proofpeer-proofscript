@@ -26,7 +26,16 @@ choose anonymous: 'anonymous: 𝒰'
   let 'y = x'
   reflexive 'y'
 
-theorem '∃one. ∀x. x ∈ one = (x = ∅)'
+choose oneDef: 'one:𝒰'
   let one:'one = 𝒫 ∅'
-  assume subset: '∀x y. x ⊂ y = (∀z. z ∈ x → z ∈ y)'
   metisAuto ('∀x. x ∈ one = (x = ∅)', [empty,one,power,subset,ext])
+
+# context
+#   let 'one:𝒰'
+#   let 'x:𝒰'
+#   let 'x_6:𝒰'
+#   let 'x_7:𝒰'
+#   let 'x_8:𝒰'
+#   let 'x_9:𝒰'
+#   let 'y_3:𝒰'
+    

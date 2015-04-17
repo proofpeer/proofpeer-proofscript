@@ -37,7 +37,8 @@ val eqTrueIntro =
       do
         assume '⊤'
         lift p))
-  thm => modusponens (thm,instantiate (eqTrue, thm: Term)): Theorem
+  thm =>
+    modusponens (thm,instantiate (eqTrue, thm: Term)): Theorem
 
 # '‹P› = ⊤' ↦ '‹P›'
 # Returns nil if theorem is not of the correct form.

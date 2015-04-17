@@ -1,6 +1,26 @@
 theory Conversions
 extends List Syntax Equal
 
+def debugConv [name,c] =
+  tm =>
+    show "Enter"
+    show name
+    show tm
+    val cthm =
+      timeit
+        val cthm = c tm
+        cthm
+    show name
+    if cthm == nil then
+      show "Failed"
+    else
+      match desteq (cthm:Term)
+        case [_,y] =>
+          show "Succeeded"
+          show y
+        case nil   => show "Failed"
+    cthm
+
 # Identity for seqConv
 val idConv = tm => reflexive tm
 
@@ -8,18 +28,31 @@ val idConv = tm => reflexive tm
 val zeroConv = tm => nil
 
 # Applies a list of conversions in sequence.
-def seqConv convs =
-  val thenConv = [conv1,conv2] => tm =>
-    val xy = conv1 tm
-    if xy == nil then nil
-    else
-      match desteq (xy: Term)
-        case [_,y] =>
-          match conv2 y
-            case yz: Theorem => trans (xy,yz)
-            case _           => nil
-        case _ => nil
-  foldl (thenConv,convs,idConv)
+def
+  seqConv (conv <+ convs) =
+    val thenConv = [conv1,conv2] => tm =>
+      val xy = conv1 tm
+      if xy == nil then nil
+      else
+        match desteq (xy: Term)
+          case [x,y] =>
+            match conv2 y
+              case yz: Theorem =>
+                val [_,z] = desteq (yz: Term)
+                val t = transitive (xy,yz)
+                show t
+                val foo =
+                  timeit
+                    val foo =
+                      theorem '‹x› = ‹z›'
+                        t
+                    foo
+                foo
+              case nil         => nil
+          case _ => nil
+    foldl (thenConv,convs,conv)
+  seqConv [conv] = conv
+  seqConv []     = idConv
 
 def
   sumConv [] = zeroConv
@@ -80,10 +113,13 @@ def absConv conv =
           cthm =
             match conv bod
               case nil  => nil
-              case cthm => lift cthm
+              case cthm =>
+                lift cthm
         match cthm
           case nil  => nil
-          case cthm => assertNotNil (abstract (lift (cthm,true)))
+          case cthm =>
+            val res = assertNotNil (abstract (lift (cthm,true)))
+            res
       case _ => nil
 
 # Converts a term appearing as the left hand side of the given equation to the
@@ -97,10 +133,11 @@ def
 
 def rewrConv1 thm =
   tm =>
-    matchAntThen (thm,rhs (normalize tm),thm =>
-            match thm
-              case '‹_› = ‹_›' => thm
-              case _           => nil)
+    val rule = modusponens (thm, normalize (thm:Term))
+    matchAntThen (rule,rhs (normalize tm:Term),thm =>
+      match thm
+        case '‹_› = ‹_›' => thm
+        case _           => nil)
 
 # (Very) rudimentary rewriter.
 def
@@ -109,30 +146,24 @@ def
       repeatConv1 (sumConv (map (rewrConv1,thms))) tm
   rewrConv thm = rewrConv [thm]
 
-# Applies a list of conversions in sequence, provided the term is changed.
-val seqWhenChangedConv =
-  def thenConv [conv1,conv2] =
-    tm =>
-      match conv1 tm
-        case '‹x› = ‹y›' as xy if x <> y =>
-          match conv2 y
-            case '‹_› = ‹_›' as yz => trans (xy,yz)
-            case _                 => nil
-        case xy => xy
-  convs => foldr (thenConv,convs,idConv)
-
-# Only succeeds if the conversion changes the theorem
-def changedConv conv = seqWhenChangedConv [conv]
+def changedConv conv =
+  tm =>
+    val xy = conv tm
+    if xy == nil then nil
+    else
+      match desteq (xy:Term)
+        case [x,y] if x <> y => xy
+        case _               => nil
 
 # Applies a conversion top-down through a term, immediately retraversing a changed
 # term.
 def treeConv conv =
   tm =>
-    tryConv (seqWhenChangedConv
-               (sumConv (conv,
-                         combConv (treeConv conv,treeConv conv),
-                         absConv (treeConv conv)),
-                treeConv conv)) tm
+    tryConv (seqConv
+               [sumConv [changedConv conv,
+                         changedConv (combConv (treeConv conv,treeConv conv)),
+                         changedConv (absConv (treeConv conv))],
+                treeConv conv]) tm
 
 # Applies a conversion top-down through a term, without traversing a changed term.
 def onceTreeConv conv =
@@ -166,16 +197,3 @@ def
       sym asm
     equivalence (left,right)
   symConv _ = nil
-
-def debugConv [name,c] =
-  tm =>
-    show "Enter"
-    show name
-    show tm
-    val cthm = c tm
-    show "Exit"
-    show name
-    match cthm
-      case '‹_› = ‹y›': Theorem => show y
-      case _                    => show "failed"
-    cthm

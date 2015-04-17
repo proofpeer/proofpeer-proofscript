@@ -157,7 +157,11 @@ def atomicInClause cl =
 def metisResolution [atm,pos,neg] =
   val pos1 = convRule (pullOut atm, pos)
   val neg1 = convRule (pullOut '¬‹atm›', neg)
-  val res  = matchmp (resolveLeft, pos1, neg1)
+  val res  =
+    val res = matchmp (resolveLeft, pos1, neg1)
+    if res <> nil then
+      convRule (tryConv (rewrConv orAssoc), res)
+    else nil
   if res == nil then
     res = matchmp (resolveTriv1, pos1, neg1)
   if res == nil then
@@ -365,24 +369,11 @@ def letExistentials tm =
     context
   letExists (ctx,tm)
 
-def debugConv [name,c] =
-  tm =>
-    show "Enter"
-    show name
-    show tm
-    val cthm = c tm
-    show "Exit"
-    show name
-    match cthm
-      case '‹_› = ‹y›': Theorem => show y
-      case _                    => show "failed"
-    cthm
-
 val unmetis =
   theorem unmetis1: '∀p q. ¬(p ∧ ¬q) → p → q'
-    taut '∀p q. ¬(p ∧ ¬q) → p → q'
+    by taut
   theorem unmetis2: '∀p. ¬(⊤ ∧ ¬p) → ⊤ → p'
-    taut '∀p. ¬(⊤ ∧ ¬p) → ⊤ → p'
+    by taut
   thm =>
     val unmetised = matchmp (unmetis1, thm)
     if unmetised == nil then
@@ -393,30 +384,40 @@ def metisAuto [conjecture:Term,asms:Tuple] =
   val conjAsms       = andIntro asms
   val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
   val conv           = seqConv [nnf,prenex,bindersConv cnf,tryConv skolemize]
-  val equiv1         = conv conjProblem
-  val skolemNGoal    = rhs (equiv1: Term)
-  val [ctx,xs,ngoal] = letExistentials skolemNGoal
-  val contr
-  context <ctx>
-    val equiv2 = distribQuants ngoal
-    val dngoal = rhs (equiv2: Term)
-    theorem refute: '‹dngoal› → ⊥'
-      assume asm: dngoal
-      clauseThm (metis asm)
-    val nequiv2 = combine (reflexive 'not', sym equiv2)
-    contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
-  def existsDeMorganSym ty = gsym (existsDeMorgan ty)
-  def
-    existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
-      instantiate (existsDeMorganSym ty, P)
-    existsDeMorganSymConv _ = nil
-  def
-    upBinderConv tm =
-      sumConv [existsDeMorganSymConv,
-               seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
-  contr = modusponens (convRule (upBinderConv, contr),
-                       combine (reflexive 'not', sym equiv1))
-  modusponens (conjAsms, unmetis contr)
-
-# theorem uniqueEmpty: '∀empty. (∀x. x ∉ empty) = (empty = ∅)'
-#   metisAuto ['∀empty. (∀x. x ∉ empty) = (empty = ∅)',[empty, ext]]
+  val equiva =
+    timeit
+      nnf conjProblem
+  val equivb =
+    timeit
+      convRule (randConv prenex, equiva)
+  # val equivc =
+  #   timeit
+  #     convRule (randConv (bindersConv cnf), equivb)
+  nil
+  # val equivd =
+  #   timeit
+  #     convRule (randConv (tryConv skolemize), equivc)
+  # val equiv1         = conv conjProblem
+  # val skolemNGoal    = rhs (equiv1: Term)
+  # val [ctx,xs,ngoal] = letExistentials skolemNGoal
+  # val contr
+  # context <ctx>
+  #   val equiv2 = distribQuants ngoal
+  #   val dngoal = rhs (equiv2: Term)
+  #   theorem refute: '‹dngoal› → ⊥'
+  #     assume asm: dngoal
+  #     clauseThm (metis asm)
+  #   val nequiv2 = combine (reflexive 'not', sym equiv2)
+  #   contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
+  # def existsDeMorganSym ty = gsym (existsDeMorgan ty)
+  # def
+  #   existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
+  #     instantiate (existsDeMorganSym ty, P)
+  #   existsDeMorganSymConv _ = nil
+  # def
+  #   upBinderConv tm =
+  #     sumConv [existsDeMorganSymConv,
+  #              seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
+  # contr = modusponens (convRule (upBinderConv, contr),
+  #                      combine (reflexive 'not', sym equiv1))
+  # modusponens (conjAsms, unmetis contr)

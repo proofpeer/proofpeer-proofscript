@@ -2,16 +2,16 @@ theory CNFTheorems
 extends Classical
 
 theorem orLeftId: '∀p. (⊥ ∨ p) = p'
-  taut '∀p. (⊥ ∨ p) = p'
+  by taut
 
 theorem orLeftZero: '∀p. (⊤ ∨ p) = ⊤'
-  taut '∀p. (⊤ ∨ p) = ⊤'
+  by taut
 
 theorem andLeftId: '∀p. (⊤ ∧ p) = p'
-  taut '∀p. (⊤ ∧ p) = p'
+  by taut
 
 theorem andLeftZero: '∀p. (⊥ ∧ p) = ⊥'
-  taut '∀p. (⊥ ∧ p) = ⊥'
+  by taut
 
 theorem negInvolve: '∀p. (¬(¬p)) = p'
   by taut
@@ -40,7 +40,9 @@ theorem orDistribLeft: '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
 theorem contra: '∀p q. ¬p → p → q'
   by taut
 
-def existsDeMorgan ty =
+val here = context
+
+table<here> existsDeMorgan ty =
   theorem '∀P. (¬(∃x:‹ty›. P x)) = (∀x. ¬(P x))'
     val x = fresh "x"
     val P = fresh "P"
@@ -65,7 +67,7 @@ def existsDeMorgan ty =
       matchmp (impliesNot, notExP)
     equivalence (left,right)
 
-def allDeMorgan ty =
+table<here> allDeMorgan ty =
   theorem '∀P. (¬(∀x:‹ty›. P x)) = (∃x. ¬(P x))'
     val P = fresh "P"
     let '‹P› : ‹ty› → ℙ'

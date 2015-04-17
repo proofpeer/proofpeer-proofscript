@@ -30,8 +30,12 @@ def iscomb tm = destcomb tm <> nil
 def isabs tm  = destabs tm <> nil
 
 def
-  desteq '‹_› = ‹_›' as tm = [rand (rator (tm:Term)), rand (tm:Term)]
-  desteq tm                = assertTerm tm
+  desteq tm =
+    val rat = rator tm
+    val op  = rator rat
+    match op
+      case 'equals' => [rand rat, rand tm]
+      case _        => nil
 
 def lhs tm =
   match desteq tm
@@ -136,7 +140,8 @@ def matchAntThen [imp,ant,f] =
 def matchmp (imp <+ ants) =
   for ant in ants do
     imp =
-      matchAntThen (imp,rhs (normalize (ant: Term)),thm => modusponens (ant,thm))
+      matchAntThen (imp,rhs (normalize (ant: Term): Term),
+                    thm => modusponens (ant,thm))
     if imp == nil then
       return nil
   imp

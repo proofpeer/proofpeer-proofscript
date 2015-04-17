@@ -16,13 +16,13 @@ def tryRand tm =
 
 val congruence =
   theorem deleteLeft: '∀p q p2. q = ⊥ → p = p2 → (p ∨ q) = p2'
-    taut '∀p q p2. q = ⊥ → p = p2 → (p ∨ q) = p2'
+    by taut
   theorem deleteRight: '∀p. (⊥ ∨ p) = p'
-    taut '∀p. (⊥ ∨ p) = p'
+    by taut
   theorem unsimp1: '∀p q. (¬q → p = ⊥) → (p ∨ q) = q'
-    taut '∀p q. (¬q → p = ⊥) → (p ∨ q) = q'
+    by taut
   theorem unsimp2: '∀p q p2. (¬q → p = p2) → (p ∨ q) = (p2 ∨ q)'
-    taut '∀p q p2. (¬q → p = p2) → (p ∨ q) = (p2 ∨ q)'
+    by taut
   def
     congruence [mkRefutes,refute] = tm =>
       match tm
@@ -75,7 +75,7 @@ val nubClauseConv =
   congruence (eqFalseIntro,{->})
 
 theorem swapRight: '∀p q r. ((p ∨ q) ∨ r) = ((p ∨ r) ∨ q)'
-  taut '∀p q r. ((p ∨ q) ∨ r) = ((p ∨ r) ∨ q)'
+  by taut
 
 def pullOut p =
   def
@@ -90,13 +90,13 @@ def pullOut p =
   conv
 
 theorem resolveLeft: '∀p q r. (p ∨ r) → (q ∨ ¬r) → (p ∨ q)'
-  taut '∀p q r. (p ∨ r) → (q ∨ ¬r) → (p ∨ q)'
+  by taut
 
 theorem resolveTriv1: '∀q r. r → (q ∨ ¬r) → q'
-  taut '∀q r. r → (q ∨ ¬r) → q'
+  by taut
 
 theorem resolveTriv2: '∀p r. (p ∨ r) → ¬r → p'
-  taut '∀p r. (p ∨ r) → ¬r → p'
+  by taut
 
 theorem finalResolve: '∀p. p → ¬p → ⊥'
-  taut '∀p. p → ¬p → ⊥'
+  by taut
