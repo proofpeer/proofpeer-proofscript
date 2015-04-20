@@ -38,6 +38,7 @@ object KernelInstances {
       t match {
         case Term.PolyConst(name,_) => name.shows
         case Term.Const(name)       => name.shows
+        case _ => throw new RuntimeException("TermIsShow is not implemented yet for term: " + t)
       }
   }
 }
