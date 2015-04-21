@@ -87,16 +87,13 @@ def initClause tm =
 #   '∀z x y. ‹p›'
 def freshVars fvs =
   def
-    freshs [[],freeAt,ctx] =
-      [ctx,freeAt]
-    freshs [fv <+ fvs,freeAt,ctx] =
-      ctx =
-        context <ctx>
-          let x:'‹fresh "x"›'
-          freeAt = freeAt ++ { fv -> x }
-      freshs (fvs,freeAt,ctx)
-  val ctx = context
-  freshs (fvs,{->},ctx)
+    freshs [[],freeAt] =
+      return [context,freeAt]
+    freshs [fv <+ fvs,freeAt] =
+      context
+        let x:'‹fresh "x"›'
+        return (freshs (fvs,freeAt ++ { fv -> x }))
+  freshs (fvs,{->})
 
 def metisInstantiate [cl,sub:Map] =
   val freeAt = inClauseFreeAt cl
@@ -178,31 +175,24 @@ def metisResolve [atm,cl1,cl2] =
   val freeAtRes
   context <ctx>
     def
-      stripforall2 [[],thm2,ctx,freeAtRes,varOfMetis] =
-        [thm2,ctx,freeAtRes,varOfMetis]
-      stripforall2 [v2 <+ vs,thm2,ctx,freeAtRes,varOfMetis] =
+      stripforall2 [[],thm2,freeAtRes,varOfMetis] =
+        return [thm2,context,freeAtRes,varOfMetis]
+      stripforall2 [v2 <+ vs,thm2,freeAtRes,varOfMetis] =
         val v1 = varOfMetis1 v2
         if v1 == nil then
           val newThm2
-          val fx
-          val newCtx =
-            context <ctx>
-              let x:'‹fresh "x"›'
-              fx = x
-          context <newCtx>
-            newThm2 =
-              stripforall2 (vs,
-                            instantiate (thm2,fx),
-                            newCtx,
-                            freeAtRes +> v2,
-                            varOfMetis ++ {v2 -> fx})
-          newThm2
+          context <ctx>
+            let x:'‹fresh "x"›'
+            return (stripforall2 (vs,
+                                  instantiate (thm2,x),
+                                  freeAtRes +> v2,
+                                  varOfMetis ++ {v2 -> x}))
         else
-          stripforall2 (vs,instantiate [thm2,v1],ctx,freeAtRes,varOfMetis)
+          stripforall2 (vs,instantiate [thm2,v1],freeAtRes,varOfMetis)
     val body1       =
       instantiate (clauseThm cl1 <+ (for x in freeAt1 do varOfMetis1 x))
     val [body2,ctx,newFreeAtRes,varOfMetis] =
-      stripforall2 (freeAt2,clauseThm cl2,ctx,freeAt1,varOfMetis1)
+      stripforall2 (freeAt2,clauseThm cl2,freeAt1,varOfMetis1)
     freeAtRes = newFreeAtRes
     context <ctx>
       resBody = metisResolution
