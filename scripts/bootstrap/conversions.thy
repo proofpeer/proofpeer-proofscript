@@ -14,8 +14,8 @@ def debugConv [name,c] =
     if cthm == nil then
       show "Failed"
     else
-      match desteq (cthm:Term)
-        case [_,y] =>
+      match cthm
+        case '‹_› = ‹y›' =>
           show "Succeeded"
           show y
         case nil   => show "Failed"
@@ -34,20 +34,15 @@ def
       val xy = conv1 tm
       if xy == nil then nil
       else
-        match desteq (xy: Term)
-          case [x,y] =>
+        match xy
+          case '‹x› = ‹y›' =>
             match conv2 y
-              case yz: Theorem =>
-                val [_,z] = desteq (yz: Term)
-                val t = transitive (xy,yz)
-                show x
-                show z
-                show t
-                timeit
-                  theorem foo:'‹x› = ‹z›'
-                    t
-                  foo
-              case nil         => nil
+              case nil => nil
+              case '‹_› = ‹z›' as yz =>
+                val foo = transitive (xy,yz)
+                match foo
+                  case '‹x2› = ‹z2›' if x == x2 and z == z2 => foo
+                  case _ => fail "bad conversion"
           case _ => nil
     foldl (thenConv,convs,conv)
   seqConv [conv] = conv
@@ -150,9 +145,9 @@ def changedConv conv =
     val xy = conv tm
     if xy == nil then nil
     else
-      match desteq (xy:Term)
-        case [x,y] if x <> y => xy
-        case _               => nil
+      match xy
+        case '‹x› = ‹y›' if x <> y => xy
+        case _                     => nil
 
 # Applies a conversion top-down through a term, immediately retraversing a changed
 # term.

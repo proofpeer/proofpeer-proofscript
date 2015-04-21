@@ -25,6 +25,9 @@ theorem orDeMorgan: '∀p q. (¬(p ∨ q)) = (¬p ∧ ¬q)'
 theorem notImplies: '∀p q. (¬(p → q)) = (p ∧ ¬q)'
   by taut
 
+theorem notEquiv: '∀p q. (¬(p = q)) = ((p ∨ q) ∧ (¬p ∨ ¬q))'
+  by taut
+
 theorem impliesCNF: '∀p q. (p → q) = (¬p ∨ q)'
   by taut
 
@@ -39,6 +42,16 @@ theorem orDistribLeft: '∀p q r. (p ∨ (q ∧ r)) = ((p ∨ q) ∧ (p ∨ r))'
 
 theorem contra: '∀p q. ¬p → p → q'
   by taut
+
+def
+  expandForallIn 'forallin ‹X› ‹P›' =
+    instantiate (forallin, '‹X›', '‹P›')
+  expandForallIn _ = nil
+
+def
+  expandExistsIn 'existsin ‹X› ‹P›' =
+    instantiate (existsin, '‹X›', '‹P›')
+  expandExistsIn _ = nil
 
 val here = context
 

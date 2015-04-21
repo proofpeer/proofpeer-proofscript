@@ -24,12 +24,13 @@ def
   nnf '¬‹_›'      as tm =
     tryConv
       (seqConv
-        [sumConv (map [rewrConv, [negInvolve,andDeMorgan,orDeMorgan,notImplies]] ++
+        [sumConv (map (rewrConv, [negInvolve,andDeMorgan,orDeMorgan,
+                                  notImplies,notEquiv]) ++
                                  [existsDeMorganConv,allDeMorganConv]),
          nnf]) tm
-  nnf '‹_› → ‹_›' as tm = seqConv [rewrConv impliesCNF, nnf] tm
+  nnf '‹_› → ‹_›'     as tm = seqConv [rewrConv impliesCNF, nnf] tm
   nnf '(‹_›:ℙ) = ‹_›' as tm = seqConv [rewrConv equalCNF,   nnf] tm
-  nnf                tm = sumConv [binderConv nnf, propBinaryConv nnf, idConv] tm
+  nnf                    tm = sumConv [binderConv nnf, propBinaryConv nnf, idConv] tm
 
 # Conversion from nnf to prenex form.
 def prenex tm =
@@ -78,7 +79,7 @@ val cnf =
     seqConv
       [sumConv ((for thm in [andLeftId, andRightId, andLeftZero, andRightZero] do
                    rewrConv1 thm) +> idConv),
-       tryConv (debugConv ("rewriting and-assoc",rewrConv andAssoc))]
+       tryConv (rewrConv andAssoc)]
   val orConv =
     seqConv
       [sumConv ((for thm in [orLeftId, orRightId, orLeftZero, orRightZero] do

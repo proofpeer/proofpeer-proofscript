@@ -133,7 +133,6 @@ object Automation {
             }:_*)
       case Success(cls) =>
         System.out.println("Interpreted clauses")
-
         import java.io._
         var (pw: PrintWriter) = null
         try {

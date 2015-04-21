@@ -298,7 +298,8 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
           Right("cannot evaluate theory because the stack overflowed")
         case x : OutOfMemoryError =>
           Right("cannot evaluate theory because memory ran out")
-        case x : Exception => 
+        case x : Exception =>
+          x.printStackTrace()
           Right("cannot evaluate theory because an exception occurred: " + x.getMessage())
       }
     result match {
