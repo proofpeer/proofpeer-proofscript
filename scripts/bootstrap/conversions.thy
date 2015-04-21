@@ -40,14 +40,13 @@ def
               case yz: Theorem =>
                 val [_,z] = desteq (yz: Term)
                 val t = transitive (xy,yz)
+                show x
+                show z
                 show t
-                val foo =
-                  timeit
-                    val foo =
-                      theorem '‹x› = ‹z›'
-                        t
-                    foo
-                foo
+                timeit
+                  theorem foo:'‹x› = ‹z›'
+                    t
+                  foo
               case nil         => nil
           case _ => nil
     foldl (thenConv,convs,conv)
