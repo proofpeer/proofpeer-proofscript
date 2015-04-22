@@ -637,15 +637,15 @@ val g_theorem =
     c => STTheorem(c.TheoremOptAssign,
                    ParseTree.NilExpr,
                    c.Block)) ++
-  arule("ST", "TheoremOptAssign PrimitiveExpr_1 By PrimitiveExpr_2",
+  arule("ST", "TheoremOptAssign PrimitiveExpr By PExpr",
     CS.and(
-      CS.Indent("TheoremOptAssign", "PrimitiveExpr_1"),
+      CS.Indent("TheoremOptAssign", "PrimitiveExpr"),
       CS.ifThenElse(CS.Line("TheoremOptAssign", "By"),
-        CS.Indent("TheoremOptAssign", "PrimitiveExpr_2"),
-        CS.and(Subalign("TheoremOptAssign", "By"), CS.Indent("By", "PrimitiveExpr_2")))),
+        CS.Indent("TheoremOptAssign", "PExpr"),
+        CS.and(Subalign("TheoremOptAssign", "By"), CS.Indent("By", "PExpr")))),
     c => STTheoremBy(c.TheoremOptAssign,
-                     c.PrimitiveExpr_1,
-                     c.PrimitiveExpr_2)) ++
+                     c.PrimitiveExpr,
+                     c.PExpr)) ++
   arule("ST", "TheoremOptAssign PrimitiveExpr Dot",
     CS.and(
       CS.Indent("TheoremOptAssign", "PrimitiveExpr"),
