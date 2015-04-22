@@ -36,7 +36,9 @@ final class CustomizableParseTreeSerializer(
   SourcePositionSerializer : Serializer[SourcePosition], 
   IndexedNameSerializer : Serializer[IndexedName],
   NamespaceSerializer : Serializer[Namespace],
-  NameSerializer : Serializer[Name]) 
+  NameSerializer : Serializer[Name],
+  TermSerializer : Serializer[Term],
+  TypeSerializer : Serializer[Type]) 
 extends Serializer[TracksSourcePosition] 
 {
 
@@ -44,7 +46,7 @@ extends Serializer[TracksSourcePosition]
   private val TracksSourcePositionSerializer = this
 
   val PretermSerializer = new CustomizablePretermSerializer(SourcePositionSerializer, IndexedNameSerializer, 
-    NamespaceSerializer, NameSerializer, ParseTreeSerializer)
+    NamespaceSerializer, NameSerializer, TermSerializer, TypeSerializer, ParseTreeSerializer)
 
   val PretypeSerializer = PretermSerializer.PretypeSerializer
 

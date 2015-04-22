@@ -88,7 +88,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case expr : Expr =>
 					evalExpr[T](state, expr, {
 						case failed : Failed[_] => cont(Right(failed))
-						case Success(TermValue(t), _) => cont(Left(Preterm.translate(t)))
+						case Success(TermValue(t), _) => cont(Left(Preterm.translate(state.context, t)))
 						case Success(s : StringValue, _) =>
 							Syntax.parsePreterm(s.toString) match {
 								case None => cont(Right(fail(expr, "parse error")))
@@ -197,7 +197,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case _ => 
 				evalExpr[T](state.freeze, expr, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success(TermValue(tm),_) => cont(success(Preterm.translate(tm)))
+					case Success(TermValue(tm),_) => cont(success(Preterm.translate(state.context, tm)))
 					case Success(s : StringValue, _) =>
 						Syntax.parsePreterm(s.toString) match {
 							case None => cont(fail(expr, "parse error"))

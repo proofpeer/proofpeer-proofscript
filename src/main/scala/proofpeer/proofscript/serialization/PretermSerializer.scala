@@ -7,60 +7,13 @@ import Pretype._
 import Preterm._
 import proofpeer.indent.Span
 
-/*final object PretypeSerializer extends CaseClassSerializerBase[Pretype] {
-
-  object Kind {
-    val PTYUNIVERSE = 0
-    val PTYPROP = 1
-    val PTYFUN = -1
-    val PTYANY = 2
-    val PTYVAR = -2
-  }
-
-  object Serializers {
-    val PTYFUN = PairSerializer(PretypeSerializer,PretypeSerializer)
-    val PTYVAR = BigIntSerializer
-  }
-
-  def decomposeAndSerialize(obj : Pretype) : (Int, Option[Any]) = {
-    obj match {
-      case PTyUniverse =>
-        (Kind.PTYUNIVERSE, None)
-      case PTyProp =>
-        (Kind.PTYPROP, None)
-      case t : PTyFun =>
-        (Kind.PTYFUN, Some(Serializers.PTYFUN.serialize(PTyFun.unapply(t).get)))
-      case PTyAny =>
-        (Kind.PTYANY, None)
-      case PTyVar(x) =>
-        (Kind.PTYVAR, Some(Serializers.PTYVAR.serialize(x)))
-      case _ => throw new RuntimeException("PretypeSerializer: cannot serialize " + obj)
-    }
-  }
-
-  def deserializeAndCompose(kind : Int, args : Option[Any]) : Pretype = {
-    kind match {
-      case Kind.PTYUNIVERSE if args.isEmpty => 
-        PTyUniverse
-      case Kind.PTYPROP if args.isEmpty => 
-        PTyProp
-      case Kind.PTYFUN if args.isDefined => 
-        PTyFun.tupled(Serializers.PTYFUN.deserialize(args.get))
-      case Kind.PTYANY if args.isEmpty => 
-        PTyAny
-      case Kind.PTYVAR if args.isDefined => 
-        PTyVar(Serializers.PTYVAR.deserialize(args.get))
-      case _ => throw new RuntimeException("PretypeSerializer: cannot deserialize " + (kind, args))
-    }
-  }
-
-}*/
-
 final class CustomizablePretermSerializer(
   SourcePositionSerializer : Serializer[SourcePosition], 
   IndexedNameSerializer : Serializer[IndexedName],
   NamespaceSerializer : Serializer[Namespace],
   NameSerializer : Serializer[Name],
+  TermSerializer : Serializer[Term],
+  TypeSerializer : Serializer[Type],
   ParseTreeSerializer : Serializer[ParseTree]) 
 extends NestedSerializer[Preterm]
 {
@@ -132,7 +85,8 @@ extends NestedSerializer[Preterm]
       val PTMABS = -1
       val PTMCOMB = 2
       val PTMQUOTE = -2
-      val PTMERROR = 3
+      val PTMTERM = 3
+      val PTMERROR = -3
     }
 
     object Serializers {
@@ -141,6 +95,7 @@ extends NestedSerializer[Preterm]
       val PTMABS = QuadrupleSerializer(IndexedNameSerializer,PretypeSerializer,PretermSerializer,PretypeSerializer)
       val PTMCOMB = QuadrupleSerializer(PretermSerializer,PretermSerializer,OptionSerializer(BooleanSerializer),PretypeSerializer)
       val PTMQUOTE = PairSerializer(QuotedSerializer,PretypeSerializer)
+      val PTMTERM = PairSerializer(TermSerializer,TypeSerializer)
       val PTMERROR = StringSerializer
     }
 
@@ -156,6 +111,8 @@ extends NestedSerializer[Preterm]
           (Kind.PTMCOMB, Some(Serializers.PTMCOMB.serialize(PTmComb.unapply(t).get)))
         case t : PTmQuote =>
           (Kind.PTMQUOTE, Some(Serializers.PTMQUOTE.serialize(PTmQuote.unapply(t).get)))
+        case t : PTmTerm =>
+          (Kind.PTMTERM, Some(Serializers.PTMTERM.serialize(PTmTerm.unapply(t).get)))
         case PTmError(x) =>
           (Kind.PTMERROR, Some(Serializers.PTMERROR.serialize(x)))
         case _ => throw new RuntimeException("PretermSerializerBase: cannot serialize " + obj)
@@ -174,6 +131,8 @@ extends NestedSerializer[Preterm]
           PTmComb.tupled(Serializers.PTMCOMB.deserialize(args.get))
         case Kind.PTMQUOTE if args.isDefined => 
           PTmQuote.tupled(Serializers.PTMQUOTE.deserialize(args.get))
+        case Kind.PTMTERM if args.isDefined => 
+          PTmTerm.tupled(Serializers.PTMTERM.deserialize(args.get))
         case Kind.PTMERROR if args.isDefined => 
           PTmError(Serializers.PTMERROR.deserialize(args.get))
         case _ => throw new RuntimeException("PretermSerializerBase: cannot deserialize " + (kind, args))
@@ -181,7 +140,6 @@ extends NestedSerializer[Preterm]
     }
 
   }
-
   protected lazy val innerSerializer : Serializer[Preterm] = PretermSerializerBase
 
 }
@@ -204,13 +162,14 @@ object PretermSerializerGenerator {
     ("PTmAbs", "IndexedNameSerializer", "PretypeSerializer", "PretermSerializer", "PretypeSerializer"),
     ("PTmComb", "PretermSerializer", "PretermSerializer", "OptionSerializer(BooleanSerializer)", "PretypeSerializer"),
     ("PTmQuote", "QuotedSerializer", "PretypeSerializer"),
+    ("PTmTerm", "TermSerializer", "TypeSerializer"),
     ("PTmError", "StringSerializer")
   )
 
   /** Rename _main to main to generate the code. */
   def _main(args : Array[String]) {
     val typeTool = new CaseClassSerializerTool("PretypeSerializer", typeCases, "Pretype")
-    typeTool.output()
+    //typeTool.output()
     val termTool = new CaseClassSerializerTool("PretermSerializerBase", termCases, "Preterm")
     termTool.output()
   }

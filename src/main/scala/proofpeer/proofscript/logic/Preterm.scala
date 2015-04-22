@@ -24,6 +24,9 @@ object Preterm {
   case class PTmComb(f : Preterm, x : Preterm, higherorder : Option[Boolean], typeOf : Pretype) extends Preterm
   /** quoted is going to be either ParseTree.Expr or ParseTree.Pattern */
   case class PTmQuote(quoted : Any, typeOf : Pretype) extends Preterm 
+  case class PTmTerm(tm : Term, ty : Type) extends Preterm {
+    lazy val typeOf : Pretype = Pretype.translate(ty)
+  }
   case class PTmError(reason : String) extends Preterm {
   	def typeOf = Pretype.PTyAny
   }
@@ -185,6 +188,7 @@ object Preterm {
       case q : PTmQuote => inst(q, cont)
       case name : PTmName => cont(Left(name))
       case error : PTmError => cont(Left(error))
+      case tm : PTmTerm => cont(Left(tm))
     }
   }
 
@@ -200,7 +204,8 @@ object Preterm {
   		  Pretype.computeFresh(ty, min)
       case PTmQuote(_, ty) =>
         Pretype.computeFresh(ty, min)
-  		case _ => Utils.failwith("internal error: computeFresh")
+      case tm : PTmTerm => min
+  		case error : PTmError => Utils.failwith("internal error: computeFresh")
   	}
   }
 
@@ -212,6 +217,7 @@ object Preterm {
   		case e : PTmError => e::errors
   		case _ : PTmName => errors
   		case _ : PTmQuote => errors
+      case _ : PTmTerm => errors
   	}
   }
 
@@ -228,6 +234,7 @@ object Preterm {
   		case q : PTmQuote => Left(q)::quotes
   		case _ : PTmError => quotes
   		case _ : PTmName => quotes
+      case _ : PTmTerm => quotes
   	}
   }
 
@@ -261,7 +268,8 @@ object Preterm {
       case PTmQuote(quote, ty) =>
         val (rty, u, q) = Pretype.removeAny(ty, fresh, quotes)
         (PTmQuote(quote, rty), u, q)
-  		case _ => Utils.failwith("internal error: removeAny")
+      case tm : PTmTerm => (tm, fresh, quotes)
+  		case _ : PTmError => Utils.failwith("internal error: removeAny")
   	}
   } 
 
@@ -320,7 +328,9 @@ object Preterm {
   	    }
       case PTmQuote(q, ty) =>
         eqs
-  		case _ => Utils.failwith("internal error: computeTypeEqualities")
+      case tm : PTmTerm =>
+        eqs
+  		case _ : PTmError => Utils.failwith("internal error: computeTypeEqualities")
   	}
   }
 
@@ -345,12 +355,16 @@ object Preterm {
   		case PTmAbs(x, ty, body, body_ty) => PTmAbs(x, sty(ty), stm(body), sty(body_ty))
   		case PTmComb(f, x, higherorder, ty) => PTmComb(stm(f), stm(x), higherorder, sty(ty))
   		case PTmQuote(q, ty) => PTmQuote(q, sty(ty))
-      case _ => Utils.failwith("internal error: subst")
+      case tm : PTmTerm => tm
+      case _ : PTmError => Utils.failwith("internal error: subst")
   	}
   } 
 
-  def translate(tm : Term) : Preterm = {
-    translateTerm(KernelUtils.avoidVarConstClashes(tm))
+  def translate(context : Context, tm : Term) : Preterm = {
+    context.typeOfTerm(tm) match {
+      case Some(ty) => PTmTerm(tm, ty)
+      case None => Utils.failwith("wrapTranslate: term cannot be type in given context")
+    }
   }
 
   private def translateTerm(tm : Term) : Preterm = {
@@ -382,7 +396,9 @@ object Preterm {
   	  	} else {
   	  		Term.Comb(u, v)
   	  	}
-  		case _ => Utils.failwith("internal error: translate")  		
+      case PTmTerm(tm, _) => tm
+      case _ : PTmQuote => Utils.failwith("internal error: translate")
+  		case _ : PTmError => Utils.failwith("internal error: translate")  		
   	}
   }
 
@@ -414,7 +430,9 @@ object Preterm {
   			(PTmComb(t1, t2, higherorder, ty), fresh2)
       case q: PTmQuote => 
         (q, fresh)
-  		case _ => Utils.failwith("internal error: checkNameTypes")
+      case tm : PTmTerm =>
+        (tm, fresh)
+  		case _ : PTmError => Utils.failwith("internal error: checkNameTypes")
   	}
   }
 
@@ -558,6 +576,7 @@ object Preterm {
   	def lookup(name : Name) : Option[Pretype] // returns None for polymorphic constants!
   	def resolve(name : Name, ty : Pretype) : Option[Term] // returns None for polymorphic constants!
   	def addVar(name : IndexedName, ty : Pretype) : TypingContext
+    def context : Context
   }
 
   def obtainNameResolution(aliases : Aliases, nr : NamespaceResolution[IndexedName], context : Context) : NameResolution = {
@@ -605,7 +624,7 @@ object Preterm {
   	new TC(obtainNameResolution(aliases, nr, context), context, List())
   }
 
-  private class TC(r : NameResolution, context : Context, vars : List[(IndexedName, Pretype)]) 
+  private class TC(r : NameResolution, val context : Context, vars : List[(IndexedName, Pretype)]) 
   	extends TypingContext 
   {
   	private def polyTypeOf(name : Name, fresh : Integer) : Option[Pretype] = {
