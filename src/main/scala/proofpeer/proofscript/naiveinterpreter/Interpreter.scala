@@ -294,7 +294,6 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
         Left(evaluator.eval(state, ParseTree.Block(parsetree.statements.tail)))
       } catch {
         case x : StackOverflowError =>
-          x.printStackTrace()
           Right("cannot evaluate theory because the stack overflowed")
         case x : OutOfMemoryError =>
           Right("cannot evaluate theory because memory ran out")
