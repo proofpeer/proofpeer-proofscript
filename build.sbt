@@ -4,7 +4,7 @@ name := "ProofPeer ProofScript"
 
 version := "0.2-SNAPSHOT"
 
-scalaVersion := "2.11.5"
+scalaVersion := "2.11.6"
 
 scalacOptions += "-feature"
 
