@@ -28,7 +28,13 @@ choose anonymous: 'anonymous: 𝒰'
 
 choose oneDef: 'one:𝒰'
   let one:'one = 𝒫 ∅'
-  metisAuto ('∀x. x ∈ one = (x = ∅)', [empty,one,power,subset,ext])
+  theorem '∀x. x ∈ one = (x = ∅)'
+    by (metis [empty,one,power,subset,ext])
+
+choose twoDef: 'two:𝒰'
+  let two:'two = 𝒫 one'
+  theorem '∀x. x ∈ two = (x = ∅ ∨ x = one)'
+    by (metis [empty,oneDef,two,power,subset,ext])
 
 # context
 #   let 'one:𝒰'
@@ -38,4 +44,3 @@ choose oneDef: 'one:𝒰'
 #   let 'x_8:𝒰'
 #   let 'x_9:𝒰'
 #   let 'y_3:𝒰'
-    
