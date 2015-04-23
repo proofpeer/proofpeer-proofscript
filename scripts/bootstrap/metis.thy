@@ -182,10 +182,6 @@ def metisResolve [atm,cl1,cl2] =
         if v1 == nil then
           context
             let x:'‹fresh "x"›'
-            show stripforall2 (vs,
-                               instantiate (thm2,x),
-                               freeAtRes +> v2,
-                               varOfMetis ++ {v2 -> x})
             return (stripforall2 (vs,
                                   instantiate (thm2,x),
                                   freeAtRes +> v2,
@@ -326,12 +322,12 @@ def interpretCert [axioms,cert] =
   ic [axioms,cert]
 
 def
-  metis '∃x. ‹p› x' as thm =
+  runMetis '∃x. ‹p› x' as thm =
     val f = fresh "f"
     choose chosen: '‹f›'
       thm
-    metis chosen
-  metis thm =
+    runMetis chosen
+  runMetis thm =
     val axioms = {->}
     for ax in conjuncts thm do
       for cl in clausesOfCNF (ax:Term) do
@@ -373,39 +369,37 @@ val unmetis =
       matchmp (unmetis2, thm)
     else unmetised
 
-def metisAuto [conjecture:Term,asms:Tuple] =
-  val conjAsms       = andIntro asms
-  val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
-  val conv           =
-    seqConv [upConv (sumConv [expandForallIn, expandExistsIn]),
-             nnf,prenex,bindersConv cnf,tryConv skolemize]
-  show rhs (normalize (upConv (seqConv [sumConv [expandForallIn, expandExistsIn],
-                                        nnf,prenex,bindersConv cnf,tryConv skolemize,distribQuants]) conjProblem: Term): Term)
-  val equiv1         = conv conjProblem
-  val skolemNGoal    = rhs (equiv1: Term)
-  val [ctx,xs,ngoal] = letExistentials skolemNGoal
-  val contr
-  context <ctx>
-    val equiv2 = distribQuants ngoal
-    val dngoal = rhs (equiv2: Term)
-    show dngoal
+def metis (asms:Tuple) =
+  conjecture: Term =>
+    val conjAsms       = andIntro asms
+    val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
+    val conv           =
+      seqConv [upConv (sumConv [expandForallIn, expandExistsIn]),
+               nnf,prenex,bindersConv cnf,tryConv skolemize]
+    val equiv1         = conv conjProblem
+    val skolemNGoal    = rhs (equiv1: Term)
+    val [ctx,xs,ngoal] = letExistentials skolemNGoal
+    val contr
+    context <ctx>
+      val equiv2 = distribQuants ngoal
+      val dngoal = rhs (equiv2: Term)
+      def
+        destAnd '‹p› ∧ ‹q›' = [p,q]
+        destAnd _           = nil
+      theorem refute: '‹dngoal› → ⊥'
+        assume asm: dngoal
+        clauseThm (runMetis asm)
+      val nequiv2 = combine (reflexive 'not', sym equiv2)
+      contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
+    def existsDeMorganSym ty = gsym (existsDeMorgan ty)
     def
-      destAnd '‹p› ∧ ‹q›' = [p,q]
-      destAnd _           = nil
-    theorem refute: '‹dngoal› → ⊥'
-      assume asm: dngoal
-      clauseThm (metis asm)
-    val nequiv2 = combine (reflexive 'not', sym equiv2)
-    contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
-  def existsDeMorganSym ty = gsym (existsDeMorgan ty)
-  def
-    existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
-      instantiate (existsDeMorganSym ty, P)
-    existsDeMorganSymConv _ = nil
-  def
-    upBinderConv tm =
-      sumConv [existsDeMorganSymConv,
-               seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
-  contr = modusponens (convRule (upBinderConv, contr),
-                       combine (reflexive 'not', sym equiv1))
-  modusponens (conjAsms, unmetis contr)
+      existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
+        instantiate (existsDeMorganSym ty, P)
+      existsDeMorganSymConv _ = nil
+    def
+      upBinderConv tm =
+        sumConv [existsDeMorganSymConv,
+                 seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
+    contr = modusponens (convRule (upBinderConv, contr),
+                         combine (reflexive 'not', sym equiv1))
+    modusponens (conjAsms, unmetis contr)
