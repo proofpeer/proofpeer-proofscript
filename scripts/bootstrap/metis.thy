@@ -335,7 +335,9 @@ def
     val cert = callmetis (clausesOfCNF (thm:Term))
     if cert == nil then
       nil
-    else interpretCert [axioms,cert]
+    else
+      timeit
+        interpretCert [axioms,cert]
 
 def letExistentials tm =
   def
@@ -376,7 +378,9 @@ def metis (asms:Tuple) =
     val conv           =
       seqConv [upConv (sumConv [expandForallIn, expandExistsIn]),
                nnf,prenex,bindersConv cnf,tryConv skolemize]
-    val equiv1         = conv conjProblem
+    val equiv1         =
+      timeit
+        conv conjProblem
     val skolemNGoal    = rhs (equiv1: Term)
     val [ctx,xs,ngoal] = letExistentials skolemNGoal
     val contr

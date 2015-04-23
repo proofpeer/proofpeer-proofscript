@@ -224,8 +224,13 @@ object Automation {
         import KernelInstances._
         val allThms = sys.distance_nextThms.takeWhile(_.isDefined).flatten
         allThms.find(_._2.isContradiction).map {
-          case (_,thm) => proofscriptOfCertificate(thm.thm)
-        }.getOrElse(NilValue)
+          case (_,thm) =>
+            System.out.println("METIS: theorem verified")
+            proofscriptOfCertificate(thm.thm)
+        }.getOrElse {
+          System.out.println("METIS: unprovable")
+          NilValue
+        }
     }
   }
 }
