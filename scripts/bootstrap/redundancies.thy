@@ -35,12 +35,3 @@ choose twoDef: 'two:𝒰'
   let two:'two = 𝒫 one'
   theorem '∀x. x ∈ two = (x = ∅ ∨ x = one)'
     by (metis [empty,oneDef,two,power,subset,ext])
-
-# context
-#   let 'one:𝒰'
-#   let 'x:𝒰'
-#   let 'x_6:𝒰'
-#   let 'x_7:𝒰'
-#   let 'x_8:𝒰'
-#   let 'x_9:𝒰'
-#   let 'y_3:𝒰'
