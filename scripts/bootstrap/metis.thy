@@ -180,9 +180,12 @@ def metisResolve [atm,cl1,cl2] =
       stripforall2 [v2 <+ vs,thm2,freeAtRes,varOfMetis] =
         val v1 = varOfMetis1 v2
         if v1 == nil then
-          val newThm2
-          context <ctx>
+          context
             let x:'‹fresh "x"›'
+            show stripforall2 (vs,
+                               instantiate (thm2,x),
+                               freeAtRes +> v2,
+                               varOfMetis ++ {v2 -> x})
             return (stripforall2 (vs,
                                   instantiate (thm2,x),
                                   freeAtRes +> v2,
