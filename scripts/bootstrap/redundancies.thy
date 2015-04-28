@@ -7,12 +7,14 @@ choose anonymous: 'anonymous: 𝒰'
   let 'y = x'
   reflexive 'y'
 
-choose oneDef: 'one:𝒰'
-  let one:'one = 𝒫 ∅'
-  theorem '∀x. x ∈ one = (x = ∅)'
-    by metis [empty,one,power,subset,ext]
+let oneDef:'one = 𝒫 ∅'
+let twoDef:'two = 𝒫 one'
 
-choose twoDef: 'two:𝒰'
-  let two:'two = 𝒫 one'
-  theorem '∀x. x ∈ two = (x = ∅ ∨ x = one)'
-    by metis [empty,oneDef,two,power,subset,ext]
+theorem one:'∀x. x ∈ one = (x = ∅)'
+  by metis [empty,oneDef,power,subset,ext]
+
+theorem two:'∀x. x ∈ two = (x = ∅ ∨ x = one)'
+  by metis [empty,one,twoDef,power,subset,ext]
+
+theorem oneNotZero: '¬(∅ = one)'
+  by metis [empty, one]
