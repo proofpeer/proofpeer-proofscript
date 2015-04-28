@@ -32,7 +32,7 @@ def termVars term =
 
 def termOfMetis term =
   if isVar term then term
-  else mkcombs (functor term,map (termOfMetis, args term))
+  else mkcombs (functor term <+ map (termOfMetis, args term))
 
 def
   metisOfComb [env,term] =
@@ -78,22 +78,22 @@ def initClause tm =
   val [_,xs,_] = stripForall tm
   [(0 to size xs - 1), tm]
 
-# Generate n fresh variables for each of the given METIS free variables, returning a
-# context containing them all, and a map from the METIS free to the new fresh
-# variable. For example:
-#   freshVars [7,1,12] == [ctx, { z -> 7, x -> 1, y -> 12 }]
+# Generate n fresh constants for each of the given METIS free variables, returning a
+# context containing them all, and a map from the METIS free to the new constant.
+# For example:
+#   freshConsts [7,1,12] == [ctx, { 7 -> z, 1 -> x, 12 -> y }]
 # The metalevel quantifiers are ordered according to the input tuple. Thus, on
 # lifting p out of this context, we have
 #   '∀z x y. ‹p›'
-def freshVars fvs =
+def freshConsts fvs =
   def
     freshs [[],freeAt] =
       return [context,freeAt]
     freshs [fv <+ fvs,freeAt] =
-      context
-        let x:'‹fresh "x"›'
-        return (freshs (fvs,freeAt ++ { fv -> x }))
-  freshs (fvs,{->})
+      let x:'‹fresh "x"›'
+      return (freshs (fvs,freeAt ++ { fv -> x }))
+  context
+    return freshs (fvs,{->})
 
 def metisInstantiate [cl,sub:Map] =
   val freeAt = inClauseFreeAt cl
@@ -114,7 +114,7 @@ def metisInstantiate [cl,sub:Map] =
       for v in termVars tm do
         fvset = fvset ++ {v}
     fvset: Tuple
-  val [ctx,varOfMetis] = freshVars (newFreeAt:Tuple)
+  val [ctx,varOfMetis] = freshConsts (newFreeAt:Tuple)
   val clThm = clauseThm cl
   context <ctx>
     for v in freeAt do
@@ -170,7 +170,7 @@ def metisResolution [atm,pos,neg] =
 def metisResolve [atm,cl1,cl2] =
   val freeAt1 = inClauseFreeAt cl1
   val freeAt2 = inClauseFreeAt cl2
-  val [ctx,varOfMetis1] = freshVars freeAt1
+  val [ctx,varOfMetis1] = freshConsts freeAt1
   val resBody
   val freeAtRes
   context <ctx>
@@ -180,12 +180,11 @@ def metisResolve [atm,cl1,cl2] =
       stripforall2 [v2 <+ vs,thm2,freeAtRes,varOfMetis] =
         val v1 = varOfMetis1 v2
         if v1 == nil then
-          context
-            let x:'‹fresh "x"›'
-            return (stripforall2 (vs,
-                                  instantiate (thm2,x),
-                                  freeAtRes +> v2,
-                                  varOfMetis ++ {v2 -> x}))
+          let x:'‹fresh "x"›'
+          return (stripforall2 (vs,
+                                instantiate (thm2,x),
+                                freeAtRes +> v2,
+                                varOfMetis ++ {v2 -> x}))
         else
           stripforall2 (vs,instantiate [thm2,v1],freeAtRes,varOfMetis)
     val body1       =
@@ -277,14 +276,14 @@ def interpretCert [axioms,cert] =
       assertNotNil (axioms cl)
     ic ["assume",atom] =
       val freeAt = atomVars atom: Tuple
-      val [ctx,varOfMetis] = freshVars freeAt
+      val [ctx,varOfMetis] = freshConsts freeAt
       val thm
       context <ctx>
         thm = instantiate (excludedMiddle, atomOfMetis (map_atom [varOfMetis,atom]))
       mkClause (freeAt,thm)
     ic ["refl",x] =
       val freeAt  = termVars x: Tuple
-      val [ctx,_] = freshVars freeAt
+      val [ctx,_] = freshConsts freeAt
       val thm
       context <ctx>
         thm = reflexive (termOfMetis x)
@@ -298,7 +297,7 @@ def interpretCert [axioms,cert] =
     ic ["irreflexive",cert] =
       val cl = ic cert
       val freeAt = inClauseFreeAt cl
-      val [ctx,varOfMetis] = freshVars freeAt
+      val [ctx,varOfMetis] = freshConsts freeAt
       val newFreeAt
       val newThm
       context <ctx>
@@ -312,7 +311,7 @@ def interpretCert [axioms,cert] =
       mkClause (newFreeAt, newThm)
     ic ["equality",term,literal,path] =
       val newVars = (literalVars literal ++ termVars term):Tuple
-      val [ctx,varOfMetis] = freshVars (newVars:Tuple)
+      val [ctx,varOfMetis] = freshConsts (newVars:Tuple)
       val thm
       context <ctx>
         val lit = literalOfMetis (map_literal [varOfMetis,literal])
@@ -344,21 +343,15 @@ def letExistentials tm =
     letExists (ctx,'∃x. ‹p› x') =
       val [ctx,x,body] = destabs p
       context <ctx>
-        val letX
-        val xCtx =
-          context
-            val '‹_›:‹a›' = x
-            let x:'‹fresh "x"›:‹a›'
-            val letX = x
-        match letExists (ctx,body)
+        val '‹_›:‹a›' = x
+        let x:'‹fresh "x"›:‹a›'
+        match letExists (context,body)
           case [ctx,xs,body] =>
             context <ctx>
               return [ctx,x <+ xs,body]
     letExists (ctx,tm) =
       return [ctx,[],tm]
-  val ctx =
-    context
-  letExists (ctx,tm)
+  letExists (context,tm)
 
 val unmetis =
   theorem unmetis1: '∀p q. ¬(p ∧ ¬q) → p → q'
@@ -404,6 +397,6 @@ def metis (asms:Tuple) =
       upBinderConv tm =
         sumConv [existsDeMorganSymConv,
                  seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
-    contr = modusponens (convRule (upBinderConv, contr),
+    contr = modusponens (convRule (tryConv upBinderConv, contr),
                          combine (reflexive 'not', sym equiv1))
     modusponens (conjAsms, unmetis contr)
