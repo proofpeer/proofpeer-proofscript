@@ -364,12 +364,12 @@ val unmetis =
       matchmp (unmetis2, thm)
     else unmetised
 
-def metis (asms:Tuple) =
+def metisGen (preConv, asms:Tuple) =
   conjecture: Term =>
     val conjAsms       = andIntro asms
     val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
     val conv           =
-      seqConv [upConv (sumConv [expandForallIn, expandExistsIn]),
+      seqConv [preConv, upConv (sumConv [expandForallIn, expandExistsIn]),
                nnf,prenex,bindersConv cnf,tryConv skolemize]
     val equiv1         =
       timeit
@@ -400,3 +400,5 @@ def metis (asms:Tuple) =
     contr = modusponens (convRule (tryConv upBinderConv, contr),
                          combine (reflexive 'not', sym equiv1))
     modusponens (conjAsms, unmetis contr)
+
+def metis (asms: Tuple) = metisGen (idConv, asms)
