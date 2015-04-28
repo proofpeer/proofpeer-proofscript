@@ -43,6 +43,12 @@ def concat xss =
     for x in xs do
       x
 
+def
+  zip [[],_] = []
+  zip [_,[]] = []
+  zip [x <+ xs, y <+ ys] =
+    [x,y] <+ zip (xs,ys)
+
 # Recursively split a value and flatten until failure.
 def split [f,x] =
   val ys = f x
@@ -58,6 +64,12 @@ def splitLeft [f,x] =
   match f x
     case nil   => [x]
     case [l,r] => splitLeft [f,l] +> r
+
+# And on the right
+def splitRight [f,x] =
+  match f x
+    case nil   => [x]
+    case [l,r] => l <+ splitRight [f,r]
 
 # f (f (f ... f x))
 def
