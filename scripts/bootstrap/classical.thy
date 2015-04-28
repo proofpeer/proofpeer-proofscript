@@ -143,3 +143,29 @@ theorem hilbertChoice:'∀ p x. p x → p (epsilonU p)'
     let ydef:'y = x'
     modusponens (assum,combine (reflexive p,sym ydef))
   modusponens (pExists,instantiate (hilbertChoiceDef,'p'))
+
+# Should write a function for a more general definition scheme which returns the
+# theorem eta-expanded.
+let ifThenElse:'ifThenElse = (p x y ↦ epsilonU (z ↦ (p → z = x) ∧ (¬p → z = y)))'
+theorem ifThenElseEx:
+          '∀p x y. ifThenElse p x y = epsilonU (z ↦ (p → z = x) ∧ (¬p → z = y))'
+  let p:'p:ℙ'
+  let x:'x'
+  let y:'y'
+  combine [ifThenElse, reflexive p, reflexive x, reflexive y]
+
+theorem ifTrue: '∀x y. ifThenElse ⊤ x y = x'
+  let 'x'
+  let 'y'
+  val 'ifThenElse ⊤ x y = epsilonU ‹description›' as thm =
+    convRule (upConv (rewrConv tautRewrites), instantiate (ifThenElseEx,'⊤','x','y'))
+  transitive
+    (thm, modusponens (reflexive 'x',instantiate [hilbertChoice, description, 'x']))
+
+theorem ifFalse: '∀x y. ifThenElse ⊥ x y = y'
+  let 'x'
+  let 'y'
+  val 'ifThenElse ⊥ x y = epsilonU ‹description›' as thm =
+    convRule (upConv (rewrConv tautRewrites), instantiate (ifThenElseEx,'⊥','x','y'))
+  transitive
+    (thm, modusponens (reflexive 'y',instantiate [hilbertChoice, description, 'y']))
