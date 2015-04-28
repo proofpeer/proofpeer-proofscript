@@ -40,8 +40,9 @@ def
     mkcombs (for split in splits do termOfTree split)
 
 def treeOfTerm tm =
-  for arg in splitLeft (destcomb,tm) do
-    if destcomb arg == nil then [arg] else treeOfTerm arg
+  if destcomb tm == nil then [tm] else
+    for arg in splitLeft (destcomb,tm) do
+      treeOfTerm arg
 
 def findSubterm (p, (f <+ xss:Tuple)) =
   for xs:Tuple in xss do
@@ -80,7 +81,9 @@ def reifyBool tm =
           val b = fresh "b"
           let '‹b›:ℙ'
 
+          show propTm
           val propTree = treeOfTerm propTm
+          show propTree
 
           def
             f tm if tm == propTree = [b]
@@ -91,6 +94,7 @@ def reifyBool tm =
         val '∀x. ‹abs› x = ‹_› x' = hack
         sym (instantiate (unfoldLetIsTrue, abs, propTm))
 
+  show tm
   tryConv (seqConv [reify1, binderConv (binaryConv (randConv reifyBool, reifyBool))])
     tm
 
@@ -110,8 +114,11 @@ def normThm thm =
 
 def metis (asms: Tuple) = metisGen (litConv reifyBool, asms)
 
-context
+theorem '∀a b. ∃pair. ∀x. x ∈ pair = (x = a ∨ x = b)'
   let 'a'
   let 'b'
-  val foo = instantiate [repl, 'two', 'x ↦ ifThenElse (x = ∅) a b']
-  val bar = convRule (upConv (rewrConv existsin), foo)
+  let 'pair = repl two (x ↦ ifThenElse (x = ∅) a b)'
+  theorem '∀x. x ∈ pair = (x = a ∨ x = b)'
+    by metisGen (seqConv [upConv (rewrConv existsin), litConv reifyBool],
+                 [instantiate [repl, 'two', 'x ↦ ifThenElse (x = ∅) a b'],
+                  ifTrue, ifFalse, two])
