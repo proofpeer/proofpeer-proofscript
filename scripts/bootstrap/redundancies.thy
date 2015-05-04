@@ -1,12 +1,6 @@
 theory Redundancies
 extends Metis
 
-# Useful for certain redudancies.
-choose anonymous: 'anonymous: 𝒰'
-  let x:'x'
-  let 'y = x'
-  reflexive 'y'
-
 let oneDef:'one = 𝒫 ∅'
 let twoDef:'two = 𝒫 one'
 

@@ -1,38 +1,50 @@
 theory Lift
 extends Redundancies
 
-choose isTrue: 'isTrue : 𝒰 → ℙ'
-  let 'x:𝒰'
-  let 'isTrue = (x = one)'
+def normThm thm =
+  modusponens [thm, normalize (thm: Term)]
 
-theorem unfoldLetIsTrue: '∀p c. (∀x. isTrue x = c → p (isTrue x)) = p c'
+table<here> unfoldLetThm a =
+  theorem '∀p c. (∀x:‹a›. x = c → p x) = p c'
+    val p = fresh "p"
+    val c = fresh "c"
+    let '‹p›:‹a› → ℙ'
+    let '‹c›:‹a›'
+    theorem left: '(∀x. x = ‹c› → ‹p› x) → ‹p› ‹c›'
+      assume asm:'∀x. x = ‹c› → ‹p› x'
+      modusponens (reflexive '‹c›', instantiate (asm, '‹c›'))
+    theorem right: '‹p› ‹c› → (∀x. x = ‹c› → ‹p› x)'
+      assume pc:'‹p› ‹c›'
+      val x = fresh "x"
+      let '‹x›:‹a›'
+      assume xy:'‹x› = ‹c›'
+      convRule (randConv (subsConv (sym xy)), pc)
+    equivalence (left,right)
+
+def rewriteRule (thms, thm) = convRule (upConv (rewrConv thms), thm)
+
+# TODO: This obviously needs a more general mechanism.
+theorem inductBool: '∀p. (p ⊤ ∧ p ⊥) = (∀b. p b)'
   let 'p:ℙ → ℙ'
-  let 'c:ℙ'
-  theorem left:
-    assume asm:'∀x. isTrue x = c → p (isTrue x)'
-    theorem isTrueCase:
-      assume cIsTrue: 'c = ⊤'
-      modusponens
-        (sym cIsTrue,
-          convRule (seqConv [upConv (seqConv [rewrConv isTrue, reflConv]),
-                             randConv (randConv (rewrConv (sym cIsTrue)))],
-                    instantiate (asm, 'one')))
-    theorem isFalseCase:
-      assume cIsFalse: 'c = ⊥'
-      val eqFalseIntro =
-        modusponens (oneNotZero, sym (instantiate (eqFalseSimp, '∅ = one')))
-      convRule (seqConv [upConv (rewrConv ([isTrue, eqFalseIntro, cIsFalse]
-                                           ++ tautRewrites)),
-                         randConv (rewrConv (sym cIsFalse))],
-                instantiate (asm, '∅'))
-    matchmp (orDefEx, instantiate (boolCases, 'c'), isTrueCase, isFalseCase)
-  theorem right: true
-    assume pc:'p c'
-    theorem imp: '∀x. isTrue x = c → p (isTrue x)'
-      let 'x'
-      assume asm:'isTrue x = c'
-      convRule (upConv (rewrConv (sym asm)), pc)
+  theorem left: true
+    assume asm:'p ⊤ ∧ p ⊥'
+    let 'b:ℙ'
+    theorem bIsTrue:
+      assume b:'b = ⊤'
+      rewriteRule (sym b, conjuncts asm 0)
+    theorem bIsFalse:
+      assume b:'b = ⊥'
+      rewriteRule (sym b, conjuncts asm 1)
+    matchmp (orDefEx, instantiate (boolCases, 'b'), bIsTrue, bIsFalse)
+  theorem right:
+    assume asm:'∀b. p b'
+    andIntro (instantiate (asm,'⊤'), instantiate (asm,'⊥'))
   equivalence (left,right)
+
+def
+  mapUpTree [f,xs:Tuple] =
+    f (for x in xs do mapUpTree (f,x))
+  mapUpTree [f,x] = f x
 
 def
   termOfTree [f] = f
@@ -46,44 +58,52 @@ def treeOfTerm tm =
 
 def findSubterm (p, (f <+ xss:Tuple)) =
   for xs:Tuple in xss do
-    val tm = termOfTree xs
-    if p tm then return tm
+    val subterm = findSubterm (p, xs)
+    if subterm == nil then
+      val tm = termOfTree xs
+      if p tm then return tm
     else
-      val subterm = findSubterm (p, xs)
-      if subterm <> nil then return subterm
+      return subterm
   nil
 
-def
-  destType ':‹dom› → ‹codom›' = [dom, codom]
-  destType _                  = nil
+def mapTreeGen [f,xs:Tuple,init] =
+  val next = init
+  f (for x in xs do
+       val [y,next2] = mapUpTree (f,x,next)
+       next = next2
+       if y == nil then return nil else y)
 
-def
-  mapUpTree [f,xs:Tuple] =
-    f (for x in xs do mapUpTree (f,x))
-  mapUpTree [f,x] = f x
+def litConv conv =
+  def
+    c ('‹_› ∨ ‹_›' as tm)     = binaryConv (c,c) tm
+    c ('‹_› ∧ ‹_›' as tm)     = binaryConv (c,c) tm
+    c ('‹_› = (‹_›:ℙ)' as tm) = binaryConv (c,c) tm
+    c ('‹_› → (‹_›)'   as tm) = binaryConv (c,c) tm
+    c ('¬‹_›' as tm)          = randConv c tm
+    c ('∀x. ‹_› x' as tm)     = binderConv c tm
+    c ('∃x. ‹_› x' as tm)     = binderConv c tm
+    c tm                      = conv tm
+  c
 
 def reifyBool tm =
   def reify1 tm =
     val tree = treeOfTerm tm
 
     def
-      isProp 'isTrue ‹_›' = false
+      isProp '⊤'          = false
+      isProp '⊥'          = false
       isProp '‹_›: ℙ'     = true
       isProp _            = false
 
     match findSubterm (isProp, tree)
-      case nil => nil
+      case nil => idConv tm
+      case propTm if propTm == tm => idConv tm
       case propTm =>
-        val ('‹f›:‹ty›' <+ args) = splitLeft  (destcomb, tm)
-        val argTys +> codom      = splitRight (destType, ty)
-
         theorem hack:
           val b = fresh "b"
           let '‹b›:ℙ'
 
-          show propTm
           val propTree = treeOfTerm propTm
-          show propTree
 
           def
             f tm if tm == propTree = [b]
@@ -92,33 +112,15 @@ def reifyBool tm =
           reflexive (termOfTree (mapUpTree (f,tree)))
 
         val '∀x. ‹abs› x = ‹_› x' = hack
-        sym (instantiate (unfoldLetIsTrue, abs, propTm))
 
-  show tm
-  tryConv (seqConv [reify1, binderConv (binaryConv (randConv reifyBool, reifyBool))])
-    tm
+        val simps =
+          val c = binderConv (landConv symConv)
+          [convRule (c, eqTrueSimp), convRule (c, eqFalseSimp)]
+        val c = landConv (rewrConv simps)
+        convRule (randConv (seqConv [rewrConv (gsym inductBool), binaryConv [c,c],
+                                     reifyBool]),
+                  normThm (sym (instantiate (unfoldLetThm ':ℙ', abs, propTm))))
+  litConv reify1 tm
 
-def litConv conv =
-  def
-    c ('‹_› ∨ ‹_›' as tm)     = binaryConv (c,c) tm
-    c ('‹_› ∧ ‹_›' as tm)     = binaryConv (c,c) tm
-    c ('‹_› = (‹_›:ℙ)' as tm) = binaryConv (c,c) tm
-    c ('¬‹_›' as tm)          = randConv c tm
-    c ('∀x. ‹_› x' as tm)     = binderConv c tm
-    c ('∃x. ‹_› x' as tm)     = binderConv c tm
-    c tm                      = conv tm
-  c
-
-def normThm thm =
-  rhs (normalize (thm: Term): Term)
-
-def metis (asms: Tuple) = metisGen (litConv reifyBool, asms)
-
-theorem '∀a b. ∃pair. ∀x. x ∈ pair = (x = a ∨ x = b)'
-  let 'a'
-  let 'b'
-  let 'pair = repl two (x ↦ ifThenElse (x = ∅) a b)'
-  theorem '∀x. x ∈ pair = (x = a ∨ x = b)'
-    by metisGen (seqConv [upConv (rewrConv existsin), litConv reifyBool],
-                 [instantiate [repl, 'two', 'x ↦ ifThenElse (x = ∅) a b'],
-                  ifTrue, ifFalse, two])
+val metisPreConv =
+  seqConv [upConv (sumConv [expandForallIn, expandExistsIn]),reifyBool]
