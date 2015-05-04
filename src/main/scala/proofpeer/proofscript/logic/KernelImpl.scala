@@ -692,10 +692,16 @@ private class KernelImpl(
     val ContextSerializer : Serializer[Context] = new TypecastSerializer[Context, ContextImpl](
       new UniquelyIdentifiableSerializer(store, new ContextImplSerializer, UISTypeCodes.CONTEXT))
 
-    private object BasicTheoremSerializer extends TransformSerializer[Theorem, (Context, Term)](
-      PairSerializer(ContextSerializer, TermSerializer), (th : Theorem) => (th.context, th.proposition), mk_theorem.tupled)
+    private object BasicCTermSerializer extends TransformSerializer[CTerm, (Context, Term, Type)](
+      TripleSerializer(ContextSerializer, TermSerializer, TypeSerializer), (ct : CTerm) => (ct.context, ct.term, ct.typeOf), mk_cterm.tupled)
+
+    object CTermSerializer extends UniquelyIdentifiableSerializer(store, BasicCTermSerializer, UISTypeCodes.CTERM)
+
+    private object BasicTheoremSerializer extends TransformSerializer[Theorem, CTerm](
+      CTermSerializer, (th : Theorem) => th.prop, (ct : CTerm) => mk_theorem(ct.context, ct.term))
 
     object TheoremSerializer extends UniquelyIdentifiableSerializer(store, BasicTheoremSerializer, UISTypeCodes.THEOREM)
+
 
   }
 

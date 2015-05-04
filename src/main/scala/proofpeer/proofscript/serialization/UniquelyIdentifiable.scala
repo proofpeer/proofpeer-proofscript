@@ -85,8 +85,9 @@ object UISTypeCodes {
   val SOURCE = 8
   val CONTEXTKIND = 9
   val CONTEXT = 10
-  val THEOREM = 11
-  val STATEVALUE = 12
-  val ENV = 13
-  val STATE = 14
+  val CTERM = 11
+  val THEOREM = 12
+  val STATEVALUE = 13
+  val ENV = 14
+  val STATE = 15
 }

@@ -58,6 +58,7 @@ sealed trait CTerm extends UniquelyIdentifiable {
 sealed trait Theorem extends UniquelyIdentifiable {
   def context : Context
   def proposition : Term
+  def prop : CTerm
 }
 
 sealed trait ContextKind extends UniquelyIdentifiable
@@ -194,6 +195,8 @@ trait KernelSerializers {
 
   def ContextSerializer : Serializer[Context]
 
+  def CTermSerializer : Serializer[CTerm]
+
   def TheoremSerializer : Serializer[Theorem] 
 
 }
@@ -272,12 +275,15 @@ object Kernel {
   val existsin = rootname("existsin")
   val pair = rootname("pair")
     
-  private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
+  private class TheoremImpl(val prop : CTerm) extends Theorem {
+    def context = prop.context
+    def proposition = prop.term
+  }
 
   private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm
   
   def createDefaultKernel() : Kernel = new KernelImpl(
-    (c : Context, p : Term) => new TheoremImpl(c, p),
+    (c : Context, p : Term) => new TheoremImpl(new CTermImpl(c, p, Type.Prop)),
     (c : Context, t : Term, ty : Type) => new CTermImpl(c, t, ty))
-  
+
 }
