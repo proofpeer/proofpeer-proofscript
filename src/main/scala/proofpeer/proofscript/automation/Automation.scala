@@ -124,13 +124,13 @@ object Automation {
     clausesOfProofscript(proofscriptClauses) match {
       case Failure(errs) =>
         mkTuple(
-          StateValue.mkStringValue("Error") ::
-            errs.list.map {
+          (StateValue.mkStringValue("Error") +:
+            errs.list.toVector.map {
               case (err,tm) =>
                 mkTuple(
                   StateValue.mkStringValue(err),
                   tm)
-            }:_*)
+            }):_*)
       case Success(cls) =>
         System.out.println("Interpreted clauses")
         import java.io._
