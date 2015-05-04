@@ -49,6 +49,12 @@ object Term {
   case class Var(name : IndexedName) extends Term
 }
 
+sealed trait CTerm extends UniquelyIdentifiable {
+  def context : Context
+  def term : Term
+  def typeOf : Type
+}
+
 sealed trait Theorem extends UniquelyIdentifiable {
   def context : Context
   def proposition : Term
@@ -79,6 +85,9 @@ trait Context extends UniquelyIdentifiable {
 
   // The immediate parent context of this context.
   def parentContext : Option[Context]
+
+  // Certifies that a term is valid in this context.
+  def certify(term : Term) : CTerm
     
   // Looks up the type of a constant.
   // A None result means that either no such constant exists in this context, 
@@ -112,6 +121,10 @@ trait Context extends UniquelyIdentifiable {
   def lift(thm : Theorem, preserve_structure : Boolean) : Theorem
 
   def lift(thm : Theorem) : Theorem = lift(thm, false)
+
+  def lift(term : CTerm, preserve_structure : Boolean) : CTerm
+
+  def lift(term : CTerm) : CTerm = lift(term, false)
   
   // Produces the theorem `a = a`
   def reflexive(a : Term) : Theorem
@@ -260,6 +273,11 @@ object Kernel {
   val pair = rootname("pair")
     
   private class TheoremImpl(val context : Context, val proposition : Term) extends Theorem
+
+  private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm
   
-  def createDefaultKernel() : Kernel = new KernelImpl((c : Context, p : Term) => new TheoremImpl(c, p))
+  def createDefaultKernel() : Kernel = new KernelImpl(
+    (c : Context, p : Term) => new TheoremImpl(c, p),
+    (c : Context, t : Term, ty : Type) => new CTermImpl(c, t, ty))
+  
 }

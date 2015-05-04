@@ -1,6 +1,8 @@
 package proofpeer.proofscript.logic
 
-private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Kernel {
+private class KernelImpl(
+  val mk_theorem : (Context, Term) => Theorem,
+  val mk_cterm : (Context, Term, Type) => CTerm) extends Kernel {
   
   import Term._
   import Type._
@@ -56,6 +58,13 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
     
     def typeOfConst(const_name : Name) : Option[Type] = {
       contextOfName(const_name).constants.get(const_name)
+    }
+
+    def certify(term : Term) : CTerm = {
+      typeOfTerm(term) match {
+        case None => failwith("term is invalid in this context")
+        case Some(ty) => mk_cterm(this, betaEtaNormalform(term), ty)
+      }
     }
     
     private def isComplete : Boolean = {
@@ -199,6 +208,7 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
       if (KernelImpl.this != thm.context.kernel)
         failwith("theorem belongs to a different kernel")
       val src_context = thm.context.asInstanceOf[ContextImpl]
+      if (src_context == this) return thm
       val src_namespace = src_context.namespace
       if (namespace != src_namespace) {
         if (created.ancestorNamespaces.contains(src_namespace)) {
@@ -213,6 +223,26 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         liftLocally(thm, preserve_structure)
       }
     }
+
+    def lift(term : CTerm, preserve_structure : Boolean) : CTerm = {
+      if (KernelImpl.this != term.context.kernel)
+        failwith("theorem belongs to a different kernel")
+      val src_context = term.context.asInstanceOf[ContextImpl]
+      if (src_context == this) return term
+      val src_namespace = src_context.namespace
+      if (namespace != src_namespace) {
+        if (created.ancestorNamespaces.contains(src_namespace)) {
+          val ct = completedContext(src_namespace).liftLocally(term, preserve_structure)
+          if (!isQualifiedTerm(ct.term))
+            failwith("cannot lift term containing unqualified constants between namespaces")
+          mk_cterm(this, ct.term, ct.typeOf)
+        } else {
+          failwith("cannot lift theorem from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
+        }
+      } else {
+        liftLocally(term, preserve_structure)
+      }
+    }
     
     // Same as lift, but assumes that the theorem context has the same namespace as this context.
     private def liftLocally(thm : Theorem, preserve_structure : Boolean) : Theorem = {
@@ -225,9 +255,21 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         mk_theorem(this, lifted_thm.proposition)
     }
     
+    // Same as lift, but assumes that the termcontext has the same namespace as this context.
+    private def liftLocally(term : CTerm, preserve_structure : Boolean) : CTerm = {
+      val src_context = term.context.asInstanceOf[ContextImpl]
+      val common_ancestor = findCommonAncestorContext(this, src_context)
+      val lifted_term = common_ancestor.liftLocallyUp(term, preserve_structure)
+      if (common_ancestor.depth == depth)
+        lifted_term
+      else
+        mk_cterm(this, lifted_term.term, lifted_term.typeOf)
+    }
+
     private def liftLocallyUp(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       import ContextKind._
       var context = thm.context.asInstanceOf[ContextImpl]
+      if (context == this) return thm
       var prop = thm.proposition      
       if (preserve_structure) {
         while (context.depth > depth) {
@@ -274,6 +316,57 @@ private class KernelImpl(val mk_theorem : (Context, Term) => Theorem) extends Ke
         }        
       }
       mk_theorem(context, prop)
+    }
+
+    private def liftLocallyUp(cterm : CTerm, preserve_structure : Boolean) : CTerm = {
+      import ContextKind._
+      var context = cterm.context.asInstanceOf[ContextImpl]
+      if (context == this) return cterm
+      var term = cterm.term      
+      var typeOf = cterm.typeOf
+      if (preserve_structure) {
+        while (context.depth > depth) {
+          context.kind match {
+            case Introduce(c, ty) => 
+              term = mk_abs(c, ty, term)
+            case Define(c, ty, _) =>
+              term = mk_abs(c, ty, term)
+            case Choose(c, ty, _) =>
+              term = mk_abs(c, ty, term)
+            case _ => 
+              // nothing to do, the context does not introduce any constants
+          }
+          context = context.parentContext.get
+        }
+      } else {
+        var consts : Set[Name] = collectConsts(term)
+        while (context.depth > depth) {
+          context.kind match {
+            case Introduce(c, ty) => 
+              if (consts.contains(c)) {
+                term = mk_abs(c, ty, term)
+                typeOf = Type.Fun(ty, typeOf)
+                consts = consts - c
+              }
+            case Define(c, ty, _) =>
+              if (consts.contains(c)) {
+                term = mk_abs(c, ty, term)
+                typeOf = Type.Fun(ty, typeOf)
+                consts = consts - c
+              }
+            case Choose(c, ty, _) =>
+              if (consts.contains(c)) {
+                term = mk_abs(c, ty, term)
+                typeOf = Type.Fun(ty, typeOf)
+                consts = consts - c
+              }
+            case _ => 
+              // nothing to do, the context does not introduce any constants
+          }
+          context = context.parentContext.get
+        }        
+      }
+      mk_cterm(context, term, typeOf)
     }
     
     private def getTypeOfTerm(tm : Term) : Type = {
