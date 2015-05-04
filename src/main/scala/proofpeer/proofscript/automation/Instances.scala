@@ -32,13 +32,32 @@ object KernelInstances {
   implicit object NameIsShow extends Show[Name] {
     override def show(n: Name) = n.name.show
   }
+
+  def bracket(str: Cord) = Cord("(") ++ str ++ Cord(")")
+
+  implicit object TypeIsShow extends Show[Type] {
+    override def show(ty: Type) =
+      ty match {
+        case Type.Universe       => "𝒰"
+        case Type.Prop           => "ℙ"
+        case Type.Fun(dom,codom) => bracket(dom.show ++ Cord("→") ++ codom.show)
+      }
+  }
   // TODO: Temporarily poor Term implementation, not even covering all cases.
   implicit object TermIsShow extends Show[Term] {
-    override def shows(t: Term) =
+    override def show(t: Term) =
       t match {
-        case Term.PolyConst(name,_) => name.shows
-        case Term.Const(name)       => name.shows
-        case _ => throw new RuntimeException("TermIsShow is not implemented yet for term: " + t)
+        case Term.Var(IndexedName(name, index)) =>
+          name.show ++ index.show
+        case Term.PolyConst(name,ty) =>
+          name.show ++ Cord(":") ++ ty.show
+        case Term.Const(name)        => name.shows
+        case Term.Abs(name,ty,body)  =>
+          name.show ++ Cord(":") ++ ty.show ++ Cord(" ↦ ") ++ body.show
+        case Term.Comb(rator,rand)   =>
+          bracket(rator.show) ++ Cord(" ") ++ bracket(rand.show)
+        case _ =>
+          throw new RuntimeException("TermIsShow is not implemented yet for term: " + t)
       }
   }
 }
