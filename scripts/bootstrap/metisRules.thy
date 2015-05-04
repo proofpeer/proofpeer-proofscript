@@ -49,12 +49,27 @@ val eqFalseIntroThm = gsym eqFalseSimp
 
 val metisRemoveSym =
   def
-    notSym '¬(‹s› = ‹t›)' as thm =
+    sym '¬(‹s› = ‹t›)' as thm =
       val notts = convRule (randConv symConv, thm)
       { '‹t› = ‹s›' ->
          modusponens (notts, instantiate (eqFalseIntroThm, rand (notts:Term))) }
-    notSym _ = {->}
-  congruence (notSym,{->})
+    sym '¬(¬(‹s› = ‹t›))' as thm =
+      val notts = convRule (randConv (randConv symConv), thm)
+      { '¬(‹t› = ‹s›)' ->
+         modusponens (notts, instantiate (eqFalseIntroThm, rand (notts:Term))) }
+    sym _ = {->}
+  congruence (sym,{->})
+
+context
+  let 'x'
+  let 'y'
+  let 'z'
+  let 'P:ℙ'
+  let 'Q:ℙ'
+  assert ((metisRemoveSym 'x = y ∨ P ∨ x = z ∨ y = x ∨ Q'):Term) ==
+            '(x = y ∨ P ∨ x = z ∨ y = x ∨ Q) = (P ∨ x = z ∨ y = x ∨ Q)'
+  assert ((metisRemoveSym '¬(x = y) ∨ P ∨ x = z ∨ ¬(y = x) ∨ Q':Term)) ==
+            '(¬(x = y) ∨ P ∨ x = z ∨ ¬(y = x) ∨ Q) = (P ∨ x = z ∨ ¬(y = x) ∨ Q)'
 
 val metisRemoveIrrefl =
   theorem notIrreflThm: '∀x. (¬x = x) = ⊥'

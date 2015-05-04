@@ -270,6 +270,21 @@ def metisEquality [is,lit,rhs] =
                      rewrConv1 orComm],
             imp)
 
+def onBody [cl,rule] =
+  val freeAt = inClauseFreeAt cl
+  val [ctx,varOfMetis] = freshConsts freeAt
+  val newFreeAt
+  val newThm
+  context <ctx>
+    newThm =
+      rule
+        (instantiate (clauseThm cl <+ (for x in freeAt do varOfMetis x)))
+    val isAtomic = {}
+    for x in atomicInClause newThm do
+      isAtomic = isAtomic ++ {x}
+    newFreeAt = for fv if isAtomic (varOfMetis fv) in freeAt do fv
+  mkClause (newFreeAt, newThm)
+
 def interpretCert [axioms,cert] =
   def
     ic ["axiom",cl] =
@@ -282,11 +297,11 @@ def interpretCert [axioms,cert] =
         thm = instantiate (excludedMiddle, atomOfMetis (map_atom [varOfMetis,atom]))
       mkClause (freeAt,thm)
     ic ["refl",x] =
-      val freeAt  = termVars x: Tuple
-      val [ctx,_] = freshConsts freeAt
+      val freeAt           = termVars x: Tuple
+      val [ctx,varOfMetis] = freshConsts freeAt
       val thm
       context <ctx>
-        thm = reflexive (termOfMetis x)
+        thm = reflexive (termOfMetis (map_term [varOfMetis, x]))
       mkClause (freeAt,thm)
     ic [subst:Map, cert] =
       assertNotNil (metisInstantiate [ic cert,subst])
@@ -295,20 +310,9 @@ def interpretCert [axioms,cert] =
       val negCl = ic negCert
       assertNotNil (metisResolve [atm,posCl,negCl])
     ic ["irreflexive",cert] =
-      val cl = ic cert
-      val freeAt = inClauseFreeAt cl
-      val [ctx,varOfMetis] = freshConsts freeAt
-      val newFreeAt
-      val newThm
-      context <ctx>
-        newThm =
-          metisRemoveIrrefl
-            (instantiate (clauseThm cl <+ (for x in freeAt do varOfMetis x)))
-        val isAtomic = {}
-        for x in atomicInClause newThm do
-          isAtomic = isAtomic ++ {x}
-        newFreeAt = for fv if isAtomic (varOfMetis fv) in freeAt do fv
-      mkClause (newFreeAt, newThm)
+      onBody [ic cert, metisRemoveIrrefl]
+    ic ["removeSym",cert] =
+      onBody [ic cert, thm => convRule (metisRemoveSym, thm)]
     ic ["equality",term,literal,path] =
       val newVars = (literalVars literal ++ termVars term):Tuple
       val [ctx,varOfMetis] = freshConsts (newVars:Tuple)
@@ -369,8 +373,7 @@ def metisGen (preConv, asms:Tuple) =
     val conjAsms       = andIntro asms
     val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
     val conv           =
-      seqConv [preConv, upConv (sumConv [expandForallIn, expandExistsIn]),
-               nnf,prenex,bindersConv cnf,tryConv skolemize]
+      seqConv [preConv, nnf,prenex,bindersConv cnf,tryConv skolemize]
     val equiv1         =
       timeit
         conv conjProblem
@@ -385,7 +388,7 @@ def metisGen (preConv, asms:Tuple) =
         destAnd _           = nil
       theorem refute: '‹dngoal› → ⊥'
         assume asm: dngoal
-        clauseThm (runMetis asm)
+        clauseThm (timeit (runMetis asm))
       val nequiv2 = combine (reflexive 'not', sym equiv2)
       contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
     def existsDeMorganSym ty = gsym (existsDeMorgan ty)
@@ -401,4 +404,5 @@ def metisGen (preConv, asms:Tuple) =
                          combine (reflexive 'not', sym equiv1))
     modusponens (conjAsms, unmetis contr)
 
-def metis (asms: Tuple) = metisGen (idConv, asms)
+def metis (asms: Tuple) =
+    metisGen (upConv (sumConv [expandForallIn, expandExistsIn]),asms)
