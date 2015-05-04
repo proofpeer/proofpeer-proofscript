@@ -18,4 +18,4 @@ libraryDependencies += "net.proofpeer" %% "metis" % "0.2-SNAPSHOT"
 
 libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
 
-libraryDependencies += "org.scalaz" %% "scalaz-core" % "latest.integration"
+libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.1"
