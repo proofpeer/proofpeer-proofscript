@@ -75,35 +75,35 @@ theorem orAssoc: '∀p q r. (p ∨ (q ∨ r)) = (p ∨ r ∨ q)'
 
 # Conversion from an nnf matrix to cnf.
 val cnf =
+  def assocConv c =
+    tm => tryConv (seqConv [c, landConv (assocConv c)]) tm
   val andConv =
     seqConv
       [sumConv ((for thm in [andLeftId, andRightId, andLeftZero, andRightZero] do
                    rewrConv1 thm) +> idConv),
-       tryConv (rewrConv andAssoc)]
+       assocConv (rewrConv andAssoc)]
   val orConv =
     seqConv
       [sumConv ((for thm in [orLeftId, orRightId, orLeftZero, orRightZero] do
                    rewrConv1 thm) +> idConv),
-       tryConv rewrConv orAssoc]
+       assocConv (rewrConv orAssoc)]
   def
     cnfConv '‹_› ∧ ‹_›' as tm =
       seqConv [binaryConv (cnfConv,cnfConv), andConv] tm
     cnfConv '‹_› ∨ ‹_›' as tm =
-      seqConv [binaryConv (cnfConv,cnfConv), disjConv, tryConv orConv] tm
+      seqConv [binaryConv (cnfConv,cnfConv), disjConvOrConv] tm
     cnfConv tm = idConv tm
     disjConv '(‹_› ∧ ‹_›) ∨ ‹_›' as tm =
       seqConv [rewrConv orDistribRight,
                binaryConv (disjConvOrConv, disjConvOrConv),
-               tryConv andConv] tm
+               andConv] tm
     disjConv '‹_› ∨ (‹_› ∧ ‹_›)' as tm =
       seqConv [rewrConv orDistribLeft,
                binaryConv (disjConvOrConv, disjConvOrConv),
-               tryConv andConv] tm
+               andConv] tm
     disjConv tm = idConv tm
-    disjConvOrConv tm = seqConv [disjConv, tryConv orConv] tm
+    disjConvOrConv tm = seqConv [disjConv, orConv] tm
   repeatConvl [binderConv, cnfConv]
-
-val flipConjAll = gsym conjAll
 
 # Distribute quantifiers over their conjunctive matrix, dropping ones that
 # become redundant.
@@ -113,7 +113,9 @@ def distribQuants tm =
                          landConv db1] tm
 
     db1 '(∀x. ‹P› x ∧ ‹Q› x)' as tm =
-      val flippedConjAll = instantiate (flipConjAll, P, Q)
+      val flippedConjAll = instantiate (gsym (conjAll), P, Q)
+
+      # TODO: The need to normalize here is a bug in proofscript
       flippedConjAll = modusponens (flippedConjAll, normalize (flippedConjAll:Term))
       convRule (randConv repeat, flippedConjAll)
     db1 p = idConv p
@@ -146,27 +148,7 @@ val skolem1 =
   seqConv [skolem1,normalize]
 
 def
-  skolemize '∀x:‹_›. ‹P› x' as tm =
+  skolemize '∀x. ‹P› x' as tm =
     seqConv [binderConv skolemize,
              tryConv (seqConvl [binderConv, skolem1])] tm
   skolemize tm = tryConv (binderConv skolemize) tm
-
-context
-  val cthm =
-    seqConv [nnf,prenex,cnf,skolemize]
-       '∀p q. (∃x y. p x y) = (∃z. q z)'
-  val ctm = rhs (cthm: Term)
-  assert ctm ==
-    '∃f : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰.
-       ∃ g : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
-         ∃ h : (𝒰 → 𝒰 → ℙ) → (𝒰 → ℙ) → 𝒰 → 𝒰 → 𝒰.
-           ∀p q x y. (p (f p q) (g p q x y) ∨ ¬(q y)) ∧ (q (h p q x y) ∨ ¬ (p x y))'
-
-context
-  let 'p : (𝒰 → 𝒰 → ℙ)'
-  let 'q : (𝒰 → 𝒰 → ℙ)'
-  let 'f : (𝒰 → 𝒰)'
-  val cthm = distribQuants '∀x y z w. p x (f y) ∧ q y z ∧ p (f x) (f (f w))': Term
-  val ctm = rhs (cthm: Term)
-  assert ctm ==
-    '(∀ x y. p x (f y)) ∧ (∀x y. q x y) ∧ (∀x y. (p (f x)) (f (f y)))'
