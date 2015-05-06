@@ -59,3 +59,9 @@ theorem finUnion: '∀x y z. z ∈ finunion x y = (z ∈ x ∨ z ∈ y)'
   by metisGen
     (treeConv (sumConv [rewrConv [unionDef, Union], expandForallIn, expandExistsIn]),
               [upair])
+
+let pairDef: 'pair = (x ↦ y ↦ upair (upair x x) (upair x y))'
+
+theorem pair: '∀x y u v. (pair x y = pair u v) = (x = u ∧ y = v)'
+  by metisGen (seqConv [rewriteConv pairDef, metisPreConv],
+               [upair])
