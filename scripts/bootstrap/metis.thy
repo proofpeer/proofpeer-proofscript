@@ -235,10 +235,10 @@ theorem refl: '∀x. x = x'
 
 val followPath =
   def
-    follow [[0],tm,acc]     = [acc,tm]
+    follow [[],tm,acc]  = [acc,tm]
     follow [i <+ is,tm,acc] =
       val ri = noArgs tm - i - 1
-      follow [is,tryRand (iterate [ri,rator,tm]),acc +> ri]
+      follow [is,rand (iterate [ri,rator,tm]),acc +> ri]
   [is,tm] => follow [is,tm,[]]
 
 def metisEquality [is,lit,rhs] =
@@ -262,7 +262,7 @@ def metisEquality [is,lit,rhs] =
         iterate
           [ri,
            ratorConv,
-           tryConvL [randConv,equality ris]]
+           randConv (equality ris)]
     convRule (maybeNegConv (equality ris), asm)
   convRule (seqConv [rewrConv1 impliesCNF,
                      landConv (tryConv (rewrConv1 negInvolve)),
@@ -335,7 +335,8 @@ def
     for ax in conjuncts thm do
       for cl in clausesOfCNF (ax:Term) do
         axioms = axioms ++ { cl -> initClause ax }
-    val cert = callmetis (clausesOfCNF (thm:Term))
+    val cert =
+      timeit callmetis (clausesOfCNF (thm:Term))
     if cert == nil then
       nil
     else
@@ -385,7 +386,7 @@ def metisGen (preConv, asms:Tuple) =
       val dngoal = rhs (equiv2: Term)
       theorem refute: '‹dngoal› → ⊥'
         assume asm: dngoal
-        clauseThm (timeit (runMetis asm))
+        clauseThm (runMetis asm)
       val nequiv2 = combine (reflexive 'not', sym equiv2)
       contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
     def existsDeMorganSym ty = gsym (existsDeMorgan ty)
