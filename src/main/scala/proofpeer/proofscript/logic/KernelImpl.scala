@@ -63,7 +63,7 @@ private class KernelImpl(
     def certify(term : Term) : CTerm = {
       typeOfTerm(term) match {
         case None => failwith("term is invalid in this context")
-        case Some(ty) => mk_cterm(this, term, ty)
+        case Some(ty) => mk_cterm(this, betaEtaNormalform(term), ty)
       }
     }
     
@@ -106,18 +106,18 @@ private class KernelImpl(
           constants + (const_name -> ty))
     } 
 
-    def assume(assumption : CTerm) : Theorem = {
+    def assume(assumption : Term) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
-      if (assumption.typeOf != Prop) failwith("assumption is not a proposition")
-      checkCTermContext(assumption)
+      if (typeOfTerm(assumption) != Some(Prop))
+        failwith("assumption is not a valid proposition")
       val context = 
         new ContextImpl(
-          ContextKind.Assume(assumption.term),
-          depth + 1,
-          created,
-          Some(this),
-          constants)
-      mk_theorem(context, assumption.term)
+            ContextKind.Assume(assumption),
+            depth + 1,
+            created,
+            Some(this),
+            constants)
+      mk_theorem(context, assumption)
     }
 
     def magic(term : Term) : Theorem = {
@@ -138,22 +138,24 @@ private class KernelImpl(
       false
     }
   
-    def define(const_name : Name, tm : CTerm) : Theorem = {
+    def define(const_name : Name, tm : Term) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      checkCTermContext(tm)
-      val ty = tm.typeOf
-      val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm.term)
-      val context = 
-        new ContextImpl(
-          ContextKind.Define(const_name, ty, tm.term),
-          depth + 1,
-          created,
-          Some(this),
-          constants + (const_name -> ty))
-      mk_theorem(context, eq)
+      typeOfTerm(tm) match {
+        case None => failwith("the defining term is not a valid term")
+        case Some(ty) =>
+          val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
+          val context = 
+            new ContextImpl(
+              ContextKind.Define(const_name, ty, tm),
+              depth + 1,
+              created,
+              Some(this),
+              constants + (const_name -> ty))
+          mk_theorem(context, eq)         
+      }
     }
 
     def choose(const_name : Name, thm : Theorem) : Theorem = {
@@ -182,23 +184,17 @@ private class KernelImpl(
       }
       val context = 
         new ContextImpl(
-          ContextKind.Choose(const_name, cty, prop),
-          depth + 1,
-          created,
-          Some(this),
-          constants + (const_name -> cty))
+              ContextKind.Choose(const_name, cty, prop),
+              depth + 1,
+              created,
+              Some(this),
+              constants + (const_name -> cty))
       mk_theorem(context, prop)             
     }
     
-    def instantiate(thm : Theorem, insts : List[Option[CTerm]]) : Theorem = {
+    def instantiate(thm : Theorem, insts : List[Option[Term]]) : Theorem = {
       checkTheoremContext(thm)
-      def m(x : Option[CTerm]) : Option[Term] = 
-        x match {
-          case None => None
-          case Some(ct) => Some(ct.term)
-        }
-      val result = KernelUtils.instantiate(this, thm.proposition, insts.map(m _))
-      mk_theorem(this, betaEtaNormalform(this, result))
+      mk_theorem(this, KernelUtils.instantiate(this, thm.proposition, insts))
     } 
             
     def checkTheoremContext(thm : Theorem) {
@@ -206,13 +202,6 @@ private class KernelImpl(
         failwith("theorem belongs to a different kernel")
       if (thm.context != this)
         failwith("theorem belongs to a different context")      
-    }
-
-    def checkCTermContext(cterm : CTerm) {
-      if (KernelImpl.this != cterm.context.kernel)   
-        failwith("cterm belongs to a different kernel")
-      if (cterm.context != this)
-        failwith("cterm belongs to a different context")      
     }
       
     def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
@@ -388,27 +377,43 @@ private class KernelImpl(
     }
 
     private def equivalent(u : Term, v : Term) : Boolean = {
-      val f = betaEtaNormalform(this, u)
-      val g = betaEtaNormalform(this, v)
+      val f = betaEtaNormalform(u)
+      val g = betaEtaNormalform(v)
       alpha_equivalent(f, g)
     }
   
-    def reflexive(ctm : CTerm) : Theorem = {
-      checkCTermContext(ctm)
-      val ty = ctm.typeOf
-      val tm = ctm.term 
+    def reflexive(tm : Term) : Theorem = {
+      val ty = getTypeOfTerm(tm)
       mk_theorem(this, mk_equals(tm, tm, ty))
     }
-
-    def normalize(thm : Theorem, prop : CTerm) : Theorem = {
-      checkTheoremContext(thm)
-      checkCTermContext(prop)
-      if (equivalent(thm.proposition, prop.term))
-        mk_theorem(this, prop.term)
-      else
-        failwith("normalize: theorem and proposition are not equivalent")
+    
+    def beta(a : Term) : Theorem = {
+      val ty = getTypeOfTerm(a)
+      val b = KernelUtils.beta(a)
+      mk_theorem(this, mk_equals(a, b, ty))
     }
- 
+    
+    def eta(a : Term) : Theorem = {
+      val ty = getTypeOfTerm(a)
+      val b = KernelUtils.eta(a)
+      mk_theorem(this, mk_equals(a, b, ty))
+    }
+
+    def normalize(a : Term) : Theorem = {
+      val ty = getTypeOfTerm(a)
+      val b = KernelUtils.betaEtaNormalform(a)
+      mk_theorem(this, mk_equals(a, b, ty))      
+    }
+
+    def normalize(p : Theorem, q : Term) : Theorem = {
+      checkTheoremContext(p)
+      getTypeOfTerm(q)
+      if (KernelUtils.betaEtaEq(p.proposition, q))
+        mk_theorem(this, q)
+      else 
+        failwith("propositions are not alpha/beta/eta equivalent")
+    }
+
     def mkFresh(name : IndexedName) : IndexedName = {
       def isFresh(name : Name) = 
         Kernel.isPolymorphicName(name) || typeOfConst(name).isEmpty
@@ -423,19 +428,12 @@ private class KernelImpl(
       failwith("mkFresh: internal error")    
     }
 
-    def destAbs(cterm : CTerm) : Option[(Context, CTerm, CTerm)] = {
-      checkCTermContext(cterm)
-      cterm.term match {
+    def destAbs(term : Term) : Option[(Context, Term, Term)] = {
+      term match {
         case Abs(name, ty, body) =>
           val x = Const(Name(Some(namespace), mkFresh(name)))
           val context = introduce(x.name, ty)
-          cterm.typeOf match {
-            case Fun(_, bodyTy) =>
-              val cx = mk_cterm(context, x, ty)
-              val cbody = mk_cterm(context, KernelUtils.substVar(body, name, x), bodyTy)
-              Some((context, cx, cbody))
-            case _ => failwith("destAbs: internal error")
-          }
+          Some((context, x, KernelUtils.substVar(body, name, x)))
         case _ => None
       }
     }
@@ -458,19 +456,6 @@ private class KernelImpl(
       else
         failwith("transitive: middle propositions are not equivalent")
     }
-
-    /** 
-       Assuming f and u are in beta eta normal form, returns f u in beta eta normal form, i.e.
-       betaEtaNormalform(Comb(f, u)). 
-       "I think" that this can be optimized in the following way:
-       a) if f is not an abstraction, then Comb(f, u) is already in beta eta normal form.
-       b) if f is an abstraction, but u is not, then only a single beta reduction at the top is necessary
-       c) if both are abstractions, do the full monty
-     */
-    private def norm_comb(f : Term, u : Term) : Term = {
-      // right now, do the unoptimized version:
-      betaEtaNormalform(this, Comb(f, u))
-    }
     
     def comb(p : Theorem, q : Theorem) : Theorem = {
       checkTheoremContext(p)
@@ -487,15 +472,13 @@ private class KernelImpl(
         }
       fun_ty match {
         case Fun(domain, range) if domain == arg_ty =>
-          mk_theorem(this, mk_equals(norm_comb(f, a), norm_comb(g, b), range))
+          mk_theorem(this, mk_equals(Comb(f, a), Comb(g, b), range))
         case _ =>
           failwith("comb: types do not match up")
       }
     }
     
     def modusponens(p : Theorem, q : Theorem) : Theorem = {
-      checkTheoremContext(p)
-      checkTheoremContext(q)
       def mk(antecedent : Term, conclusion : Term) : Theorem = {
         if (equivalent(p.proposition, antecedent))
           mk_theorem(this, conclusion)
@@ -513,7 +496,6 @@ private class KernelImpl(
     }
     
     def abs(p : Theorem) : Theorem = {
-      checkTheoremContext(p)
       val (x, xty, body) = 
         dest_forall(p.proposition) match {
           case None => failwith("abs: theorem is not a universal quantification")
@@ -530,8 +512,6 @@ private class KernelImpl(
     }
     
     def equiv(p : Theorem, q : Theorem) : Theorem = {
-      checkTheoremContext(p)
-      checkTheoremContext(q)      
       (dest_implies(p.proposition), dest_implies(q.proposition)) match {
         case (Some((a,b)), Some((b_, a_))) =>
           if (equivalent(a, a_) && equivalent(b, b_)) 
@@ -721,6 +701,7 @@ private class KernelImpl(
       CTermSerializer, (th : Theorem) => th.prop, (ct : CTerm) => mk_theorem(ct.context, ct.term))
 
     object TheoremSerializer extends UniquelyIdentifiableSerializer(store, BasicTheoremSerializer, UISTypeCodes.THEOREM)
+
 
   }
 

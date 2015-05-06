@@ -220,7 +220,11 @@ object KernelUtils {
       case Comb(Comb(Const(Kernel.implies), left), right) =>
         Some((left, right))
       case _ => 
-        None
+        betaNormalform(term) match {
+          case Comb(Comb(Const(Kernel.implies), left), right) =>
+            Some((left, right))
+          case _ => None
+        }
     }    
   }
     
@@ -228,13 +232,17 @@ object KernelUtils {
     term match {
       case Comb(Comb(PolyConst(Kernel.equals, ty), left), right) =>
         Some((left, right, ty))
-      case _ =>
-        None 
+      case _ => 
+        betaNormalform(term) match {
+          case Comb(Comb(PolyConst(Kernel.equals, ty), left), right) =>
+            Some((left, right, ty))
+          case _ => None
+        }
     }
   }
   
   def alpha_equivalent(u : Term, v : Term) : Boolean = {
-    if ((u eq v) || (u == v)) return true
+    if (u == v) return true
     incIndex(maxIndex(findHighestVarIndex(u), findHighestVarIndex(v))) match {
       case None => false
       case Some(freshIndex) => alpha_equivalent(u, Map(), v, Map(), freshIndex)
@@ -270,7 +278,15 @@ object KernelUtils {
       case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
         Some((x, ty, body))
       case _ =>
-        None
+        betaNormalform(term) match {
+          case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
+            Some((x, ty, body))
+          case Comb(PolyConst(Kernel.forall, ty), p) => 
+            val x = freshVar("x", p)
+            val body = Comb(p, x)
+            Some((x.name, ty, body))
+          case _ => None
+        }
     }
   }
 
@@ -279,7 +295,15 @@ object KernelUtils {
       case Comb(PolyConst(Kernel.exists, _), Abs(x, ty, body)) => 
         Some((x, ty, body))
       case _ =>
-        None
+        betaNormalform(term) match {
+          case Comb(PolyConst(Kernel.exists, _), Abs(x, ty, body)) => 
+            Some((x, ty, body))
+          case Comb(PolyConst(Kernel.exists, ty), p) => 
+            val x = freshVar("x", p)
+            val body = Comb(p, x)
+            Some((x.name, ty, body))
+          case _ => None
+        }
     }
   }
   
@@ -401,92 +425,64 @@ object KernelUtils {
     }
   }  
 
-  private def etaExpandStep(vars : Map[IndexedName, Type], tm : Term, ty : Type, 
-    isApplied: Boolean, alreadyChanged : Boolean) : Option[Term] = 
-  {
-    ty match {
-      case Fun(domain, range) if !isApplied => 
-        tm match {
-          case _ : Abs => if (alreadyChanged) Some(tm) else None
-          case _ =>
-            var x = IndexedName("x", None)
-            while (vars.get(x).isDefined) x = incIndex(x)
-            val body = etaExpandStep(vars + (x -> domain), Comb(tm, Var(x)), range, false, true).get
-            Some(Abs(x, domain, body))
+  def beta(term : Term) : Term = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => substVar(body, x, y)
+      case _ => failwith("beta: term is not reducible")
+    }
+  }
+  
+  def eta(term : Term) : Term = {
+    term match {
+      case Abs(x, ty, Comb(f, Var(y))) if x == y =>
+        if (!isFreeIn(x, f)) 
+          f
+        else
+          failwith("eta: variable appears free in function")
+      case _ =>
+        failwith("eta: term is not reducible")
+    }
+  }
+
+  def normBetaEta(term : Term) : Option[Term] = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => 
+        val top = substVar(body, x, y)
+        normBetaEta(top) match {
+          case None => Some(top)
+          case t => t
         }
-      case _ => if (alreadyChanged) Some(tm) else None
+      case Abs(x, ty, Comb(f, Var(y))) if x == y && !isFreeIn(x, f) =>
+        val top = f
+        normBetaEta(top) match {
+          case None => Some(top)
+          case t => t
+        }
+      case Comb(f, g) =>
+        (normBetaEta(f), normBetaEta(g)) match {
+          case (Some(f), Some(g)) => Some(Comb(f, g))
+          case (Some(f), None) => Some(Comb(f, g))
+          case (None, Some(g)) => Some(Comb(f, g))
+          case (None, None) => None
+        }
+      case Abs(x, ty, body) =>
+        normBetaEta(body) match {
+          case None => None
+          case Some(body) => Some(Abs(x, ty, body))
+        }
+      case _ => None
     }
   }
 
-  private def normBetaEta(ctx : Context, vars : Map[IndexedName, Type], 
-    isApplied : Boolean, term : Term) : Option[(Type, Option[Term])] = 
-  {
-    val reduced = 
-      term match {
-        case Comb(Abs(x, ty, body), y) => 
-          val top = substVar(body, x, y)
-          normBetaEta(ctx, vars, isApplied, top) match {
-            case None => None
-            case Some((ty, None)) => Some((ty, Some(top)))
-            case result => result
-          }
-        case Comb(f, g) =>
-          (normBetaEta(ctx, vars, true, f), normBetaEta(ctx, vars, false, g)) match {
-            case (Some((Fun(domain, range), fOpt)), Some((ty, gOpt))) if domain == ty =>
-              val t = 
-                (fOpt, gOpt) match {
-                  case (Some(f), Some(g)) => Some(Comb(f, g))
-                  case (Some(f), None) => Some(Comb(f, g))
-                  case (None, Some(g)) => Some(Comb(f, g))
-                  case (None, None) => None
-                }
-              Some((range, t)) 
-            case _ => None
-          }
-        case Abs(x, ty, body) =>
-          normBetaEta(ctx, vars + (x -> ty), false, body) match {
-            case None => None
-            case Some((bodyTy, None)) => Some((Fun(ty, bodyTy), None))
-            case Some((bodyTy, Some(body))) => Some((Fun(ty, bodyTy), Some(Abs(x, ty, body))))
-          }
-        case Var(name) => 
-          vars.get(name) match {
-            case None => None
-            case Some(ty) => Some((ty, None))
-          }
-        case _ => 
-          ctx.typeOfTerm(term) match {
-            case None => None
-            case Some(ty) => Some((ty, None))
-          }
-      }
-    reduced match {
-      case None => None
-      case Some((ty, None)) => 
-        Some((ty, etaExpandStep(vars, term, ty, isApplied, false)))
-      case Some((ty, Some(term))) =>
-        Some((ty, etaExpandStep(vars, term, ty, isApplied, true)))
+  def betaEtaNormalform(term : Term) : Term = {
+    normBetaEta(term) match {
+      case None => term
+      case Some(term) => betaEtaNormalform(term)
     }
   }
 
-  def normBetaEta(context : Context, term : Term) : Option[(Type, Option[Term])] = {
-    normBetaEta(context, Map(), false, term)
-  }
-
-  /** Computes the beta/eta normal form of a given term.
-      It applies beta-reduction and eta-expansion until it arrives at the normal form.
-      See C. Jay, N. Ghani, "The virtues of eta-expansion", Journal of Functional Programming, 1995. 
-    */
-  def betaEtaNormalform(context : Context, term : Term) : Term = {
-    normBetaEta(context, term) match {
-      case None => failwith("betaEtaNormalform: term is ill-typed")
-      case Some((_, None)) => term
-      case Some((_, Some(term))) => term
-    }
-  }
-
-  def betaEtaEq(context : Context, u : Term, v : Term) : Boolean = {
-    alpha_equivalent(betaEtaNormalform(context, u), betaEtaNormalform(context, v))
+  def betaEtaEq(u : Term, v : Term) : Boolean = {
+    alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v))
   }
 
   def normBeta(term : Term) : Option[Term] = {
@@ -518,6 +514,6 @@ object KernelUtils {
       case None => term
       case Some(term) => betaNormalform(term)
     }
-  }  
+  }
 
 }

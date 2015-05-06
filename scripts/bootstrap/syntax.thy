@@ -91,7 +91,7 @@ def matcher [tm,pattern,inst] =
                   case [ctx,y,bod] =>
                     context <ctx>
                       newInst = matcher (bod,patternBod,inst,[y,x] <+ env)
-                  case _ => 
+                  case _ => nil
               newInst
             case nil =>
               match assoc [tm,env]
@@ -147,11 +147,9 @@ def matchmp (imp <+ ants) =
 
 context
   assume imp:'∀x z w. x → w ∧ w → x ∧ z ∧ w'
-  show imp
   let 'y:ℙ'
   let 'z:ℙ'
   let 'P:ℙ → ℙ'
   assume ant1:'y:ℙ'
   assume ant2:'P z ∧ P z'
-  show [imp,ant1,ant2]
   assert (matchmp [imp,ant1,ant2]: Term) == '∀ x : ℙ. (y ∧ x) ∧ (P z)'

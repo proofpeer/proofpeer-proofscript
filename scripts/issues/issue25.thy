@@ -4,4 +4,3 @@ context
   let 'P:ℙ'
   let 'Q:ℙ'
   assert (normalize '(x ↦ y ↦ ⊤) P Q' : Term) == '(((x : ℙ ↦ y : ℙ ↦ ⊤) P) Q) = ⊤'
-  assert (normalize '(x ↦ y ↦ ⊤) P Q' : Term) == '⊤ = ⊤'

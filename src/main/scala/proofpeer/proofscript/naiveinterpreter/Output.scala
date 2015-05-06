@@ -61,10 +61,8 @@ class DefaultOutputCapture extends Output {
 
   private var outputs : List[Item] = List()
 
-
   def add(namespace : Namespace, location : Option[Span], kind : OutputKind, output : String) {
     outputs = (namespace, location, kind, output) :: outputs
-    println(Output.itemToString(outputs.head))
   }
 
   def export() : Captured = outputs.reverse.toVector

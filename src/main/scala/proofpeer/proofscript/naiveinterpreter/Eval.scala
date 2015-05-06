@@ -58,6 +58,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	private var evalDepth : Int = 0
 
+
 	private def incEvalDepth() : Boolean = {
 		evalDepth = evalDepth + 1
 		evalDepth > 100
@@ -512,10 +513,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 									try {
 										val ctx = state.context
 										val liftedThm = ctx.lift(thm, false)
-										if (!KernelUtils.betaEtaEq(ctx, prop, liftedThm.proposition)) {
+										if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
 											val liftedThm2 = ctx.lift(thm, true)
-											if (!KernelUtils.betaEtaEq(ctx, prop, liftedThm2.proposition)) {
-												if (KernelUtils.betaEtaEq(ctx, liftedThm.proposition, liftedThm2.proposition)) 
+											if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) {
+												if (KernelUtils.betaEtaEq(liftedThm.proposition, liftedThm2.proposition)) 
 													cont(fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm))))
 												else {
 													val th1 = display(state, TheoremValue(liftedThm))
@@ -597,7 +598,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 											try {
 												val ctx = state.context
 												val liftedThm = ctx.lift(thm.value, false)
-												if (!KernelUtils.betaEtaEq(ctx, prop, liftedThm.proposition)) {
+												if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
 													cont(fail(means, "Proven theorem does not match: "+ display(state, TheoremValue(liftedThm))))
 												} else 
 													cont(success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop)))))
@@ -776,7 +777,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				} else Some(IsNEq)
 			case (TermValue(u), TermValue(v)) => 
 				import KernelUtils._
-				if (betaEtaEq(state.context, u, v))
+				if (betaEtaEq(u, v))
 					Some(IsEq)
 				else
 					Some(IsNEq)
