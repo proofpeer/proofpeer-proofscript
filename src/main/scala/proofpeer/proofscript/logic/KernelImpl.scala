@@ -479,6 +479,8 @@ private class KernelImpl(
     }
     
     def modusponens(p : Theorem, q : Theorem) : Theorem = {
+      checkTheoremContext(p)
+      checkTheoremContext(q)
       def mk(antecedent : Term, conclusion : Term) : Theorem = {
         if (equivalent(p.proposition, antecedent))
           mk_theorem(this, conclusion)
@@ -496,6 +498,7 @@ private class KernelImpl(
     }
     
     def abs(p : Theorem) : Theorem = {
+      checkTheoremContext(p)
       val (x, xty, body) = 
         dest_forall(p.proposition) match {
           case None => failwith("abs: theorem is not a universal quantification")
@@ -512,6 +515,8 @@ private class KernelImpl(
     }
     
     def equiv(p : Theorem, q : Theorem) : Theorem = {
+      checkTheoremContext(p)
+      checkTheoremContext(q)
       (dest_implies(p.proposition), dest_implies(q.proposition)) match {
         case (Some((a,b)), Some((b_, a_))) =>
           if (equivalent(a, a_) && equivalent(b, b_)) 
