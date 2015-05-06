@@ -63,7 +63,7 @@ private class KernelImpl(
     def certify(term : Term) : CTerm = {
       typeOfTerm(term) match {
         case None => failwith("term is invalid in this context")
-        case Some(ty) => mk_cterm(this, betaEtaNormalform(term), ty)
+        case Some(ty) => mk_cterm(this, term, ty)
       }
     }
     
@@ -106,18 +106,19 @@ private class KernelImpl(
           constants + (const_name -> ty))
     } 
 
-    def assume(assumption : Term) : Theorem = {
+    def assume(assumption : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
-      if (typeOfTerm(assumption) != Some(Prop))
+      checkTermContext(assumption)
+      if (assumption.typeOf != Prop)
         failwith("assumption is not a valid proposition")
       val context = 
         new ContextImpl(
-            ContextKind.Assume(assumption),
-            depth + 1,
-            created,
-            Some(this),
-            constants)
-      mk_theorem(context, assumption)
+          ContextKind.Assume(assumption.term),
+          depth + 1,
+          created,
+          Some(this),
+          constants)
+      mk_theorem(context, assumption.term)
     }
 
     def magic(term : Term) : Theorem = {
@@ -137,25 +138,23 @@ private class KernelImpl(
       } while (context != null)
       false
     }
-  
-    def define(const_name : Name, tm : Term) : Theorem = {
+
+    def define(const_name : Name, tm : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      typeOfTerm(tm) match {
-        case None => failwith("the defining term is not a valid term")
-        case Some(ty) =>
-          val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm)
-          val context = 
-            new ContextImpl(
-              ContextKind.Define(const_name, ty, tm),
-              depth + 1,
-              created,
-              Some(this),
-              constants + (const_name -> ty))
-          mk_theorem(context, eq)         
-      }
+      checkTermContext(tm)
+      val ty = tm.typeOf
+      val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm.term)
+      val context = 
+        new ContextImpl(
+          ContextKind.Define(const_name, ty, tm.term),
+          depth + 1,
+          created,
+          Some(this),
+          constants + (const_name -> ty))
+      mk_theorem(context, eq)         
     }
 
     def choose(const_name : Name, thm : Theorem) : Theorem = {
@@ -192,8 +191,17 @@ private class KernelImpl(
       mk_theorem(context, prop)             
     }
     
-    def instantiate(thm : Theorem, insts : List[Option[Term]]) : Theorem = {
+    def instantiate(thm : Theorem, cinsts : List[Option[CTerm]]) : Theorem = {
       checkTheoremContext(thm)
+      def m(t : Option[CTerm]) : Option[Term] = {
+        t match {
+          case None => None
+          case Some(t) => 
+            checkTermContext(t)
+            Some(t.term)
+        }
+      }
+      val insts = cinsts.map(m _)
       mk_theorem(this, KernelUtils.instantiate(this, thm.proposition, insts))
     } 
             
@@ -203,7 +211,14 @@ private class KernelImpl(
       if (thm.context != this)
         failwith("theorem belongs to a different context")      
     }
-      
+
+    def checkTermContext(term : CTerm) {
+      if (KernelImpl.this != term.context.kernel)   
+        failwith("cterm belongs to a different kernel")
+      if (term.context != this)
+        failwith("cterm belongs to a different context")      
+    }
+
     def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       if (KernelImpl.this != thm.context.kernel)
         failwith("theorem belongs to a different kernel")
@@ -377,39 +392,32 @@ private class KernelImpl(
     }
 
     private def equivalent(u : Term, v : Term) : Boolean = {
+      if ((u eq v) || u == v) return true
       val f = betaEtaNormalform(u)
       val g = betaEtaNormalform(v)
       alpha_equivalent(f, g)
     }
   
-    def reflexive(tm : Term) : Theorem = {
-      val ty = getTypeOfTerm(tm)
-      mk_theorem(this, mk_equals(tm, tm, ty))
+    def reflexive(tm : CTerm) : Theorem = {
+      checkTermContext(tm)
+      val a = tm.term
+      val ty = tm.typeOf
+      mk_theorem(this, mk_equals(a, a, ty))
     }
     
-    def beta(a : Term) : Theorem = {
-      val ty = getTypeOfTerm(a)
-      val b = KernelUtils.beta(a)
-      mk_theorem(this, mk_equals(a, b, ty))
-    }
-    
-    def eta(a : Term) : Theorem = {
-      val ty = getTypeOfTerm(a)
-      val b = KernelUtils.eta(a)
-      mk_theorem(this, mk_equals(a, b, ty))
-    }
-
-    def normalize(a : Term) : Theorem = {
-      val ty = getTypeOfTerm(a)
+    def normalize(tm : CTerm) : Theorem = {
+      checkTermContext(tm)
+      val a = tm.term
+      val ty = tm.typeOf
       val b = KernelUtils.betaEtaNormalform(a)
       mk_theorem(this, mk_equals(a, b, ty))      
     }
 
-    def normalize(p : Theorem, q : Term) : Theorem = {
+    def normalize(p : Theorem, q : CTerm) : Theorem = {
       checkTheoremContext(p)
-      getTypeOfTerm(q)
-      if (KernelUtils.betaEtaEq(p.proposition, q))
-        mk_theorem(this, q)
+      checkTermContext(q)
+      if (equivalent(p.proposition, q.term))
+        mk_theorem(this, q.term)
       else 
         failwith("propositions are not alpha/beta/eta equivalent")
     }
@@ -428,12 +436,20 @@ private class KernelImpl(
       failwith("mkFresh: internal error")    
     }
 
-    def destAbs(term : Term) : Option[(Context, Term, Term)] = {
-      term match {
+    def destAbs(term : CTerm) : Option[(Context, CTerm, CTerm)] = {
+      checkTermContext(term)
+      term.term match {
         case Abs(name, ty, body) =>
           val x = Const(Name(Some(namespace), mkFresh(name)))
           val context = introduce(x.name, ty)
-          Some((context, x, KernelUtils.substVar(body, name, x)))
+          val cx = mk_cterm(context, x, ty)
+          val cbody = 
+            term.typeOf match {
+              case Fun(_, range) =>
+                mk_cterm(context, KernelUtils.substVar(body, name, x), range)
+              case _ => failwith("destAbs: internal error")
+            }
+          Some((context, cx, cbody))
         case _ => None
       }
     }

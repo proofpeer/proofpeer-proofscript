@@ -53,7 +53,6 @@ sealed trait CTerm extends UniquelyIdentifiable {
   def context : Context
   def term : Term
   def typeOf : Type
-  def normalform : CTerm
 }
 
 sealed trait Theorem extends UniquelyIdentifiable {
@@ -138,6 +137,10 @@ trait Context extends UniquelyIdentifiable {
   def reflexive(a : CTerm) : Theorem 
 
   def reflexive(a : Term) : Theorem = reflexive(certify(a))
+
+  def normalize(a : CTerm) : Theorem
+
+  def normalize(a : Term) : Theorem = normalize(certify(a))
 
   // Assuming that thm and prop are alpha-equivalent, returns a theorem with prop as proposition
   def normalize(thm : Theorem, prop : CTerm) : Theorem 
@@ -294,15 +297,7 @@ object Kernel {
     def proposition = prop.term
   }
 
-  private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm {
-    lazy val normalform : CTerm = {
-      val nf = KernelUtils.betaEtaNormalform(term)
-      if (nf eq term) 
-        this
-      else
-        new CTermImpl(context, nf, typeOf)
-    }
-  }
+  private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm
   
   def createDefaultKernel() : Kernel = new KernelImpl(
     (c : Context, p : Term) => new TheoremImpl(new CTermImpl(c, p, Type.Prop)),

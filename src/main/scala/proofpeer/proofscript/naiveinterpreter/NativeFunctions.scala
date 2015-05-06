@@ -114,7 +114,7 @@ object NativeFunctions {
                 case _ => return Right("invalid argument to instantiate")
               }
             }
-            Left(TheoremValue(ctx.instantiate(ctx.lift(thm), insts.reverse)))
+            Left(TheoremValue(ctx.instantiateWithTerms(ctx.lift(thm), insts.reverse)))
           case _ => Right("first argument is expected to be a theorem")
         }
       case _ => Right("non-empty argument list expected")
