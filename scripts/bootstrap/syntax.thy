@@ -91,7 +91,7 @@ def matcher [tm,pattern,inst] =
                   case [ctx,y,bod] =>
                     context <ctx>
                       newInst = matcher (bod,patternBod,inst,[y,x] <+ env)
-                  case _ => nil
+                  case _ => 
               newInst
             case nil =>
               match assoc [tm,env]

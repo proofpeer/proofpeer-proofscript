@@ -156,8 +156,7 @@ trait Context extends UniquelyIdentifiable {
     destAbs(certify(abs)) match {
       case None => None
       case Some((c, x, body)) => Some((c, x.term, body.term))
-    }
-
+    } 
   
   // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-beta-eta-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem

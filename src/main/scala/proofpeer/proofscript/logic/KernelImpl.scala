@@ -63,7 +63,7 @@ private class KernelImpl(
     def certify(term : Term) : CTerm = {
       typeOfTerm(term) match {
         case None => failwith("term is invalid in this context")
-        case Some(ty) => mk_cterm(this, betaEtaNormalform(this, term), ty)
+        case Some(ty) => mk_cterm(this, term, ty)
       }
     }
     
@@ -388,7 +388,9 @@ private class KernelImpl(
     }
 
     private def equivalent(u : Term, v : Term) : Boolean = {
-      alpha_equivalent(u, v)
+      val f = betaEtaNormalform(this, u)
+      val g = betaEtaNormalform(this, v)
+      alpha_equivalent(f, g)
     }
   
     def reflexive(ctm : CTerm) : Theorem = {
@@ -404,7 +406,7 @@ private class KernelImpl(
       if (equivalent(thm.proposition, prop.term))
         mk_theorem(this, prop.term)
       else
-        failwith("normalize: theorem and proposition are not alpha-equivalent")
+        failwith("normalize: theorem and proposition are not equivalent")
     }
  
     def mkFresh(name : IndexedName) : IndexedName = {

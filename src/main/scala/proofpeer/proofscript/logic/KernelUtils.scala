@@ -489,4 +489,35 @@ object KernelUtils {
     alpha_equivalent(betaEtaNormalform(context, u), betaEtaNormalform(context, v))
   }
 
+  def normBeta(term : Term) : Option[Term] = {
+    term match {
+      case Comb(Abs(x, ty, body), y) => 
+        val top = substVar(body, x, y)
+        normBeta(top) match {
+          case None => Some(top)
+          case t => t
+        }
+      case Comb(f, g) =>
+        (normBeta(f), normBeta(g)) match {
+          case (Some(f), Some(g)) => Some(Comb(f, g))
+          case (Some(f), None) => Some(Comb(f, g))
+          case (None, Some(g)) => Some(Comb(f, g))
+          case (None, None) => None
+        }
+      case Abs(x, ty, body) =>
+        normBeta(body) match {
+          case None => None
+          case Some(body) => Some(Abs(x, ty, body))
+        }
+      case _ => None
+    }
+  }
+
+  def betaNormalform(term : Term) : Term = {
+    normBeta(term) match {
+      case None => term
+      case Some(term) => betaNormalform(term)
+    }
+  }  
+
 }

@@ -218,8 +218,7 @@ context
   val (eq, right) = destcomb (normalize '(x ↦ x) x' : Term)
   val (_, left) = destcomb eq
   assert left == right
-  assert destcomb left <> destcomb right
-  assert destcomb left == ('x ↦ x', 'x')
+  assert destcomb left == nil
   assert destcomb right == nil
 
 # destabs
