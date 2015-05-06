@@ -48,6 +48,7 @@ let unionDef: 'finunion = (x ↦ y ↦ ⋃ (upair x y))'
 #
 # SPASS and Vampire claim that this (negated) conjecture is unsatisfiable (and thus
 # theorem holds) METIS doesn't get a solution before exhausting all sammon's memory.
+# E as provided by the TPTP server times out.
 #
 # theorem badUnion: '∀x y z. z ∈ finunion x y = (z ∈ x ∨ z ∈ y)'
 #   by metisGen
