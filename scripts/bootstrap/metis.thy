@@ -383,9 +383,6 @@ def metisGen (preConv, asms:Tuple) =
     context <ctx>
       val equiv2 = distribQuants ngoal
       val dngoal = rhs (equiv2: Term)
-      def
-        destAnd '‹p› ∧ ‹q›' = [p,q]
-        destAnd _           = nil
       theorem refute: '‹dngoal› → ⊥'
         assume asm: dngoal
         clauseThm (timeit (runMetis asm))
