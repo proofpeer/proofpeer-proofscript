@@ -21,10 +21,6 @@ table<context> unfoldLetThm a =
       convRule (randConv (subsConv (sym xy)), pc)
     equivalence (left,right)
 
-def rewriteConv thms = tm => upConv (rewrConv thms) tm
-
-def rewriteRule (thms, thm) = convRule (rewriteConv thms, thm)
-
 # TODO: This obviously needs a more general mechanism.
 theorem inductBool: '∀p. (p ⊤ ∧ p ⊥) = (∀b. p b)'
   let 'p:ℙ → ℙ'
