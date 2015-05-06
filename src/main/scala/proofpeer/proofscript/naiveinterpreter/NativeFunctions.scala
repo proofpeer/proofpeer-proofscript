@@ -16,7 +16,7 @@ object NativeFunctions {
       wrap("reflexive", reflexive),
       wrap("transitive", transitive),
       wrap("combine", combine),
-      wrap("normalize", normalize),
+      wrap("normalize", reflexive),
       wrap("instantiate", instantiate),
       wrap("modusponens", modusponens),
       wrap("equivalence", equivalence),
@@ -49,14 +49,6 @@ object NativeFunctions {
       case _ => Right("Term value expected")
     }
   }  
-
-  private def normalize(eval : Eval, state : State, tm : StateValue) : Result = {
-    tm match {
-      case TermValue(tm) =>
-        Left(TheoremValue(state.context.normalize(tm)))
-      case _ => Right("Term value expected")
-    }
-  }
 
   private def transitive(eval : Eval, state : State, tm : StateValue) : Result = {
     val ctx = state.context
@@ -114,7 +106,7 @@ object NativeFunctions {
                 case _ => return Right("invalid argument to instantiate")
               }
             }
-            Left(TheoremValue(ctx.instantiate(ctx.lift(thm), insts.reverse)))
+            Left(TheoremValue(ctx.instantiateWithTerms(ctx.lift(thm), insts.reverse)))
           case _ => Right("first argument is expected to be a theorem")
         }
       case _ => Right("non-empty argument list expected")

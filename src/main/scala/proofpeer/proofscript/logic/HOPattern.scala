@@ -14,7 +14,7 @@ case class Comb(f : HOPattern, g : HOPattern) extends HOPattern
 // converts a term which is assumed to be valid in the context into a HOPattern
 // part of the conversion is beta-normalization, as HOPatterns must be in beta-normalform by definition
 def term2HOP(context : Context, term : Term) : HOPattern = {
-  term2HOP(context, KernelUtils.betaNormalform(term), Map())
+  term2HOP(context, KernelUtils.betaEtaNormalform(context, term), Map())
 }
 
 private def term2HOP(context : Context, term : Term, vars : Map[IndexedName, Pretype]) : HOPattern = {

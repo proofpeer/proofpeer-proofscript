@@ -104,13 +104,19 @@ trait Context extends UniquelyIdentifiable {
 
   // Introduces an assumption. 
   // The new context can be obtained from the theorem.
-  def assume(assumption : Term) : Theorem
+  def assume(assumption : CTerm) : Theorem
+
+  def assume(assumption : Term) : Theorem = assume(certify(assumption))
 
   def hasAssumptions : Boolean
   
   // Defines a new constant. 
   // The name must either have no namespace, or it must be equal to the current namespace.
-  def define(const_name : Name, tm : Term) : Theorem
+  def define(const_name : Name, tm : CTerm) : Theorem 
+
+  def define(const_name : Name, tm : Term) : Theorem =
+    define(const_name, certify(tm))
+
   
   // Defines a new constant for which a given property holds. 
   // The property is given in the shape of an existential theorem.
@@ -128,27 +134,30 @@ trait Context extends UniquelyIdentifiable {
   def lift(term : CTerm) : CTerm = lift(term, false)
   
   // Produces the theorem `a = a`
-  def reflexive(a : Term) : Theorem
+  def reflexive(a : CTerm) : Theorem 
+
+  def reflexive(a : Term) : Theorem = reflexive(certify(a))
+
+  // Assuming that thm and prop are alpha-equivalent, returns a theorem with prop as proposition
+  def normalize(thm : Theorem, prop : CTerm) : Theorem 
+
+  def normalize(thm : Theorem, prop : Term) : Theorem =
+    normalize(thm, certify(prop))
   
-  // Produces the theorem `a = b`, where b results from a by a single beta reduction at the top
-  def beta(a : Term) : Theorem 
-  
-  // Produces the theorem `a = b`, where b results from a by a single eta reduction at the top
-  def eta(a : Term) : Theorem
-
-  // Produces the theorem `a = b`, where b is the beta-eta normalisation of a
-  def normalize(a : Term) : Theorem
-
-  // Produces the theorem with proposition q, given that the proposition of p is beta-eta equivalent to q
-  def normalize(p : Theorem, q : Term) : Theorem
-
   // Creates a new constant name which is fresh for this context and resembles the given name
   def mkFresh(name : IndexedName) : IndexedName 
 
   // If abs is structurally an abstraction, destructs it
   // and returns (context, x, body), where context contains the constant x 
   // which corresponds to the variable that abs is abstracting over.
-  def destAbs(abs : Term) : Option[(Context, Term, Term)]
+  def destAbs(abs : CTerm) : Option[(Context, CTerm, CTerm)]
+
+  def destAbs(abs : Term) : Option[(Context, Term, Term)] = 
+    destAbs(certify(abs)) match {
+      case None => None
+      case Some((c, x, body)) => Some((c, x.term, body.term))
+    }
+
   
   // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-beta-eta-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem
@@ -166,13 +175,19 @@ trait Context extends UniquelyIdentifiable {
   def equiv(p : Theorem, q : Theorem) : Theorem
   
   // Instantiates the given all-quantified theorem. 
-  def instantiate(p : Theorem, insts : List[Option[Term]]) : Theorem
+  def instantiate(p : Theorem, insts : List[Option[CTerm]]) : Theorem
+
+  def instantiateWithTerms(p : Theorem, insts : List[Option[Term]]) : Theorem = {
+    def m(t : Option[Term]) : Option[CTerm] = t.map(certify _)
+    instantiate(p, insts.map(m _))
+  }
 
   // All constants of this context which are NOT constants of a parent namespace.
   def localConstants : Set[Name]  
 
   // Yep. Exactly. Don't use this.
   def magic(term : Term) : Theorem
+
 }
 
 trait KernelSerializers {
