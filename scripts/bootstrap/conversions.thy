@@ -191,3 +191,10 @@ def
       sym asm
     equivalence (left,right)
   symConv _ = nil
+
+# TODO: Refactor later code to use these
+# Improve upConv so that it retraverses changed terms. Should retain performance
+# in tautology checker whilst being an effective rewriter.
+def rewriteConv thms = tm => upConv (rewrConv thms) tm
+
+def rewriteRule (thms, thm) = convRule (rewriteConv thms, thm)
