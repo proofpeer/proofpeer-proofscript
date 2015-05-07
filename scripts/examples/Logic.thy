@@ -220,9 +220,9 @@ context
   assert left == right
   show left
   show right
-  assert destcomb left <> destcomb right
-  assert destcomb left == ('x ↦ x', 'x')
-  assert destcomb right == nil
+  assert destcomb left == destcomb right == nil
+  # assert destcomb left == ('x ↦ x', 'x')
+  # assert destcomb right == nil
 
 # destabs
   ------------------------------------

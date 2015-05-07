@@ -1,7 +1,7 @@
 package proofpeer.proofscript.logic
 
 private class KernelImpl(
-  val mk_theorem : (Context, Term) => Theorem,
+  val mk_theorem_helper : (Context, Term) => Theorem,
   val mk_cterm : (Context, Term, Type) => CTerm) extends Kernel {
   
   import Term._
@@ -9,6 +9,10 @@ private class KernelImpl(
   import Utils._
   import KernelUtils._
   
+  private def mk_theorem(context : Context, term : Term) : Theorem = {
+    mk_theorem_helper(context, betaEtaLongNormalform(context, term))
+  }
+
   private class ContextImpl(val kind : ContextKind,
                             val depth : Integer,
                             val created : ContextKind.Created,
@@ -409,7 +413,7 @@ private class KernelImpl(
       checkTermContext(tm)
       val a = tm.term
       val ty = tm.typeOf
-      val b = KernelUtils.betaEtaNormalform(a)
+      val b = KernelUtils.betaEtaLongNormalform(this, a)
       mk_theorem(this, mk_equals(a, b, ty))      
     }
 
