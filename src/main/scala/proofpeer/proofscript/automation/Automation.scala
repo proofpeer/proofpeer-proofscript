@@ -22,11 +22,16 @@ object Automation {
 
   val funType = Type.Fun(Type.Universe,Type.Fun(Type.Universe,Type.Prop))
 
+  // quick hack to get stuff to compile, does not work obviously
+  def CTermValue(t : Term) : TermValue = null
+  def termOf(ct : CTerm) : Term = ct.term
+
+
   def proofscriptOfTerm(tm: MTerm): StateValue =
     tm match {
       case Var(v)      => IntValue(v)
       case Fun(f,args) =>
-        mkTuple(TermValue(f) +: args.toSeq.map (proofscriptOfTerm(_)):_*)
+        mkTuple(CTermValue(f) +: args.toSeq.map (proofscriptOfTerm(_)):_*)
     }
 
   def proofscriptOfAtom(atm: Atom[BigInt,Term,Term]): StateValue =
@@ -34,9 +39,9 @@ object Automation {
       case Eql(x,y) =>
         val px = proofscriptOfTerm(x)
         val py = proofscriptOfTerm(y)
-        mkTuple(TermValue(Term.PolyConst(K.equals,Type.Universe)),px,py)
+        mkTuple(CTermValue(Term.PolyConst(K.equals,Type.Universe)),px,py)
       case MetisPred(p,args) =>
-        mkTuple(TermValue(p) +: args.toSeq.map(proofscriptOfTerm(_)):_*)
+        mkTuple(CTermValue(p) +: args.toSeq.map(proofscriptOfTerm(_)):_*)
     }
 
   def proofscriptOfLiteral(lit: Literal[BigInt,Term,Term]): StateValue =
@@ -54,7 +59,7 @@ object Automation {
       case TupleValue(elts,_) =>
         elts.toList match {
           case TermValue(f) :: args =>
-            args.traverse { termOfProofscript(_) }.map { Fun(f,_) }
+            args.traverse { termOfProofscript(_) }.map { Fun(termOf(f),_) }
           case _ => ("Not a term",tm).failureNel[MTerm]
         }
       case IntValue(v) => Var(v).successNel[Err]
@@ -66,10 +71,14 @@ object Automation {
     tm match {
       case TupleValue(elts,_) =>
         elts.toList match {
-          case List(TermValue(Term.PolyConst(eq,ty)),x,y) if eq == K.equals =>
-            (termOfProofscript(x) |@| termOfProofscript(y)) { Eql(_,_) }
+          case List(TermValue(ct), x, y) =>
+            termOf(ct) match {
+              case Term.PolyConst(eq,ty) if eq == K.equals =>
+                (termOfProofscript(x) |@| termOfProofscript(y)) { Eql(_,_) }
+              case _ => ("Not an atom", tm).failureNel[MAtom]
+            }
           case (TermValue(p) :: args) =>
-            args.traverse { termOfProofscript(_) }.map { MetisPred(p,_) }
+            args.traverse { termOfProofscript(_) }.map { MetisPred(termOf(p),_) }
           case _ => ("Not an atom",tm).failureNel[MAtom]
         }
       case _ => ("Not an atom",tm).failureNel[MAtom]
@@ -115,7 +124,7 @@ object Automation {
       case (cl,i) => TPTPOfClause(cl, i)
     }:_*)
 
-  def prove(ctx: Context, tm: Term, thms: Vector[Theorem]): Option[Theorem] = None
+  def prove(ctx: Context, tm: CTerm, thms: Vector[Theorem]): Option[Theorem] = None
 
   def throughMetis(proofscriptClauses: StateValue) : StateValue = {
 

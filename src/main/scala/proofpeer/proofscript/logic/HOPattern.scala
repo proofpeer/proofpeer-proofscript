@@ -129,6 +129,17 @@ def patternMatch(context : Context, hop : HOPattern, term : Term) : Either[(Map[
   }
 }
 
+def patternMatch(context : Context, hop : HOPattern, term_ : CTerm) : Either[(Map[Integer, CTerm], Map[Integer, Pretype]), Boolean] = {
+  val term = context.lift(term_)
+  patternMatch(context, hop, term.term) match {
+    case Right(invalid) => Right(invalid)
+    case Left((subst, typeSubst)) =>
+      val csubst = subst.mapValues(t => context.certify(t))
+      Left((csubst, typeSubst))
+  }
+}
+
+
 def unify(u : HOPattern, v : HOPattern) : Either[(Map[Integer, HOPattern], Map[Integer, Pretype]), Boolean] = {
   val alg = new Unification()
   try {

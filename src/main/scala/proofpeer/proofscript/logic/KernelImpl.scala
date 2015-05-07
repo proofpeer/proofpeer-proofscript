@@ -110,9 +110,9 @@ private class KernelImpl(
           constants + (const_name -> ty))
     } 
 
-    def assume(assumption : CTerm) : Theorem = {
+    def assume(_assumption : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
-      checkTermContext(assumption)
+      val assumption = lift(_assumption)
       if (assumption.typeOf != Prop)
         failwith("assumption is not a valid proposition")
       val context = 
@@ -143,12 +143,12 @@ private class KernelImpl(
       false
     }
 
-    def define(const_name : Name, tm : CTerm) : Theorem = {
+    def define(const_name : Name, tm_ : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      checkTermContext(tm)
+      val tm = lift(tm_)
       val ty = tm.typeOf
       val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm.term)
       val context = 
@@ -201,8 +201,7 @@ private class KernelImpl(
         t match {
           case None => None
           case Some(t) => 
-            checkTermContext(t)
-            Some(t.term)
+            Some(lift(t).term)
         }
       }
       val insts = cinsts.map(m _)
@@ -216,12 +215,12 @@ private class KernelImpl(
         failwith("theorem belongs to a different context")      
     }
 
-    def checkTermContext(term : CTerm) {
+/*    def checkTermContext(term : CTerm) {
       if (KernelImpl.this != term.context.kernel)   
         failwith("cterm belongs to a different kernel")
       if (term.context != this)
         failwith("cterm belongs to a different context")      
-    }
+    }*/
 
     def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       if (KernelImpl.this != thm.context.kernel)
@@ -245,7 +244,7 @@ private class KernelImpl(
 
     def lift(term : CTerm, preserve_structure : Boolean) : CTerm = {
       if (KernelImpl.this != term.context.kernel)
-        failwith("theorem belongs to a different kernel")
+        failwith("term belongs to a different kernel")
       val src_context = term.context.asInstanceOf[ContextImpl]
       if (src_context == this) return term
       val src_namespace = src_context.namespace
@@ -256,7 +255,7 @@ private class KernelImpl(
             failwith("cannot lift term containing unqualified constants between namespaces")
           mk_cterm(this, ct.term, ct.typeOf)
         } else {
-          failwith("cannot lift theorem from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
+          failwith("cannot lift term from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
         }
       } else {
         liftLocally(term, preserve_structure)
@@ -402,24 +401,24 @@ private class KernelImpl(
       alpha_equivalent(f, g)
     }
   
-    def reflexive(tm : CTerm) : Theorem = {
-      checkTermContext(tm)
+    def reflexive(tm_ : CTerm) : Theorem = {
+      val tm = lift(tm_)
       val a = tm.term
       val ty = tm.typeOf
       mk_theorem(this, mk_equals(a, a, ty))
     }
     
-    def normalize(tm : CTerm) : Theorem = {
-      checkTermContext(tm)
+    def normalize(tm_ : CTerm) : Theorem = {
+      val tm = lift(tm_)
       val a = tm.term
       val ty = tm.typeOf
       val b = KernelUtils.betaEtaLongNormalform(this, a)
       mk_theorem(this, mk_equals(a, b, ty))      
     }
 
-    def normalize(p : Theorem, q : CTerm) : Theorem = {
+    def normalize(p : Theorem, q_ : CTerm) : Theorem = {
       checkTheoremContext(p)
-      checkTermContext(q)
+      val q = lift(q_)
       if (equivalent(p.proposition, q.term))
         mk_theorem(this, q.term)
       else 
@@ -440,8 +439,8 @@ private class KernelImpl(
       failwith("mkFresh: internal error")    
     }
 
-    def destAbs(term : CTerm) : Option[(Context, CTerm, CTerm)] = {
-      checkTermContext(term)
+    def destAbs(term_ : CTerm) : Option[(Context, CTerm, CTerm)] = {
+      val term = lift(term_)
       term.term match {
         case Abs(name, ty, body) =>
           val x = Const(Name(Some(namespace), mkFresh(name)))
@@ -454,6 +453,14 @@ private class KernelImpl(
               case _ => failwith("destAbs: internal error")
             }
           Some((context, cx, cbody))
+        case _ => None
+      }
+    }
+
+    // hugely inefficient operation, should not be necessary to recompute type each time
+    def destComb(term : CTerm) : Option[(CTerm, CTerm)] = {
+      lift(term).term match {
+        case Comb(f, g) => Some(certify(f), certify(g))
         case _ => None
       }
     }

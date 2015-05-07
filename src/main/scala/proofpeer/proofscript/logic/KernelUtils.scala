@@ -485,6 +485,12 @@ object KernelUtils {
     alpha_equivalent(betaEtaNormalform(u), betaEtaNormalform(v))
   }
 
+  def betaEtaEq(context : Context, u : CTerm, v : CTerm) : Boolean = {
+    val a = context.lift(u)
+    val b = context.lift(v)
+    betaEtaEq(a.term, b.term)
+  }
+
   def normBeta(term : Term) : Option[Term] = {
     term match {
       case Comb(Abs(x, ty, body), y) => 

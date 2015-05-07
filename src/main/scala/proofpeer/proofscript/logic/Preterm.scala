@@ -367,6 +367,11 @@ object Preterm {
     }
   }
 
+  def translate(context : Context, tm : CTerm) : Preterm = {
+    val liftedTm = context.lift(tm)
+    PTmTerm(liftedTm.term, liftedTm.typeOf)
+  }
+
   private def translateTerm(tm : Term) : Preterm = {
     tm match {
       case c : Term.PolyConst => PTmName(c.name, Pretype.translate(KernelUtils.typeOfPolyConst(c).get))
@@ -495,6 +500,13 @@ object Preterm {
   def inferTerm(context : TypingContext, term : Preterm) : Either[Term, List[PTmError]] = {
     inferPreterm(context, term) match {
       case Left(t) => Left(translate(context, t))
+      case Right(errors) => Right(errors)
+    }
+  }
+
+  def inferCTerm(context : TypingContext, term : Preterm) : Either[CTerm, List[PTmError]] = {
+    inferPreterm(context, term) match {
+      case Left(t) => Left(context.context.certify(translate(context, t)))
       case Right(errors) => Right(errors)
     }
   }

@@ -116,7 +116,6 @@ trait Context extends UniquelyIdentifiable {
 
   def define(const_name : Name, tm : Term) : Theorem =
     define(const_name, certify(tm))
-
   
   // Defines a new constant for which a given property holds. 
   // The property is given in the shape of an existential theorem.
@@ -136,17 +135,10 @@ trait Context extends UniquelyIdentifiable {
   // Produces the theorem `a = a`
   def reflexive(a : CTerm) : Theorem 
 
-  def reflexive(a : Term) : Theorem = reflexive(certify(a))
-
   def normalize(a : CTerm) : Theorem
-
-  def normalize(a : Term) : Theorem = normalize(certify(a))
 
   // Assuming that thm and prop are alpha-equivalent, returns a theorem with prop as proposition
   def normalize(thm : Theorem, prop : CTerm) : Theorem 
-
-  def normalize(thm : Theorem, prop : Term) : Theorem =
-    normalize(thm, certify(prop))
   
   // Creates a new constant name which is fresh for this context and resembles the given name
   def mkFresh(name : IndexedName) : IndexedName 
@@ -155,13 +147,9 @@ trait Context extends UniquelyIdentifiable {
   // and returns (context, x, body), where context contains the constant x 
   // which corresponds to the variable that abs is abstracting over.
   def destAbs(abs : CTerm) : Option[(Context, CTerm, CTerm)]
-
-  def destAbs(abs : Term) : Option[(Context, Term, Term)] = 
-    destAbs(certify(abs)) match {
-      case None => None
-      case Some((c, x, body)) => Some((c, x.term, body.term))
-    } 
   
+  def destComb(comb : CTerm) : Option[(CTerm, CTerm)]
+
   // Produces the theorem `a = c` from the theorems `a = b` and `b' = c`, where b and b' are alpha-beta-eta-equivalent
   def transitive(p : Theorem, q : Theorem) : Theorem
   
@@ -179,11 +167,6 @@ trait Context extends UniquelyIdentifiable {
   
   // Instantiates the given all-quantified theorem. 
   def instantiate(p : Theorem, insts : List[Option[CTerm]]) : Theorem
-
-  def instantiateWithTerms(p : Theorem, insts : List[Option[Term]]) : Theorem = {
-    def m(t : Option[Term]) : Option[CTerm] = t.map(certify _)
-    instantiate(p, insts.map(m _))
-  }
 
   // All constants of this context which are NOT constants of a parent namespace.
   def localConstants : Set[Name]  
