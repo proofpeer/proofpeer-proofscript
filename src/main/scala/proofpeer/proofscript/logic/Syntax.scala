@@ -617,6 +617,13 @@ val g_Pattern_term =
       u
   }
 
+  def checkprintTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
+    context : Context, tm : CTerm) : String = 
+  {
+    val term = context.lift(tm)
+    checkprintTerm(aliases, nameresolution, context, term.term)
+  }
+
   def parseTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
     context : Context, s : String) : Term =
   {
@@ -631,5 +638,12 @@ val g_Pattern_term =
         }
     }    
   }
+
+  def parseCTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
+    context : Context, s : String) : CTerm =
+  {
+    context.certify(parseTerm(aliases, nameresolution, context, s))
+  }
+
      
 }

@@ -106,7 +106,7 @@ object NativeFunctions {
       case TupleValue(values, _) if !values.isEmpty =>
         values.head match {
           case TheoremValue(thm) =>
-            var insts : List[Option[Term]] = List()
+            var insts : List[Option[CTerm]] = List()
             for (arg <- values.tail) {
               arg match {
                 case NilValue => insts = None :: insts
@@ -185,8 +185,11 @@ object NativeFunctions {
   private def destcomb(eval : Eval, state : State, tm : StateValue) : Result = {    
     val ctx = state.context
     tm match {
-      case TermValue(Term.Comb(f, g)) => Left(TupleValue(Vector(TermValue(f), TermValue(g)), true))
-      case TermValue(f) => Left(NilValue)
+      case TermValue(t) => 
+        ctx.destComb(t) match {
+          case None => Left(NilValue)
+          case Some((f, g)) => Left(TupleValue(Vector(TermValue(f), TermValue(g)), true))
+        }
       case _ => Right("term expected")
     }    
   }
@@ -211,7 +214,7 @@ object NativeFunctions {
         Left(TheoremValue(ctx.lift(thm)))
       case TupleValue(Vector(TheoremValue(thm), BoolValue(preserve_structure)),_) =>
         Left(TheoremValue(ctx.lift(thm, preserve_structure)))
-      case _ => Right("theorem or pair of theorem and boolean expected")
+      case _ => Right("term/theorem or pair of term/theorem and boolean expected")
     }
   }
 

@@ -4,7 +4,7 @@ extends Redundancies
 def normThm thm =
   modusponens [thm, normalize (thm: Term)]
 
-table<here> unfoldLetThm a =
+table<context> unfoldLetThm a =
   theorem '∀p c. (∀x:‹a›. x = c → p x) = p c'
     val p = fresh "p"
     val c = fresh "c"

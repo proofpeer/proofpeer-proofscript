@@ -53,9 +53,7 @@ def
     instantiate (existsin, '‹X›', '‹P›')
   expandExistsIn _ = nil
 
-val here = context
-
-table<here> existsDeMorgan ty =
+table<context> existsDeMorgan ty =
   theorem '∀P. (¬(∃x:‹ty›. P x)) = (∀x. ¬(P x))'
     val x = fresh "x"
     val P = fresh "P"
@@ -80,7 +78,7 @@ table<here> existsDeMorgan ty =
       matchmp (impliesNot, notExP)
     equivalence (left,right)
 
-table<here> allDeMorgan ty =
+table<context> allDeMorgan ty =
   theorem '∀P. (¬(∀x:‹ty›. P x)) = (∃x. ¬(P x))'
     val P = fresh "P"
     let '‹P› : ‹ty› → ℙ'

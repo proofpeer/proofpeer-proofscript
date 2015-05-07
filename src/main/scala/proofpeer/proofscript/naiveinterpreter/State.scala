@@ -54,7 +54,7 @@ case class ContextValue(value : Context) extends StateValue {
 case class TheoremValue(value : Theorem) extends StateValue {
 	def isComparable = false
 }
-case class TermValue(value : Term) extends StateValue {
+case class TermValue(value : CTerm) extends StateValue {
 	def isComparable = true
 }
 case class TypeValue(value : Type) extends StateValue {
@@ -208,10 +208,11 @@ object StateValue {
 				}
 			case TermValue(tm) => 
 				try {
-					display(aliases, nameresolution, context, tm)
+					val liftedTm = context.lift(tm)
+					display(aliases, nameresolution, context, liftedTm.term)
 				} catch {
 					case _ : Utils.KernelException =>
-						"{invalid in current context, raw term is: '" + displayRaw(tm) + "'} : Term"
+						"{invalid in current context, context = " + display(tm.context) + ", raw term is: '" + displayRaw(tm.term) + "'} : Term"
 				}
 			case TypeValue(ty) =>
 				"': " + Syntax.printType(ty) + "'"

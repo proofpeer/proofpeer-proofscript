@@ -104,9 +104,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
-	def resolvePreterm(context : Context, preterm : Preterm) : Result[Term] = {
+	def resolvePreterm(context : Context, preterm : Preterm) : Result[CTerm] = {
 		val typingContext = Preterm.obtainTypingContext(aliases, logicNameresolution, context)
-		Preterm.inferTerm(typingContext, preterm) match {
+		Preterm.inferCTerm(typingContext, preterm) match {
 			case Left(tm) => success(tm)
 			case Right(errors) => 
 				var error = "term is not valid in current context:"
@@ -115,7 +115,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}		
 	}
 
-	def evalLogicTerm[T](state : State, tm : LogicTerm, cont : RC[Term, T]) : Thunk[T] = {
+	def evalLogicTerm[T](state : State, tm : LogicTerm, cont : RC[CTerm, T]) : Thunk[T] = {
 		evalLogicPreterm[T](state, tm.tm, {
 			case failed : Failed[_] => cont(fail(failed))
 			case Success(preterm, _) => cont(resolvePreterm(state.context, preterm))
@@ -155,14 +155,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
-	def evalTermExpr[T](state : State, expr : Expr, cont : RC[Term, T]) : Thunk[T] = {
+	def evalTermExpr[T](state : State, expr : Expr, cont : RC[CTerm, T]) : Thunk[T] = {
 		evalExpr[T](state, expr, {
 			case failed : Failed[_] => cont(fail(failed))
 			case Success(TermValue(tm),_) => cont(success(tm))
 			case Success(s : StringValue, _) =>
 				cont(
 					try {
-						success(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)) 
+						success(Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)) 
 					} catch {
 						case ex : Utils.KernelException =>
 							fail(expr, "parse error: " + ex.reason)	
@@ -171,14 +171,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
-	def evalOptionalTheoremExpr[T](state : State, expr : Expr, cont : RC[Either[Term, Either[Boolean, Theorem]], T]) : Thunk[T] = {
+	def evalOptionalTheoremExpr[T](state : State, expr : Expr, cont : RC[Either[CTerm, Either[Boolean, Theorem]], T]) : Thunk[T] = {
 		evalExpr[T](state, expr, {
 			case failed : Failed[_] => cont(fail(failed))
 			case Success(TermValue(tm),_) => cont(success(Left(tm)))
 			case Success(s : StringValue, _) =>
 				cont(
 					try {
-						success(Left(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)))
+						success(Left(Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)))
 					} catch {
 						case ex : Utils.KernelException =>
 							fail(expr, "parse error: " + ex.reason)	
@@ -501,9 +501,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case STTheorem(thm_name, tm, proof) =>
 				evalOptionalTheoremExpr(state.freeze, tm, {
 					case f : Failed[_] => cont(fail(f))
-					case Success(Left(prop), _) =>
-						if (state.context.typeOfTerm(prop) != Some(Type.Prop)) 
-							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop))))
+					case Success(Left(prop_), _) =>
+						val prop = state.context.lift(prop_)
+						if (prop.typeOf != Type.Prop) 
+							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
 							evalProof(state, proof, {
 								case f : Failed[_] => cont(fail(f))
@@ -513,10 +514,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 									try {
 										val ctx = state.context
 										val liftedThm = ctx.lift(thm, false)
-										if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
+										if (!KernelUtils.betaEtaEq(ctx, prop, liftedThm.prop)) {
 											val liftedThm2 = ctx.lift(thm, true)
-											if (!KernelUtils.betaEtaEq(prop, liftedThm2.proposition)) {
-												if (KernelUtils.betaEtaEq(liftedThm.proposition, liftedThm2.proposition)) 
+											if (!KernelUtils.betaEtaEq(ctx, prop, liftedThm2.prop)) {
+												if (KernelUtils.betaEtaEq(ctx, liftedThm.prop, liftedThm2.prop)) 
 													cont(fail(proof, "Proven theorem does not match: " + display(state, TheoremValue(liftedThm))))
 												else {
 													val th1 = display(state, TheoremValue(liftedThm))
@@ -566,9 +567,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				val frozenState = state.freeze
 				evalTermExpr(frozenState, tm, {
 					case f : Failed[_] => cont(fail(f))
-					case Success(prop, _) =>
-						if (state.context.typeOfTerm(prop) != Some(Type.Prop)) 
-							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop))))
+					case Success(prop_, _) =>
+						val prop = frozenState.context.lift(prop_)
+						if (prop.typeOf != Type.Prop) 
+							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
 							def prove(thms : Vector[Theorem]) : Thunk[T] = {
 								try {
@@ -598,7 +600,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 											try {
 												val ctx = state.context
 												val liftedThm = ctx.lift(thm.value, false)
-												if (!KernelUtils.betaEtaEq(prop, liftedThm.proposition)) {
+												if (!KernelUtils.betaEtaEq(ctx, prop, liftedThm.prop)) {
 													cont(fail(means, "Proven theorem does not match: "+ display(state, TheoremValue(liftedThm))))
 												} else 
 													cont(success((state, thm_name, TheoremValue(ctx.normalize(liftedThm, prop)))))
@@ -643,7 +645,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case Some(ty) =>
 				try {
 					var s = state.setContext(state.context.introduce(name, ty))
-					success((s, st.result_name, TermValue(Term.Const(name))))
+					success((s, st.result_name, TermValue(s.context.certify(Term.Const(name)))))
 				} catch {
 					case ex: Utils.KernelException =>
 						return fail(st, "let intro: " + ex.reason)
@@ -777,7 +779,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				} else Some(IsNEq)
 			case (TermValue(u), TermValue(v)) => 
 				import KernelUtils._
-				if (betaEtaEq(u, v))
+				if (betaEtaEq(state.context, u, v))
 					Some(IsEq)
 				else
 					Some(IsNEq)
@@ -1535,19 +1537,20 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				evalLogicPreterm(state.freeze, _preterm, {
 					case failed : Failed[_] => cont(fail(failed))
 					case Success(_preterm, _) =>
-						val term = 
+						val term_ : CTerm = 
 							value match {
 								case TermValue(value) => value
-								case TheoremValue(thm) => state.context.lift(thm).proposition
+								case TheoremValue(thm) => state.context.lift(thm).prop
 								case s : StringValue =>
 									try {
-										Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)
+										Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)
 									} catch {
 										case ex : Utils.KernelException =>
 											return cont(success(None))
 									}
 								case _ => return cont(success(None))
 							}
+						val term = state.context.lift(term_)
 						val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
 						val (preterm, typeQuotes, typesOfTypeQuotes) = 
 							Preterm.inferPattern(tc, _preterm) match {
@@ -1560,8 +1563,6 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 										return cont(fail(pat, "ill-typed pattern:\n" + erroroutput))
 							}
 						val (hop, quotes) = HOPattern.preterm2HOP(tc, preterm)
-						if (!state.context.typeOfTerm(term).isDefined)
-							return cont(fail(pat, "value to be matched is invalid in current context, value is:\n    " + display(state, value)))
 						HOPattern.patternMatch(state.context, hop, term) match {
 							case Right(invalid) => 
 								if (invalid) cont(fail(pat, "pattern is not a higher-order pattern"))
@@ -1569,7 +1570,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							case Left((subst, typeSubst)) => 
 								val f = typeSubst.get _
 								val types = typesOfTypeQuotes.mapValues(pretype => Pretype.translate(Pretype.subst(f, pretype)))
-								def loop(idTerms : Seq[(Utils.Integer, Term)], matchings : Matchings) : Thunk[T] = {
+								def loop(idTerms : Seq[(Utils.Integer, CTerm)], matchings : Matchings) : Thunk[T] = {
 									if (idTerms.isEmpty)
 										cont(success(Some(matchings)))
 									else {
@@ -1753,23 +1754,20 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}
 			case (tm : TermValue, TyType) => 
 				try {
-					state.context.typeOfTerm(tm.value) match {
-						case None => None
-						case Some(ty) => Some(TypeValue(ty))
-					}
+					Some(TypeValue(state.context.lift(tm.value).typeOf))
 				} catch {
 					case _ : Utils.KernelException => None
 				}							
 			case (s : StringValue, TyTerm) =>
 				try {
-					Some(TermValue(Syntax.parseTerm(aliases, logicNameresolution, state.context, s.toString)))
+					Some(TermValue(Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)))
 				} catch {
 					case _ : Utils.KernelException => None
 				}				
 			case (thm : TheoremValue, TyTerm) => 
 				try {
 					val liftedThm = state.context.lift(thm.value)
-					val tm = liftedThm.proposition
+					val tm = liftedThm.prop
 					Some(TermValue(tm))					
 				} catch {
 					case _ : Utils.KernelException => None

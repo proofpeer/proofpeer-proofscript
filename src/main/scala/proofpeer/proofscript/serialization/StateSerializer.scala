@@ -64,6 +64,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
   private val ContextSerializer = kernelSerializers.ContextSerializer
   private val TheoremSerializer = kernelSerializers.TheoremSerializer
   private val TermSerializer = kernelSerializers.TermSerializer
+  private val CTermSerializer = kernelSerializers.CTermSerializer  
   private val TypeSerializer = kernelSerializers.TypeSerializer
   private object PTFunSerializer extends TypecastSerializer[ParseTree.Fun, ParseTree](ParseTreeSerializer)
   private object PTDefCaseSerializer extends TypecastSerializer[ParseTree.DefCase, ParseTree](ParseTreeSerializer)
@@ -90,7 +91,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
     object Serializers {
       val CONTEXTVALUE = ContextSerializer
       val THEOREMVALUE = TheoremSerializer
-      val TERMVALUE = TermSerializer
+      val TERMVALUE = CTermSerializer
       val TYPEVALUE = TypeSerializer
       val BOOLVALUE = BooleanSerializer
       val INTVALUE = BigIntSerializer
@@ -172,7 +173,6 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
     }
 
   }
-
   def create(b : Any) : StateValue = {
     StateValueSerializerBase.determineKind(b) match {
       case StateValueSerializerBase.Kind.RECURSIVEFUNCTIONVALUE =>
@@ -249,7 +249,7 @@ object StateSerializerGenerator {
     "NilValue",
     ("ContextValue", "ContextSerializer"),
     ("TheoremValue", "TheoremSerializer"),
-    ("TermValue", "TermSerializer"),
+    ("TermValue", "CTermSerializer"),
     ("TypeValue", "TypeSerializer"),
     ("BoolValue", "BooleanSerializer"),
     ("IntValue", "BigIntSerializer"),
