@@ -214,6 +214,10 @@ object NativeFunctions {
         Left(TheoremValue(ctx.lift(thm)))
       case TupleValue(Vector(TheoremValue(thm), BoolValue(preserve_structure)),_) =>
         Left(TheoremValue(ctx.lift(thm, preserve_structure)))
+      case TermValue(tm) => 
+        Left(TermValue(ctx.lift(tm)))
+      case TupleValue(Vector(TermValue(tm), BoolValue(preserve_structure)),_) =>
+        Left(TermValue(ctx.lift(tm, preserve_structure)))
       case _ => Right("term/theorem or pair of term/theorem and boolean expected")
     }
   }
