@@ -354,10 +354,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case f: Failed[_] => cont(fail(f))
 						case Success(ContextValue(context), _) => evalSTDef[T](state, stdef, Some(context), cont)
 						case Success(TheoremValue(thm), _) => evalSTDef[T](state, stdef, Some(thm.context), cont)
-						case Success(v, _) => cont(fail(expr, "context or theorem expected, found: " + display(state, v)))
+						case Success(TermValue(tm), _) => evalSTDef[T](state, stdef, Some(tm.context), cont)						
+						case Success(v, _) => cont(fail(expr, "context, term or theorem expected, found: " + display(state, v)))
 					})
 				case st if isLogicStatement(st) => 
-					evalLogicStatement[T](state, st,  {
+					evalLogicStatement[T](state, st, {
 						case f : Failed[_] => cont(fail(f))
 						case Success((_state, name, value), isReturnValue) =>
 							if (isReturnValue) cont(Success(_state, true))
@@ -1379,7 +1380,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case failed : Failed[_] => cont(fail(failed))
 					case Success(ContextValue(context), _) => contWithContext(context)
 					case Success(TheoremValue(thm), _) => contWithContext(thm.context)
-					case Success(v, _) => cont(fail(expr, "context or theorem expected, found: " + display(state, v)))
+					case Success(TermValue(tm), _) => contWithContext(tm.context)
+					case Success(v, _) => cont(fail(expr, "context, term or theorem expected, found: " + display(state, v)))
 				})
 		}
 	}
