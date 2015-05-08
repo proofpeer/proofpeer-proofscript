@@ -131,6 +131,9 @@ trait Context extends UniquelyIdentifiable {
   def lift(term : CTerm, preserve_structure : Boolean) : CTerm
 
   def lift(term : CTerm) : CTerm = lift(term, false)
+
+  // Same as lift(term, false), but if the term actually changes then the lift fails
+  def autolift(term : CTerm) : Option[CTerm] 
   
   // Produces the theorem `a = a`
   def reflexive(a : CTerm) : Theorem 
@@ -280,7 +283,15 @@ object Kernel {
     def proposition = prop.term
   }
 
-  private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm
+  private class CTermImpl(val context : Context, val term : Term, val typeOf : Type) extends CTerm {
+    lazy val normalform : Term = KernelUtils.alphaNormalform(KernelUtils.betaEtaNormalform(term))
+    private lazy val rep = List(normalform, typeOf)
+    override def hashCode : Int = rep.hashCode
+    override def equals(other : Any) : Boolean = {
+      val otherTerm = other.asInstanceOf[CTermImpl]
+      rep.equals(otherTerm.rep)
+    }
+  }
   
   def createDefaultKernel() : Kernel = new KernelImpl(
     (c : Context, p : Term) => new TheoremImpl(new CTermImpl(c, p, Type.Prop)),

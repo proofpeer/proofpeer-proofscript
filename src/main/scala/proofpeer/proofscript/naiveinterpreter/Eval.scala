@@ -503,10 +503,13 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				evalOptionalTheoremExpr(state.freeze, tm, {
 					case f : Failed[_] => cont(fail(f))
 					case Success(Left(prop_), _) =>
-						val prop = state.context.lift(prop_)
-						if (prop.typeOf != Type.Prop) 
+						val optProp = state.context.autolift(prop_)
+						if (optProp.isEmpty) 
+							cont(fail(tm, "Cannot lift proposition into current context: " + display(state, TermValue(prop_))))
+						else if (optProp.get.typeOf != Type.Prop) 
 							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
+							val prop = optProp.get
 							evalProof(state, proof, {
 								case f : Failed[_] => cont(fail(f))
 								case Success(value, true) => 
@@ -569,10 +572,13 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				evalTermExpr(frozenState, tm, {
 					case f : Failed[_] => cont(fail(f))
 					case Success(prop_, _) =>
-						val prop = frozenState.context.lift(prop_)
-						if (prop.typeOf != Type.Prop) 
+						val optProp = frozenState.context.autolift(prop_)
+						if (optProp.isEmpty)
+							cont(fail(tm, "Cannot lift proposition into current context: " + display(state, TermValue(prop_))))
+						else if (optProp.get.typeOf != Type.Prop) 
 							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
+							val prop = optProp.get
 							def prove(thms : Vector[Theorem]) : Thunk[T] = {
 								try {
 									Automation.prove(state.context, prop, thms) match {
@@ -1552,7 +1558,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 									}
 								case _ => return cont(success(None))
 							}
-						val term = state.context.lift(term_)
+						val optTerm = state.context.autolift(term_)
+						if (optTerm.isEmpty) return cont(fail(pat, "cannot lift term into context: " + display(state, TermValue(term_))))
+						val term = optTerm.get
 						val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
 						val (preterm, typeQuotes, typesOfTypeQuotes) = 
 							Preterm.inferPattern(tc, _preterm) match {
@@ -1729,7 +1737,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case (IntValue(i), TyString) => Some(mkStringValue(i.toString))
 			case (TypeValue(ty), TyString) => Some(mkStringValue(Syntax.printType(ty)))
 			case (TermValue(tm), TyString) => 
-				Some(mkStringValue(Syntax.checkprintTerm(aliases, logicNameresolution, state.context, tm)))
+				state.context.autolift(tm) match {
+					case None => None
+					case Some(tm) => 
+						Some(mkStringValue(Syntax.checkprintTerm(aliases, logicNameresolution, state.context, tm)))				
+				}
 			case (TheoremValue(thm), TyString) =>
 				try {
 					val liftedTh = state.context.lift(thm)
@@ -1756,7 +1768,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}
 			case (tm : TermValue, TyType) => 
 				try {
-					Some(TypeValue(state.context.lift(tm.value).typeOf))
+					state.context.autolift(tm.value) match {
+						case None => None
+						case Some(tm) => Some(TypeValue(tm.typeOf))
+					}
 				} catch {
 					case _ : Utils.KernelException => None
 				}							

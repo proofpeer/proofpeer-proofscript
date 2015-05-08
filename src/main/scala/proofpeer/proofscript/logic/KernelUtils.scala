@@ -273,6 +273,22 @@ object KernelUtils {
     }
   }
 
+  private def alphaNormalform(u : Term, vars : Map[IndexedName, IndexedName], nextIndex : Integer) : Term = {
+    u match {
+      case Abs(x, ty, body) =>
+        val xname = IndexedName("x", Some(nextIndex))
+        Abs(xname, ty, alphaNormalform(body, vars + (x -> xname), nextIndex + 1))
+      case Var(name) => Var(vars(name))
+      case Comb(f, g) => Comb(alphaNormalform(f, vars, nextIndex), alphaNormalform(g, vars, nextIndex))
+      case c : PolyConst => c
+      case c : Const => c      
+    }
+  }
+
+  def alphaNormalform(u : Term) : Term = {
+    alphaNormalform(u, Map(), 1)
+  }
+
   def dest_forall(term : Term) : Option[(IndexedName, Type, Term)] = {
     term match {
       case Comb(PolyConst(Kernel.forall, _), Abs(x, ty, body)) => 
@@ -486,9 +502,14 @@ object KernelUtils {
   }
 
   def betaEtaEq(context : Context, u : CTerm, v : CTerm) : Boolean = {
-    val a = context.lift(u)
-    val b = context.lift(v)
-    betaEtaEq(a.term, b.term)
+    context.autolift(u) match {
+      case None => false
+      case Some(u) =>
+        context.autolift(v) match {
+          case None => false
+          case Some(v) => u == v
+        }
+    }
   }
 
   def normBeta(term : Term) : Option[Term] = {

@@ -261,6 +261,11 @@ private class KernelImpl(
         liftLocally(term, preserve_structure)
       }
     }
+
+    def autolift(term : CTerm) : Option[CTerm] = {
+      val liftedTerm = lift(term, false)
+      if (liftedTerm != term) None else Some(liftedTerm)
+    }
     
     // Same as lift, but assumes that the theorem context has the same namespace as this context.
     private def liftLocally(thm : Theorem, preserve_structure : Boolean) : Theorem = {
@@ -400,6 +405,10 @@ private class KernelImpl(
       val g = betaEtaNormalform(v)
       alpha_equivalent(f, g)
     }
+
+    private def equivalent(u : CTerm, v : CTerm) : Boolean = {
+      u == v
+    }
   
     def reflexive(tm_ : CTerm) : Theorem = {
       val tm = lift(tm_)
@@ -419,7 +428,7 @@ private class KernelImpl(
     def normalize(p : Theorem, q_ : CTerm) : Theorem = {
       checkTheoremContext(p)
       val q = lift(q_)
-      if (equivalent(p.proposition, q.term))
+      if (equivalent(p.prop, q))
         mk_theorem(this, q.term)
       else 
         failwith("propositions are not alpha/beta/eta equivalent")

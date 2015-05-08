@@ -66,4 +66,4 @@ val matcher = [tm,target,vars] =>
                 case inst => inst
   matcher [tm,target,vars,[]]
 
-show matcher ['∀ x. x ∧ x', '∀ y. y ∧ y', []]
+failure show matcher ['∀ x. x ∧ x', '∀ y. y ∧ y', []]
