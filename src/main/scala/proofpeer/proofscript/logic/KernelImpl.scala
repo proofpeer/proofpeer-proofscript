@@ -112,7 +112,7 @@ private class KernelImpl(
 
     def assume(_assumption : CTerm) : Theorem = {
       if (isComplete) failwith("cannot extend completed context")
-      val assumption = forcelift(_assumption)
+      val assumption = doautolift(_assumption)
       if (assumption.typeOf != Prop)
         failwith("assumption is not a valid proposition")
       val context = 
@@ -148,7 +148,7 @@ private class KernelImpl(
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name "+const_name+" clashes with other constant in current scope")
-      val tm = forcelift(tm_)
+      val tm = doautolift(tm_)
       val ty = tm.typeOf
       val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm.term)
       val context = 
@@ -201,7 +201,7 @@ private class KernelImpl(
         t match {
           case None => None
           case Some(t) => 
-            Some(forcelift(t).term)
+            Some(doautolift(t).term)
         }
       }
       val insts = cinsts.map(m _)
@@ -267,7 +267,7 @@ private class KernelImpl(
       if (liftedTerm != term) None else Some(liftedTerm)
     }
 
-    private def forcelift(term : CTerm) : CTerm = {
+    private def doautolift(term : CTerm) : CTerm = {
       val liftedTerm = lift(term, false)
       if (liftedTerm != term) failwith("cannot lift term unchanged int context") else liftedTerm
     }
@@ -416,14 +416,14 @@ private class KernelImpl(
     }
   
     def reflexive(tm_ : CTerm) : Theorem = {
-      val tm = forcelift(tm_)
+      val tm = doautolift(tm_)
       val a = tm.term
       val ty = tm.typeOf
       mk_theorem(this, mk_equals(a, a, ty))
     }
     
     def normalize(tm_ : CTerm) : Theorem = {
-      val tm = forcelift(tm_)
+      val tm = doautolift(tm_)
       val a = tm.term
       val ty = tm.typeOf
       val b = KernelUtils.betaEtaLongNormalform(this, a)
@@ -432,7 +432,7 @@ private class KernelImpl(
 
     def normalize(p : Theorem, q_ : CTerm) : Theorem = {
       checkTheoremContext(p)
-      val q = forcelift(q_)
+      val q = doautolift(q_)
       if (equivalent(p.prop, q))
         mk_theorem(this, q.term)
       else 
@@ -454,7 +454,7 @@ private class KernelImpl(
     }
 
     def destAbs(term_ : CTerm) : Option[(Context, CTerm, CTerm)] = {
-      val term = forcelift(term_)
+      val term = doautolift(term_)
       term.term match {
         case Abs(name, ty, body) =>
           val x = Const(Name(Some(namespace), mkFresh(name)))
@@ -473,7 +473,7 @@ private class KernelImpl(
 
     // hugely inefficient operation, should not be necessary to recompute type each time
     def destComb(term : CTerm) : Option[(CTerm, CTerm)] = {
-      forcelift(term).term match {
+      doautolift(term).term match {
         case Comb(f, g) => Some(certify(f), certify(g))
         case _ => None
       }
