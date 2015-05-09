@@ -215,13 +215,6 @@ private class KernelImpl(
         failwith("theorem belongs to a different context")      
     }
 
-/*    def checkTermContext(term : CTerm) {
-      if (KernelImpl.this != term.context.kernel)   
-        failwith("cterm belongs to a different kernel")
-      if (term.context != this)
-        failwith("cterm belongs to a different context")      
-    }*/
-
     def lift(thm : Theorem, preserve_structure : Boolean) : Theorem = {
       if (KernelImpl.this != thm.context.kernel)
         failwith("theorem belongs to a different kernel")
