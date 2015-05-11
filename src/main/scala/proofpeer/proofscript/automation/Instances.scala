@@ -6,9 +6,6 @@ import scalaz.{ Name => _, _}
 import Scalaz._
 
 object KernelInstances {
-  implicit object TermIsEqual extends Equal[Term] {
-    override def equal(l: Term, r: Term) = l == r
-  }
   implicit object NamespaceIsOrdered extends Order[Namespace] {
     override def equal(l: Namespace, r: Namespace) = l == r
     override def order(l: Namespace, r: Namespace) =
