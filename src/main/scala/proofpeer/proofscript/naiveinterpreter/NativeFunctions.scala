@@ -222,7 +222,8 @@ object NativeFunctions {
     }
   }
 
-  private def callmetis(eval : Eval, state : State, problem : StateValue) : Result = {
-    Left(Automation.throughMetis(problem))
+  private def callmetis(eval : Eval, state : State, ctxProblem: StateValue)
+      : Result = {
+    Left(Automation.throughMetis(ctxProblem))
   }
 }

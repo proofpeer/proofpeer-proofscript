@@ -38,7 +38,7 @@ def
   metisOfComb [env,term] =
     match splitLeft [destcomb,term]
       case [x]         =>
-        val n = env x
+        val n = env (x:String)
         if n == nil then [x] else n
       case (f <+ args) => f <+ (for arg in args do metisOfComb (env,arg))
 
@@ -224,9 +224,10 @@ def clausesOfCNF tm =
       val [ctx,x,bod] = destabs p
       val clause
       context <ctx>
-        clause = withEnvironment (env ++ { x -> n }, n+1, bod)
+        clause = withEnvironment (env ++ { x:String -> n }, n+1, bod)
       clause
-    withEnvironment [env,_,tm] = clauseOfTerm (env,tm)
+    withEnvironment [env,_,tm] =
+      clauseOfTerm (env,tm)
   clauses tm
 
 theorem refl: '∀x. x = x'
@@ -334,9 +335,11 @@ def
     val axioms = {->}
     for ax in conjuncts thm do
       for cl in clausesOfCNF (ax:Term) do
+        show ax
+        show cl
         axioms = axioms ++ { cl -> initClause ax }
     val cert =
-      timeit callmetis (clausesOfCNF (thm:Term))
+      timeit callmetis (context, clausesOfCNF (thm:Term))
     if cert == nil then
       nil
     else
