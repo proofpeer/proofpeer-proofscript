@@ -53,6 +53,7 @@ sealed trait CTerm extends UniquelyIdentifiable {
   def context : Context
   def term : Term
   def typeOf : Type
+  def normalform : Term
 }
 
 sealed trait Theorem extends UniquelyIdentifiable {
