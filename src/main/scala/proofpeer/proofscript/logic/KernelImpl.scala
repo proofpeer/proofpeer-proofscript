@@ -262,7 +262,7 @@ private class KernelImpl(
 
     private def doautolift(term : CTerm) : CTerm = {
       val liftedTerm = lift(term, false)
-      if (liftedTerm != term) failwith("cannot lift term unchanged int context") else liftedTerm
+      if (liftedTerm != term) failwith("cannot automatically lift term into context") else liftedTerm
     }
     
     // Same as lift, but assumes that the theorem context has the same namespace as this context.

@@ -505,7 +505,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Success(Left(prop_), _) =>
 						val optProp = state.context.autolift(prop_)
 						if (optProp.isEmpty) 
-							cont(fail(tm, "Cannot lift proposition into current context: " + display(state, TermValue(prop_))))
+							cont(fail(tm, "Cannot automatically lift proposition into current context: " + display(state, TermValue(prop_))))
 						else if (optProp.get.typeOf != Type.Prop) 
 							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
@@ -574,7 +574,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Success(prop_, _) =>
 						val optProp = frozenState.context.autolift(prop_)
 						if (optProp.isEmpty)
-							cont(fail(tm, "Cannot lift proposition into current context: " + display(state, TermValue(prop_))))
+							cont(fail(tm, "Cannot automatically lift proposition into current context: " + display(state, TermValue(prop_))))
 						else if (optProp.get.typeOf != Type.Prop) 
 							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
@@ -1559,7 +1559,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case _ => return cont(success(None))
 							}
 						val optTerm = state.context.autolift(term_)
-						if (optTerm.isEmpty) return cont(fail(pat, "cannot lift term into context: " + display(state, TermValue(term_))))
+						if (optTerm.isEmpty) return cont(fail(pat, "cannot automatically lift term into context: " + display(state, TermValue(term_))))
 						val term = optTerm.get
 						val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
 						val (preterm, typeQuotes, typesOfTypeQuotes) = 
