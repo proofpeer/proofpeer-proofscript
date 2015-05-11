@@ -3,6 +3,9 @@ extends Lift
 
 let upairDef: 'upair = (x y ↦ repl two (z ↦ ifThenElse (z = ∅) x y))'
 
+val metisPreConv =
+  seqConv [upConv (sumConv [expandForallIn, expandExistsIn]),reifyBool]
+
 theorem upair:'∀x y z. z ∈ upair x y = (z = x ∨ z = y)'
   let 'x'
   let 'y'

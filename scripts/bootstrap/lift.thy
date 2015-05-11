@@ -97,7 +97,7 @@ def reifyBool tm =
       case nil => idConv tm
       case propTm if propTm == tm => idConv tm
       case propTm =>
-        theorem hack:
+        theorem hack1:
           val b = fresh "b"
           let '‹b›:ℙ'
 
@@ -109,15 +109,31 @@ def reifyBool tm =
 
           reflexive (termOfTree (mapUpTree (f,tree)))
 
-        val '∀x. ‹abs› x = ‹_› x' = hack
+        theorem hack2:
+          val b = fresh "b"
+          let '‹b›:ℙ'
 
+          val propTree = treeOfTerm propTm
+
+          def
+            f tm if tm == propTree = [b]
+            f tm = tm
+
+          reflexive '‹b› = ‹propTm› → ‹termOfTree (mapUpTree (f,tree))›'
+
+        val '∀x. ‹abs1› x = ‹_› x' = hack1
+        val '∀x. ‹abs2› x = ‹_› x' = hack2
+
+        # TODO: Use new lifting of terms rather than hacks
         val simps =
           val c = binderConv (landConv symConv)
           [convRule (c, eqTrueSimp), convRule (c, eqFalseSimp)]
         val c = landConv (rewrConv simps)
-        convRule (randConv (seqConv [rewrConv (gsym inductBool), binaryConv [c,c],
-                                     reifyBool]),
-                  normThm (sym (instantiate (unfoldLetThm ':ℙ', abs, propTm))))
+        convRule
+          (randConv (seqConv [rewrConv (gsym (instantiate (inductBool, abs2))),
+                              binaryConv [c,c],
+                              reifyBool]),
+           normThm (sym (instantiate (unfoldLetThm ':ℙ', abs1, propTm))))
   litConv reify1 tm
 
 val metisPreConv =

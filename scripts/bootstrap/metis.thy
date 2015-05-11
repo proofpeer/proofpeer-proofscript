@@ -335,8 +335,6 @@ def
     val axioms = {->}
     for ax in conjuncts thm do
       for cl in clausesOfCNF (ax:Term) do
-        show ax
-        show cl
         axioms = axioms ++ { cl -> initClause ax }
     val cert =
       timeit callmetis (context, clausesOfCNF (thm:Term))
@@ -377,11 +375,12 @@ def metisGen (preConv, asms:Tuple) =
     val conjAsms       = andIntro asms
     val conjProblem    = '‹conjAsms:Term› ∧ ¬‹conjecture›'
     val conv           =
-      seqConv [preConv, nnf,prenex,bindersConv cnf,tryConv skolemize]
+      seqConv [preConv,nnf,prenex,bindersConv cnf,tryConv skolemize]
     val equiv1         =
       timeit
         conv conjProblem
     val skolemNGoal    = rhs (equiv1: Term)
+    show skolemNGoal
     val [ctx,xs,ngoal] = letExistentials skolemNGoal
     val contr
     context <ctx>
