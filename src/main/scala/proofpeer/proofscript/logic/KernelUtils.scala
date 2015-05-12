@@ -157,7 +157,7 @@ object KernelUtils {
     Comb(PolyConst(Kernel.exists, ty), mk_abs(name, ty, prop))
   }
     
-  // vars should contain all variables appearing free in substitution (including the keys)
+  // vars should contain all variables appearing free in term and substitution (including the keys)
   def subst(term : Term, substitution : Map[IndexedName, Term], vars : Set[IndexedName]) : Term = {
     term match {
       case Var(varname) =>
@@ -188,7 +188,7 @@ object KernelUtils {
     if (sterm == Var(varname))
       term
     else
-      subst(term, Map(varname -> sterm), freeVars(sterm) + varname)
+      subst(term, Map(varname -> sterm), freeVars(term) ++ freeVars(sterm) + varname)
   }
   
   def freeVars(term : Term, bVars : Set[IndexedName], fVars : Set[IndexedName]) : Set[IndexedName] = {
@@ -623,7 +623,7 @@ object KernelUtils {
     normBetaEtaLong(context, term) match {
       case None => failwith("betaEtaLongNormalform: term is ill-typed")
       case Some((_, None)) => term
-      case Some((_, Some(term))) => term
+      case Some((_, Some(term))) => betaEtaLongNormalform(context, term)
     }
   }
 
