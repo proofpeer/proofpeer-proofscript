@@ -380,7 +380,6 @@ def metisGen (preConv, asms:Tuple) =
       timeit
         conv conjProblem
     val skolemNGoal    = rhs (equiv1: Term)
-    show skolemNGoal
     val [ctx,xs,ngoal] = letExistentials skolemNGoal
     val contr
     context <ctx>
@@ -391,15 +390,15 @@ def metisGen (preConv, asms:Tuple) =
         clauseThm (runMetis asm)
       val nequiv2 = combine (reflexive 'not', sym equiv2)
       contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
-    def existsDeMorganSym ty = gsym (existsDeMorgan ty)
     def
       existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
-        instantiate (existsDeMorganSym ty, P)
+        instantiate (gsym (existsDeMorgan ty), P)
       existsDeMorganSymConv _ = nil
     def
       upBinderConv tm =
         sumConv [existsDeMorganSymConv,
                  seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
+    show contr
     contr = modusponens (convRule (tryConv upBinderConv, contr),
                          combine (reflexive 'not', sym equiv1))
     modusponens (conjAsms, unmetis contr)

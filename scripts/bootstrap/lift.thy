@@ -1,9 +1,6 @@
 theory Lift
 extends Redundancies
 
-def normThm thm =
-  modusponens [thm, normalize (thm: Term)]
-
 table<context> unfoldLetThm a =
   theorem '∀p c. (∀x:‹a›. x = c → p x) = p c'
     val p = fresh "p"
@@ -133,7 +130,7 @@ def reifyBool tm =
           (randConv (seqConv [rewrConv (gsym (instantiate (inductBool, abs2))),
                               binaryConv [c,c],
                               reifyBool]),
-           normThm (sym (instantiate (unfoldLetThm ':ℙ', abs1, propTm))))
+           sym (instantiate (unfoldLetThm ':ℙ', abs1, propTm)))
   litConv reify1 tm
 
 val metisPreConv =

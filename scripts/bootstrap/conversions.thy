@@ -17,6 +17,7 @@ def debugConv [name,c] =
       match cthm
         case '‹_› = ‹y›' =>
           show "Succeeded"
+          show cthm
           show y
         case nil   => show "Failed"
     cthm
@@ -39,9 +40,9 @@ def
             match conv2 y
               case nil => nil
               case '‹_› = ‹z›' as yz =>
-                val foo = transitive (xy,yz)
-                match foo
-                  case '‹x2› = ‹z2›' if x == x2 and z == z2 => foo
+                val xz = trans (xy,yz)
+                match xz
+                  case '‹x2› = ‹z2›' if x == x2 and z == z2 => xz
                   case _ => fail "bad conversion"
           case _ => nil
     foldl (thenConv,convs,conv)
@@ -112,8 +113,7 @@ def absConv conv =
         match cthm
           case nil  => nil
           case cthm =>
-            val res = assertNotNil (abstract (lift (cthm,true)))
-            res
+            assertNotNil (abstract (lift (cthm,true)))
       case _ => nil
 
 # Converts a term appearing as the left hand side of the given equation to the
@@ -127,8 +127,7 @@ def
 
 def rewrConv1 thm =
   tm =>
-    val rule = modusponens (thm, normalize (thm:Term))
-    matchAntThen (rule,rhs (normalize tm:Term),thm =>
+    matchAntThen (thm,rhs (normalize tm:Term),thm =>
       match thm
         case '‹_› = ‹_›' => thm
         case _           => nil)

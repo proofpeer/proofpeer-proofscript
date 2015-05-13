@@ -115,8 +115,6 @@ def distribQuants tm =
     db1 '(∀x. ‹P› x ∧ ‹Q› x)' as tm =
       val flippedConjAll = instantiate (gsym (conjAll), P, Q)
 
-      # TODO: The need to normalize here is a bug in proofscript
-      flippedConjAll = modusponens (flippedConjAll, normalize (flippedConjAll:Term))
       convRule (randConv repeat, flippedConjAll)
     db1 p = idConv p
 
@@ -137,15 +135,12 @@ table skolemThm [a,b] =
         choose ch:'‹fresh "f"›:‹a› → ‹b›' asm
         val fx = rand (instantiate (ch,x): Term)
         let ydef:'‹fresh "y"› = ‹fx›'
-        convRule (seqConv [randConv (subsConv (gsym ydef)),normalize],
-                  instantiate (ch,x))
+        convRule (randConv (subsConv (gsym ydef)), instantiate (ch,x))
     equivalence (left,right)
 
-val skolem1 =
-  def
-    skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' = instantiate [skolemThm [a,b],p]
-    skolem1 tm = zeroConv tm
-  seqConv [skolem1,normalize]
+def
+  skolem1 '∀x: ‹a›. ∃y: ‹b›. ‹p› x y' = instantiate [skolemThm [a,b],p]
+  skolem1 tm = zeroConv tm
 
 def
   skolemize '∀x. ‹P› x' as tm =
