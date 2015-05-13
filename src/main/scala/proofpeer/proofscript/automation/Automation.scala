@@ -4,31 +4,59 @@ import proofpeer.proofscript.logic.{Kernel => K,_}
 import proofpeer.proofscript.naiveinterpreter.{ Success => _, _}
 import KernelInstances._
 import proofpeer.metis.{Term => MetisTerm, Pred => MetisPred, _}
-import TermInstances._
+import TermInstances.{TermIsShow => PSTermIsShow, _}
 import ClauseInstances._
 import scalaz.{Name => _, _}
 import Scalaz._
 import scalaz.std.math._
 
-// C-terms forgetting their context
-class CTermF(val cterm: CTerm) {
-  override def equals(rhs: Any) =
-    rhs match {
-      case rhs: CTermF => cterm.term == rhs.cterm.term
-      case _           => false
-    }
-  override def hashCode = cterm.term.hashCode
-}
-
-
 object Automation {
   type Err      = (String,StateValue)
   type Valid[A] = ValidationNel[Err,A]
-  type MTerm    = MetisTerm[BigInt,CTermF]
-  type MPred    = MetisPred[BigInt,CTermF,CTermF]
-  type MAtom    = Atom[BigInt,CTermF,CTermF]
-  type MLiteral = Literal[BigInt,CTermF,CTermF]
-  type MClause  = Clause[BigInt,CTermF,CTermF]
+  type MTerm    = MetisTerm[BigInt,NTerm]
+  type MPred    = MetisPred[BigInt,NTerm,NTerm]
+  type MAtom    = Atom[BigInt,NTerm,NTerm]
+  type MLiteral = Literal[BigInt,NTerm,NTerm]
+  type MClause  = Clause[BigInt,NTerm,NTerm]
+
+  // Normalised terms remembering their original.
+  class NTerm(val cterm: CTerm) {
+    val term = cterm.normalform
+    override def equals(rhs: Any) =
+      rhs match {
+        case rhs: NTerm => this.term === rhs.term
+        case _          => false
+      }
+    override def hashCode = term.hashCode
+  }
+
+  implicit object NTermIsOrder extends Order[NTerm] {
+    private def cmp(l: Term, r: Term): Ordering =
+      (l,r) match {
+        case (Term.Const(ln), Term.Const(rn))   => ln ?|? rn
+        case (Term.Const(_), _)                 => Ordering.LT
+        case (Term.PolyConst(ln,lty), Term.PolyConst(rn,rty)) =>
+          (ln ?|? rn) |+| (lty ?|? rty)
+        case (Term.PolyConst(_,_), _)           => Ordering.LT
+        case (Term.Comb(f,x), (Term.Comb(g,y))) => cmp(f,g) |+| cmp(x,y)
+        case (Term.Comb(_,_), _)                => Ordering.LT
+        case (Term.Var(ln), Term.Var(rn))       => ln ?|? rn
+        case (Term.Var(_), _)                   => Ordering.LT
+        case (Term.Abs(ln,lty,lbod), Term.Abs(rn,rty,rbod)) =>
+          (ln ?|? rn) |+| (lty ?|? rty) |+| cmp(lbod,rbod)
+        case (Term.Abs(_,_,_), _)               => Ordering.LT
+        case (_, _)                             => Ordering.GT
+      }
+
+    override def equal(l: NTerm, r: NTerm) = l.term == r.term
+    override def order(l: NTerm, r: NTerm) = cmp(l.term,r.term)
+  }
+
+  implicit object NTermIsShow extends Show[NTerm] {
+    override def show(nterm: NTerm) =
+      nterm.term.show
+  }
+
   def mkTuple(v: StateValue*) = TupleValue(v.toVector,true)
 
   val funType = Type.Fun(Type.Universe,Type.Fun(Type.Universe,Type.Prop))
@@ -65,7 +93,7 @@ object Automation {
       case TupleValue(elts,_) =>
         elts.toList match {
           case TermValue(f) :: args =>
-            args.traverse { termOfProofscript(_) }.map { Fun(new CTermF(f),_) }
+            args.traverse { termOfProofscript(_) }.map { Fun(new NTerm(f),_) }
           case _ => ("Not a term",tm).failureNel[MTerm]
         }
       case IntValue(v) => Var(v).successNel[Err]
@@ -83,7 +111,7 @@ object Automation {
           }) =>
             (termOfProofscript(x) |@| termOfProofscript(y)) { Eql(_,_) }
           case (TermValue(p) :: args) =>
-            args.traverse { termOfProofscript(_) }.map { MetisPred(new CTermF(p),_) }
+            args.traverse { termOfProofscript(_) }.map { MetisPred(new NTerm(p),_) }
           case _ => ("Not an atom",tm).failureNel[MAtom]
         }
       case _ => ("Not an atom",tm).failureNel[MAtom]
@@ -120,17 +148,6 @@ object Automation {
   }
 
   import KernelInstances._
-
-  // TODO: Need proper order instance for terms
-  implicit val cTermIsOrder = new Order[CTermF] {
-    override def order(x: CTermF, y: CTermF): Ordering =
-      // crap? probably not. These strings should be unique in context.
-      x.cterm.term.toString ?|? y.cterm.term.toString
-  }
-  implicit val cTermIsShow = new Show[CTermF] {
-    override def show(ct: CTermF) =
-      ct.cterm.term.show
-  }
 
   def TPTPOfClause(cl: MClause, n: Int) =
     Cord("fof(") ++ n.show ++ Cord(", unknown, ") ++ Debug.TPTPOfClause(cl) ++
@@ -189,21 +206,21 @@ object Automation {
           n.max((cl.frees + BigInt(0)).max)
         } + 1
 
-        implicit val ordFun = KnuthBendix.precedenceOrder[BigInt,CTermF]
-        implicit val kbo = KnuthBendix.kbo[BigInt,CTermF]
-        val kernel = new Kernel[BigInt,CTermF,CTermF]
-        val factor = new Factor[BigInt,CTermF,CTermF]
+        implicit val ordFun = KnuthBendix.precedenceOrder[BigInt,NTerm]
+        implicit val kbo = KnuthBendix.kbo[BigInt,NTerm]
+        val kernel = new Kernel[BigInt,NTerm,NTerm]
+        val factor = new Factor[BigInt,NTerm,NTerm]
         val litOrd = new MetisLiteralOrdering(kbo)
         val fin = FinOrd(8)
         val vals = Valuations[BigInt](fin)
-        val ithmF  = new IThmFactory[BigInt,CTermF,CTermF,BigInt,kernel.type](
+        val ithmF  = new IThmFactory[BigInt,NTerm,NTerm,BigInt,kernel.type](
           kernel,
           nextFree,
           { case (m,_) => (m+1,m) },
           litOrd,
           factor)
 
-        val interpretation = Interpretation[BigInt,CTermF,CTermF](1000,vals)
+        val interpretation = Interpretation[BigInt,NTerm,NTerm](1000,vals)
         val sys = new Resolution(0,cls.toList,ithmF,interpretation)
 
         def proofscriptOfCertificate(cert: sys.ithmF.kernel.Thm): StateValue = {
