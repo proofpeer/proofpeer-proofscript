@@ -398,7 +398,6 @@ def metisGen (preConv, asms:Tuple) =
       upBinderConv tm =
         sumConv [existsDeMorganSymConv,
                  seqConv [binderConv upBinderConv,existsDeMorganSymConv]] tm
-    show contr
     contr = modusponens (convRule (tryConv upBinderConv, contr),
                          combine (reflexive 'not', sym equiv1))
     modusponens (conjAsms, unmetis contr)
