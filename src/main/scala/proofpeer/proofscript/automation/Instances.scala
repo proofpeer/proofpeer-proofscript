@@ -1,4 +1,4 @@
-espackage proofpeer.proofscript.automation
+package proofpeer.proofscript.automation
 
 import proofpeer.proofscript.logic._
 import scala.language.implicitConversions
