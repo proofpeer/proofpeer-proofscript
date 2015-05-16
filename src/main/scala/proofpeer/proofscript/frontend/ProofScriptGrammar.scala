@@ -1,5 +1,6 @@
 package proofpeer.proofscript.frontend
 
+import proofpeer.general.StringUtils
 import proofpeer.indent.{ParseTree => IndentParseTree, _}
 import proofpeer.indent.regex._
 import proofpeer.indent.{Constraint => CS}
@@ -164,6 +165,15 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
     elements.head
   else
     PTuple(elements)
+}
+
+def mkNamePattern(nametext : String, arg : Option[Pattern]) : Pattern = {
+  val name = Syntax.parseName(nametext)
+  if (StringUtils.isASCIIUpperLetter(name.name.name(0)) || arg.isDefined || name.namespace.isDefined) {
+    PConstr(name, arg)
+  } else {
+    PId(name.toString)
+  }
 }
 
 def mkStringLiteral(c : ParseContext, quot1 : Span, quot2 : Span) : StringLiteral = 
@@ -447,7 +457,7 @@ val g_controlflow =
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++
   arule("AtomicPattern", "Nil", c => PNil) ++
-  arule("AtomicPattern", "IndexedName", c => PId(c.text("IndexedName"))) ++
+  arule("AtomicPattern", "Name", c => mkNamePattern(c.text("Name"), None)) ++  
   arule("AtomicPattern", "Int", c => PInt(c.Int[Integer].value)) ++
   arule("AtomicPattern", "QuotationMark_1 StringLiteral QuotationMark_2", 
     c => PString(mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2")).value)) ++
@@ -457,10 +467,12 @@ val g_pattern =
   arule("AtomicPattern", "Apostrophe Colon PatternType Apostrophe", c => PLogicType(c.PatternType)) ++
   arule("AtomicPattern", "RoundBracketOpen PatternList RoundBracketClose", c => mkTuplePattern(c.PatternList, true)) ++
   arule("AtomicPattern", "SquareBracketOpen PatternList SquareBracketClose", c => mkTuplePattern(c.PatternList, false)) ++  
-  arule("PrependPattern", "AtomicPattern Prepend PrependPattern", c => PPrepend(c.AtomicPattern, c.PrependPattern)) ++
+  arule("ConstrPattern", "AtomicPattern", _.AtomicPattern[Any]) ++
+  arule("ConstrPattern", "Name AtomicPattern", c => mkNamePattern(c.text("Name"), Some(c.AtomicPattern))) ++
+  arule("PrependPattern", "ConstrPattern Prepend PrependPattern", c => PPrepend(c.ConstrPattern, c.PrependPattern)) ++
   arule("PrependPattern", "AppendPattern", _.AppendPattern[Any]) ++
-  arule("AppendPattern", "AppendPattern Append AtomicPattern", c => PAppend(c.AppendPattern, c.AtomicPattern)) ++
-  arule("AppendPattern", "AtomicPattern", _.AtomicPattern[Any]) ++
+  arule("AppendPattern", "AppendPattern Append ConstrPattern", c => PAppend(c.AppendPattern, c.ConstrPattern)) ++
+  arule("AppendPattern", "ConstrPattern", _.ConstrPattern[Any]) ++
   arule("ScriptValuePrimitiveType", "Underscore", c => TyAny) ++
   arule("ScriptValuePrimitiveType", "TyNil", c => TyNil) ++
   arule("ScriptValuePrimitiveType", "TyContext", c => TyContext) ++

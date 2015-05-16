@@ -1,6 +1,6 @@
 theory root 
 
-val ProofScriptVersion = "0.4"
+val versionOfProofScript = "0.5-SNAPSHOT"
 
 let trueDef: 'true = ((p : ℙ ↦ p) = (p ↦ p))'
 let falseDef: 'false = (∀ p. p)'
@@ -28,9 +28,9 @@ let 'existsin : 𝒰 → (𝒰 → ℙ) → ℙ'
 
 assume empty: '∀ x. x ∉ ∅'
 assume ext: '∀ x, y. (x = y) = (∀ z. z ∈ x = z ∈ y)'
-assume Union: '∀ z, x. z ∈ ⋃ x = (∃ y ∈ x. z ∈ y)'
+assume bigUnion: '∀ z, x. z ∈ ⋃ x = (∃ y ∈ x. z ∈ y)'
 assume union: '∀ x, y, z. (z ∈ x ∪ y) = (z ∈ x ∨ z ∈ y)'
-assume Intersection: '∀ z, x. x ≠ ∅ → z ∈ ⋂ x = (∀ y ∈ x. z ∈ y)'
+assume bigIntersection: '∀ z, x. x ≠ ∅ → z ∈ ⋂ x = (∀ y ∈ x. z ∈ y)'
 assume intersection: '∀ x, y, z. z ∈ x ∩ y = (z ∈ x ∧ z ∈ y)'
 assume difference: '∀ x, y, z. z ∈ x ∖ y = (z ∈ x ∧ z ∉ y)'
 assume subset: '∀ x, y. x ⊂ y = (∀ z ∈ x. z ∈ y)'

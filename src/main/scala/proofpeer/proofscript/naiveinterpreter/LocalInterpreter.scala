@@ -1,11 +1,12 @@
 package proofpeer.proofscript.naiveinterpreter
 
 import proofpeer.proofscript.logic.Namespace
+import proofpeer.proofscript.ProofScriptManager
 
 object LocalInterpreter {
 
   def main(args : Array[String]) {
-    println("ProofScript v0.2-SNAPSHOT (c) 2014, 2015 University of Edinburgh")
+    println("ProofScript v" + ProofScriptManager.currentVersion + " (c) 2014, 2015 University of Edinburgh")
     val compileDir = new java.io.File(System.getProperty("java.io.tmpdir"), "proofscript.compiled")
     println("The directory for storing compiled theories is: " + compileDir)
     var loaded = 0

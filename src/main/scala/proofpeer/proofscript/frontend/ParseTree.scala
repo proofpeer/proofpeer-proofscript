@@ -30,7 +30,7 @@ object ParseTree {
     else 
       Id(name.name.toString)
   }
-  
+
   sealed trait Expr extends ParseTree {
     protected def calcFreeVars : Set[String]
     protected def calcVars = (calcFreeVars, Set())
@@ -227,6 +227,10 @@ object ParseTree {
   case class PId(name : String) extends Pattern {
     protected def calcVars = (Set(), Set(name))
   }
+
+  case class PPattern(name : String) extends Pattern {
+    protected def calcVars = (Set(), Set(name))
+  }
   
   case class PInt(value : BigInt) extends Pattern {
     protected def calcVars = (Set(), Set())   
@@ -318,6 +322,14 @@ object ParseTree {
 
   case class PType(pat : Pattern, ty : ValueType) extends Pattern {
     protected def calcVars = pat.calcVars
+  }
+
+  case class PConstr(name : Name, arg : Option[Pattern]) extends Pattern {
+    protected def calcVars = 
+      arg match {
+        case None => (Set(), Set())
+        case Some(arg) => (arg.freeVars, arg.introVars)
+      }
   }
 
   case class Comment(text : String) extends ParseTree {
