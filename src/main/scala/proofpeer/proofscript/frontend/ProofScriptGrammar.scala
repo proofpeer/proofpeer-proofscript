@@ -70,6 +70,7 @@ def g_literals =
   lex("Leq", ALT(char(0x2264), string("<="))) ++
   lex("Geq", ALT(char(0x2265), string(">="))) ++
   lex("QuestionMark", char('?')) ++
+  lex("ExclamationMark", char('!')) ++
   lex("SquareBracketOpen", char('[')) ++
   lex("SquareBracketClose", char(']')) ++
   lex("DoubleArrow", ALT(char(0x21D2), string("=>"))) ++
@@ -84,6 +85,7 @@ def g_literals =
   keyword("Val", "val") ++
   keyword("Def", "def") ++
   keyword("Table", "table") ++
+  keyword("Datatype", "datatype") ++
   keyword("Mod", "mod") ++ 
   keyword("ScriptOr", "or") ++ 
   keyword("ScriptAnd", "and") ++ 
@@ -174,6 +176,11 @@ def mkNamePattern(nametext : String, arg : Option[Pattern]) : Pattern = {
   } else {
     PId(name.toString)
   }
+}
+
+def mkTyCustom(text : String) : TyCustom = {
+  val name = Syntax.parseName(text)
+  TyCustom(name.namespace, name.name.toString)
 }
 
 def mkStringLiteral(c : ParseContext, quot1 : Span, quot2 : Span) : StringLiteral = 
@@ -304,8 +311,11 @@ val g_expr =
       c => BinaryOperation(annotateBinop(Mod, c.span("Mod")), c.MultExpr, c.BasicExpr)) ++
   arule("MultExpr", "BasicExpr", _.BasicExpr[Any]) ++
   arule("BasicExpr", "AppExpr", _.AppExpr[Any]) ++
-  arule("AppExpr", "PrimitiveExpr", _.PrimitiveExpr[Any]) ++
-  arule("AppExpr", "AppExpr PrimitiveExpr", c => App(c.AppExpr, c.PrimitiveExpr)) ++
+  arule("AppExpr", "DestructExpr", _.DestructExpr[Any]) ++
+  arule("AppExpr", "AppExpr DestructExpr", c => App(c.AppExpr, c.DestructExpr)) ++
+  arule("DestructExpr", "PrimitiveExpr", _.PrimitiveExpr[Any]) ++
+  arule("DestructExpr", "ExclamationMark DestructExpr", 
+    c => UnaryOperation(annotateUnop(Destruct, c.span("ExclamationMark")), c.DestructExpr)) ++
   arule("LazyExpr", "OrExpr", _.OrExpr[Any]) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr)) ++ 
   arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern, c.Block)) ++
@@ -486,6 +496,7 @@ val g_pattern =
   arule("ScriptValuePrimitiveType", "TyMap", c => TyMap) ++
   arule("ScriptValuePrimitiveType", "TySet", c => TySet) ++
   arule("ScriptValuePrimitiveType", "TyFunction", c => TyFunction) ++
+  arule("ScriptValuePrimitiveType", "Name", c => mkTyCustom(c.text("Name"))) ++
   arule("ScriptValueType", "ScriptValuePrimitiveType", c => c.ScriptValuePrimitiveType[Any]) ++
   arule("ScriptValueType", "ScriptValueType Bar ScriptValuePrimitiveType", c => TyUnion(c.ScriptValueType, c.ScriptValuePrimitiveType)) ++
   arule("ScriptValueType", "ScriptValuePrimitiveType QuestionMark", c => TyOption(c.ScriptValuePrimitiveType)) ++
@@ -601,6 +612,31 @@ val g_def =
       c => DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)) ++
   arule("DefType", "", c => None) ++
   arule("DefType", "Colon ScriptValueType", c => Some(c.ScriptValueType[Any]))
+
+val g_datatype =
+  arule("ST", "Datatype DatatypeCases", 
+    CS.Indent("Datatype", "DatatypeCases"),
+    c => STDatatype(c.DatatypeCases)) ++
+  arule("ST", "Datatype IndexedName DatatypeConstrs",
+    CS.and(
+      CS.SameLine("Datatype", "IndexedName"),
+      CS.Indent("Datatype", "DatatypeConstrs")),
+    c => STDatatype(Vector(DatatypeCase(c.text("IndexedName"), c.DatatypeConstrs)))) ++
+  arule("DatatypeConstrs", "", c => Vector()) ++
+  arule("DatatypeConstrs", "DatatypeConstrs DatatypeConstr",
+    CS.Align("DatatypeConstrs", "DatatypeConstr"),
+    c => c.DatatypeConstrs[Vector[DatatypeConstr]] :+ c.DatatypeConstr[DatatypeConstr]) ++
+  arule("DatatypeConstr", "IndexedName", 
+    c => DatatypeConstr(c.text("IndexedName"), None)) ++
+  arule("DatatypeConstr", "IndexedName Pattern", CS.Indent("IndexedName", "Pattern"),
+    c => DatatypeConstr(c.text("IndexedName"), Some(c.Pattern))) ++
+  arule("DatatypeCases", "", c => Vector()) ++
+  arule("DatatypeCases", "DatatypeCases DatatypeCase", 
+    CS.Align("DatatypeCases", "DatatypeCase"),
+    c => c.DatatypeCases[Vector[DatatypeCase]] :+ c.DatatypeCase[DatatypeCase]) ++
+  arule("DatatypeCase", "IndexedName DatatypeConstrs",
+    CS.Indent("IndexedName", "DatatypeConstrs"),
+    c => DatatypeCase(c.text("IndexedName"), c.DatatypeConstrs))
       
 val g_return =
   arule("ST", "Return PExpr", CS.Indent("Return", "PExpr"), 
@@ -666,7 +702,6 @@ val g_theorem =
                      c.PrimitiveExpr,
                      ParseTree.NilExpr)) 
 
-
 val g_logic_statements = 
   arule("OptAssign", "", c => None) ++
   arule("OptAssign", "IndexedName Colon", c => Some(c.text("IndexedName"))) ++
@@ -677,7 +712,7 @@ val g_test =
   arule("ST", "Failure Block", CS.Indent("Failure", "Block"), c => STFailure(c.Block))
 
 val g_statement = 
-  g_val ++ g_assign ++ g_def ++ g_return ++ g_show ++ g_fail ++
+  g_val ++ g_assign ++ g_def ++ g_datatype ++ g_return ++ g_show ++ g_fail ++
   g_logic_statements ++ g_comment ++ g_test ++
   arule("Statement", "Expr", 
     CS.or(CS.Protrude("Expr"), CS.not(CS.First("Expr"))),
