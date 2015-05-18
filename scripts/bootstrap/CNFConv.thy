@@ -35,24 +35,24 @@ def
 # Conversion from nnf to prenex form.
 def prenex tm =
   def
-    rq '(∃x. ‹P› x) ∧ (∃x. ‹Q› x)' = instantiate (conjExists,P,Q)
-    rq '(∃x. ‹P› x) ∨ (∃x. ‹Q› x)' = instantiate (disjExists,P,Q)
-    rq '(∀x. ‹P› x) ∧ (∀x. ‹Q› x)' = instantiate (conjAll,P,Q)
-    rq '(∀x. ‹P› x) ∨ (∀x. ‹Q› x)' = instantiate (disjAll,P,Q)
-    rq '(∃x. ‹P› x) ∧ (∀x. ‹Q› x)' = instantiate (conjExistsAll,P,Q)
-    rq '(∃x. ‹P› x) ∨ (∀x. ‹Q› x)' = instantiate (disjExistsAll,P,Q)
-    rq '(∃x. ‹P› x) ∧ ‹q›'         =
+    rq '(∃x. ‹p› x) ∧ (∃x. ‹q› x)' = instantiate (conjExists,p,q)
+    rq '(∃x. ‹p› x) ∨ (∃x. ‹q› x)' = instantiate (disjExists,p,q)
+    rq '(∀x. ‹p› x) ∧ (∀x. ‹q› x)' = instantiate (conjAll,p,q)
+    rq '(∀x. ‹p› x) ∨ (∀x. ‹q› x)' = instantiate (disjAll,p,q)
+    rq '(∃x. ‹p› x) ∧ (∀x. ‹q› x)' = instantiate (conjExistsAll,p,q)
+    rq '(∃x. ‹p› x) ∨ (∀x. ‹q› x)' = instantiate (disjExistsAll,p,q)
+    rq '(∃x. ‹p› x) ∧ ‹q›'         =
       convRule (binaryConv (randConv trivAllConv, binderConv trivAllConv),
-                instantiate (conjExistsAll,P,'x ↦ ‹q›'))
-    rq '(∃x. ‹P› x) ∨ ‹q›'         =
+                instantiate (conjExistsAll,p,'x ↦ ‹q›'))
+    rq '(∃x. ‹p› x) ∨ ‹q›'         =
       convRule (binaryConv (randConv trivAllConv, binderConv trivAllConv),
-                instantiate (disjExistsAll,P,'x ↦ ‹q›'))
-    rq '(∀x. ‹P› x) ∧ ‹q›'         =
+                instantiate (disjExistsAll,p,'x ↦ ‹q›'))
+    rq '(∀x. ‹p› x) ∧ ‹q›'         =
       convRule (landConv (randConv trivAllConv),
-                instantiate (conjAll, P, 'x ↦ ‹q›'))
-    rq '(∀x. ‹P› x) ∨ ‹q›'         =
+                instantiate (conjAll, p, 'x ↦ ‹q›'))
+    rq '(∀x. ‹p› x) ∨ ‹q›'         =
       convRule (binaryConv (randConv trivAllConv, binderConv trivAllConv),
-                instantiate (disjAll, P, 'x ↦ ‹q›'))
+                instantiate (disjAll, p, 'x ↦ ‹q›'))
     rq tm                          = zeroConv tm
 
   val rqComm = sumConv [rq,
@@ -112,8 +112,8 @@ def distribQuants tm =
     repeat tm = seqConv [binaryConv [tryConv trivAllConv, tryConv trivAllConv],
                          landConv db1] tm
 
-    db1 '(∀x. ‹P› x ∧ ‹Q› x)' as tm =
-      val flippedConjAll = instantiate (gsym (conjAll), P, Q)
+    db1 '(∀x. ‹p› x ∧ ‹q› x)' as tm =
+      val flippedConjAll = instantiate (gsym (conjAll), p, q)
 
       convRule (randConv repeat, flippedConjAll)
     db1 p = idConv p
@@ -143,7 +143,7 @@ def
   skolem1 tm = zeroConv tm
 
 def
-  skolemize '∀x. ‹P› x' as tm =
+  skolemize '∀x. ‹p› x' as tm =
     seqConv [binderConv skolemize,
              tryConv (seqConvl [binderConv, skolem1])] tm
   skolemize tm = tryConv (binderConv skolemize) tm

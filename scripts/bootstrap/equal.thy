@@ -25,7 +25,7 @@ def
 theorem truth:'⊤'
   modusponens (reflexive '(p : ℙ ↦ p)',sym trueDef)
 
-# '‹P›' ↦ '‹P› = T'
+# '‹p›' ↦ '‹p› = T'
 val eqTrueIntro =
   theorem eqTrue:
     let 'p:ℙ'
@@ -40,7 +40,7 @@ val eqTrueIntro =
   thm =>
     modusponens (thm,instantiate (eqTrue, thm: Term)): Theorem
 
-# '‹P› = ⊤' ↦ '‹P›'
+# '‹p› = ⊤' ↦ '‹p›'
 # Returns nil if theorem is not of the correct form.
 # Fails if not given a theorem.
 def
@@ -61,7 +61,7 @@ theorem trivImp:'∀ p. p → p'
 theorem notFalse:'¬⊥'
   modusponens (instantiate [trivImp,'⊥'],sym (apThm [notDef,'⊥']))
 
-# '‹P› = ⊥' ↦ '¬‹P›'
+# '‹p› = ⊥' ↦ '¬‹p›'
 # Returns nil if theorem is not of the correct form.
 # Fails if not given a theorem.
 val eqFalseElim =
