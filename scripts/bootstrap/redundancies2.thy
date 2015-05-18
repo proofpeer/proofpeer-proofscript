@@ -29,7 +29,7 @@ theorem comprehension: '∀p A. ∀x. x ∈ comprehend A p = (x ∈ A ∧ p x)'
   let 'A:𝒰'
   theorem '∀x. (x ∈ comprehend A p) = (x ∈ A ∧ p x)'
     by metisGen
-      (seqConv [treeConv (sumConv [rewrConv [comprehensionDef, Union],
+      (seqConv [treeConv (sumConv [rewrConv [comprehensionDef, bigUnion],
                                    expandForallIn, expandExistsIn]),
                 metisPreConv],
       [ifTrue, ifFalse, empty, single,
@@ -55,12 +55,13 @@ let unionDef: 'finunion = (x ↦ y ↦ ⋃ (upair x y))'
 #
 # theorem badUnion: '∀x y z. z ∈ finunion x y = (z ∈ x ∨ z ∈ y)'
 #   by metisGen
-#     (seqConv [rewriteConv unionDef, metisPreConv], [Union,upair])
+#     (seqConv [rewriteConv unionDef, metisPreConv], [bigUnion,upair])
 
 # METIS can prove this version, assisted by initial simplification steps.
 theorem finUnion: '∀x y z. z ∈ finunion x y = (z ∈ x ∨ z ∈ y)'
   by metisGen
-    (treeConv (sumConv [rewrConv [unionDef, Union], expandForallIn, expandExistsIn]),
+    (treeConv (sumConv
+                [rewrConv [unionDef, bigUnion], expandForallIn, expandExistsIn]),
               [upair])
 
 let pairDef: 'pair = (x ↦ y ↦ upair (upair x x) (upair x y))'

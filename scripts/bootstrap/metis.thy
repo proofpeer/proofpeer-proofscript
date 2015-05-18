@@ -391,8 +391,8 @@ def metisGen (preConv, asms:Tuple) =
       val nequiv2 = combine (reflexive 'not', sym equiv2)
       contr = modusponens (convRule ((rewrConv impliesNot), refute), nequiv2)
     def
-      existsDeMorganSymConv '(∀x:‹ty›. ¬‹P› x)' =
-        instantiate (gsym (existsDeMorgan ty), P)
+      existsDeMorganSymConv '(∀x:‹ty›. ¬‹p› x)' =
+        instantiate (gsym (existsDeMorgan ty), p)
       existsDeMorganSymConv _ = nil
     def
       upBinderConv tm =
