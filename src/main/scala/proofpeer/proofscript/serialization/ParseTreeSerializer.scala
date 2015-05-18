@@ -73,6 +73,8 @@ extends Serializer[TracksSourcePosition]
   private object MatchCaseSerializer extends PTSerializer[MatchCase]
   private object CommentSerializer extends PTSerializer[Comment]
   private object ValueTypeSerializer extends PTSerializer[ValueType]
+  private object DatatypeConstrSerializer extends PTSerializer[DatatypeConstr]
+  private object DatatypeCaseSerializer extends PTSerializer[DatatypeCase]
 
   private object ParseTreeSerializerBase extends CaseClassSerializerBase[TracksSourcePosition] {
 
@@ -106,75 +108,81 @@ extends Serializer[TracksSourcePosition]
       val CONTEXTCONTROL = -13
       val NEG = 14
       val NOT = -14
-      val RANGETO = 15
-      val RANGEDOWNTO = -15
-      val ADD = 16
-      val SUB = -16
-      val MUL = 17
-      val DIV = -17
-      val MOD = 18
-      val AND = -18
-      val OR = 19
-      val PREPEND = -19
-      val APPEND = 20
-      val CONCAT = -20
-      val MINUS = 21
-      val EQ = -21
-      val NEQ = 22
-      val LE = -22
-      val LEQ = 23
-      val GR = -23
-      val GEQ = 24
-      val PANY = -24
-      val PID = 25
-      val PINT = -25
-      val PBOOL = 26
-      val PSTRING = -26
-      val PLOGICTERM = 27
-      val PLOGICTYPE = -27
-      val PTUPLE = 28
-      val PPREPEND = -28
-      val PAPPEND = 29
-      val PIF = -29
-      val PAS = 30
-      val PNIL = -30
-      val PTYPE = 31
-      val TYANY = -31
-      val TYNIL = 32
-      val TYCONTEXT = -32
-      val TYTHEOREM = 33
-      val TYTERM = -33
-      val TYTYPE = 34
-      val TYBOOLEAN = -34
-      val TYINTEGER = 35
-      val TYFUNCTION = -35
-      val TYSTRING = 36
-      val TYTUPLE = -36
-      val TYMAP = 37
-      val TYSET = -37
-      val TYOPTION = 38
-      val TYUNION = -38
-      val COMMENT = 39
-      val STCOMMENT = -39
-      val STEXPR = 40
-      val STCONTROLFLOW = -40
-      val STSHOW = 41
-      val STFAIL = -41
-      val STASSERT = 42
-      val STFAILURE = -42
-      val STVAL = 43
-      val STVALINTRO = -43
-      val STASSIGN = 44
-      val STDEF = -44
-      val DEFCASE = 45
-      val STRETURN = -45
-      val STASSUME = 46
-      val STLET = -46
-      val STCHOOSE = 47
-      val STTHEOREM = -47
-      val STTHEOREMBY = 48
-      val STTHEORY = -48
-      val BLOCK = 49
+      val DESTRUCT = 15
+      val RANGETO = -15
+      val RANGEDOWNTO = 16
+      val ADD = -16
+      val SUB = 17
+      val MUL = -17
+      val DIV = 18
+      val MOD = -18
+      val AND = 19
+      val OR = -19
+      val PREPEND = 20
+      val APPEND = -20
+      val CONCAT = 21
+      val MINUS = -21
+      val EQ = 22
+      val NEQ = -22
+      val LE = 23
+      val LEQ = -23
+      val GR = 24
+      val GEQ = -24
+      val PANY = 25
+      val PID = -25
+      val PINT = 26
+      val PBOOL = -26
+      val PSTRING = 27
+      val PLOGICTERM = -27
+      val PLOGICTYPE = 28
+      val PTUPLE = -28
+      val PPREPEND = 29
+      val PAPPEND = -29
+      val PIF = 30
+      val PAS = -30
+      val PNIL = 31
+      val PTYPE = -31
+      val PCONSTR = 32
+      val TYANY = -32
+      val TYNIL = 33
+      val TYCONTEXT = -33
+      val TYTHEOREM = 34
+      val TYTERM = -34
+      val TYTYPE = 35
+      val TYBOOLEAN = -35
+      val TYINTEGER = 36
+      val TYFUNCTION = -36
+      val TYSTRING = 37
+      val TYTUPLE = -37
+      val TYMAP = 38
+      val TYSET = -38
+      val TYOPTION = 39
+      val TYUNION = -39
+      val TYCUSTOM = 40
+      val COMMENT = -40
+      val STCOMMENT = 41
+      val STEXPR = -41
+      val STCONTROLFLOW = 42
+      val STSHOW = -42
+      val STFAIL = 43
+      val STASSERT = -43
+      val STFAILURE = 44
+      val STVAL = -44
+      val STVALINTRO = 45
+      val STASSIGN = -45
+      val STDEF = 46
+      val DEFCASE = -46
+      val DATATYPECONSTR = 47
+      val DATATYPECASE = -47
+      val STDATATYPE = 48
+      val STRETURN = -48
+      val STASSUME = 49
+      val STLET = -49
+      val STCHOOSE = 50
+      val STTHEOREM = -50
+      val STTHEOREMBY = 51
+      val STTHEORY = -51
+      val BLOCK = 52
     }
 
     object Serializers {
@@ -216,8 +224,10 @@ extends Serializer[TracksSourcePosition]
       val PIF = PairSerializer(PatternSerializer,ExprSerializer)
       val PAS = PairSerializer(PatternSerializer,StringSerializer)
       val PTYPE = PairSerializer(PatternSerializer,ValueTypeSerializer)
+      val PCONSTR = PairSerializer(NameSerializer,OptionSerializer(PatternSerializer))
       val TYOPTION = ValueTypeSerializer
       val TYUNION = PairSerializer(ValueTypeSerializer,ValueTypeSerializer)
+      val TYCUSTOM = PairSerializer(OptionSerializer(NamespaceSerializer),StringSerializer)
       val COMMENT = StringSerializer
       val STCOMMENT = CommentSerializer
       val STEXPR = ExprSerializer
@@ -231,6 +241,9 @@ extends Serializer[TracksSourcePosition]
       val STASSIGN = PairSerializer(PatternSerializer,BlockSerializer)
       val STDEF = TripleSerializer(MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer)),BooleanSerializer,OptionSerializer(ExprSerializer))
       val DEFCASE = QuadrupleSerializer(StringSerializer,PatternSerializer,OptionSerializer(ValueTypeSerializer),BlockSerializer)
+      val DATATYPECONSTR = PairSerializer(StringSerializer,OptionSerializer(PatternSerializer))
+      val DATATYPECASE = PairSerializer(StringSerializer,VectorSerializer(DatatypeConstrSerializer))
+      val STDATATYPE = VectorSerializer(DatatypeCaseSerializer)
       val STRETURN = OptionSerializer(ExprSerializer)
       val STASSUME = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
       val STLET = PairSerializer(OptionSerializer(StringSerializer),ExprSerializer)
@@ -301,6 +314,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.NEG, None)
         case Not =>
           (Kind.NOT, None)
+        case Destruct =>
+          (Kind.DESTRUCT, None)
         case RangeTo =>
           (Kind.RANGETO, None)
         case RangeDownto =>
@@ -367,6 +382,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.PNIL, None)
         case t : PType =>
           (Kind.PTYPE, Some(Serializers.PTYPE.serialize(PType.unapply(t).get)))
+        case t : PConstr =>
+          (Kind.PCONSTR, Some(Serializers.PCONSTR.serialize(PConstr.unapply(t).get)))
         case TyAny =>
           (Kind.TYANY, None)
         case TyNil =>
@@ -397,6 +414,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.TYOPTION, Some(Serializers.TYOPTION.serialize(x)))
         case t : TyUnion =>
           (Kind.TYUNION, Some(Serializers.TYUNION.serialize(TyUnion.unapply(t).get)))
+        case t : TyCustom =>
+          (Kind.TYCUSTOM, Some(Serializers.TYCUSTOM.serialize(TyCustom.unapply(t).get)))
         case Comment(x) =>
           (Kind.COMMENT, Some(Serializers.COMMENT.serialize(x)))
         case STComment(x) =>
@@ -423,6 +442,12 @@ extends Serializer[TracksSourcePosition]
           (Kind.STDEF, Some(Serializers.STDEF.serialize(STDef.unapply(t).get)))
         case t : DefCase =>
           (Kind.DEFCASE, Some(Serializers.DEFCASE.serialize(DefCase.unapply(t).get)))
+        case t : DatatypeConstr =>
+          (Kind.DATATYPECONSTR, Some(Serializers.DATATYPECONSTR.serialize(DatatypeConstr.unapply(t).get)))
+        case t : DatatypeCase =>
+          (Kind.DATATYPECASE, Some(Serializers.DATATYPECASE.serialize(DatatypeCase.unapply(t).get)))
+        case STDatatype(x) =>
+          (Kind.STDATATYPE, Some(Serializers.STDATATYPE.serialize(x)))
         case STReturn(x) =>
           (Kind.STRETURN, Some(Serializers.STRETURN.serialize(x)))
         case t : STAssume =>
@@ -503,6 +528,8 @@ extends Serializer[TracksSourcePosition]
           Neg
         case Kind.NOT if args.isEmpty => 
           Not
+        case Kind.DESTRUCT if args.isEmpty => 
+          Destruct
         case Kind.RANGETO if args.isEmpty => 
           RangeTo
         case Kind.RANGEDOWNTO if args.isEmpty => 
@@ -569,6 +596,8 @@ extends Serializer[TracksSourcePosition]
           PNil
         case Kind.PTYPE if args.isDefined => 
           PType.tupled(Serializers.PTYPE.deserialize(args.get))
+        case Kind.PCONSTR if args.isDefined => 
+          PConstr.tupled(Serializers.PCONSTR.deserialize(args.get))
         case Kind.TYANY if args.isEmpty => 
           TyAny
         case Kind.TYNIL if args.isEmpty => 
@@ -599,6 +628,8 @@ extends Serializer[TracksSourcePosition]
           TyOption(Serializers.TYOPTION.deserialize(args.get))
         case Kind.TYUNION if args.isDefined => 
           TyUnion.tupled(Serializers.TYUNION.deserialize(args.get))
+        case Kind.TYCUSTOM if args.isDefined => 
+          TyCustom.tupled(Serializers.TYCUSTOM.deserialize(args.get))
         case Kind.COMMENT if args.isDefined => 
           Comment(Serializers.COMMENT.deserialize(args.get))
         case Kind.STCOMMENT if args.isDefined => 
@@ -625,6 +656,12 @@ extends Serializer[TracksSourcePosition]
           STDef.tupled(Serializers.STDEF.deserialize(args.get))
         case Kind.DEFCASE if args.isDefined => 
           DefCase.tupled(Serializers.DEFCASE.deserialize(args.get))
+        case Kind.DATATYPECONSTR if args.isDefined => 
+          DatatypeConstr.tupled(Serializers.DATATYPECONSTR.deserialize(args.get))
+        case Kind.DATATYPECASE if args.isDefined => 
+          DatatypeCase.tupled(Serializers.DATATYPECASE.deserialize(args.get))
+        case Kind.STDATATYPE if args.isDefined => 
+          STDatatype(Serializers.STDATATYPE.deserialize(args.get))
         case Kind.STRETURN if args.isDefined => 
           STReturn(Serializers.STRETURN.deserialize(args.get))
         case Kind.STASSUME if args.isDefined => 
@@ -647,42 +684,42 @@ extends Serializer[TracksSourcePosition]
 
   }
 
-    private def decodeInt(b : Any) : Int = {
-      b match {
-        case i : Int => i
-        case l : Long => l.toInt
-        case _ => throw new RuntimeException("ParseTreeSerializer.decodeInt " + b + " failed")
-      }
+  private def decodeInt(b : Any) : Int = {
+    b match {
+      case i : Int => i
+      case l : Long => l.toInt
+      case _ => throw new RuntimeException("ParseTreeSerializer.decodeInt " + b + " failed")
     }
-
-    def serialize(parsetree : TracksSourcePosition)  = {
-      val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
-      val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
-      args match {
-        case None => Vector(kind, serializedSourcePosition)
-        case Some(args) => Vector(kind, serializedSourcePosition, args)
-      }
-    }
-
-    def deserialize(serialized : Any) : TracksSourcePosition = {
-      serialized match {
-        case Vector(_kind, serializedSourcePosition) =>
-          val kind = decodeInt(_kind)
-          val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
-          val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None)
-          tree.sourcePosition = sourcePosition
-          tree
-        case Vector(_kind, serializedSourcePosition, args) =>
-          val kind = decodeInt(_kind)
-          val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
-          val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args))
-          tree.sourcePosition = sourcePosition
-          tree
-        case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
-      }
-    }
-
   }
+
+  def serialize(parsetree : TracksSourcePosition)  = {
+    val (kind, args) = ParseTreeSerializerBase.decomposeAndSerialize(parsetree)
+    val serializedSourcePosition = SourcePositionSerializer.serialize(parsetree.sourcePosition)
+    args match {
+      case None => Vector(kind, serializedSourcePosition)
+      case Some(args) => Vector(kind, serializedSourcePosition, args)
+    }
+  }
+
+  def deserialize(serialized : Any) : TracksSourcePosition = {
+    serialized match {
+      case Vector(_kind, serializedSourcePosition) =>
+        val kind = decodeInt(_kind)
+        val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, None)
+        tree.sourcePosition = sourcePosition
+        tree
+      case Vector(_kind, serializedSourcePosition, args) =>
+        val kind = decodeInt(_kind)
+        val sourcePosition = SourcePositionSerializer.deserialize(serializedSourcePosition)
+        val tree = ParseTreeSerializerBase.deserializeAndCompose(kind.toInt, Some(args))
+        tree.sourcePosition = sourcePosition
+        tree
+      case _ => throw new RuntimeException("cannot deserialize parse tree: " + serialized)
+    }
+  }
+
+}
 
 /** This is code used to create most of the above code. It is not needed during runtime, just during programming. */
 object ParseTreeSerializerGenerator {
@@ -717,6 +754,7 @@ object ParseTreeSerializerGenerator {
     ("ContextControl", "OptionSerializer(ExprSerializer)", "BlockSerializer"),
     "Neg",
     "Not",
+    "Destruct",
     "RangeTo",
     "RangeDownto",
     "Add",
@@ -750,6 +788,7 @@ object ParseTreeSerializerGenerator {
     ("PAs", "PatternSerializer", "StringSerializer"),
     "PNil",
     ("PType", "PatternSerializer", "ValueTypeSerializer"),
+    ("PConstr", "NameSerializer", "OptionSerializer(PatternSerializer)"),
     "TyAny", 
     "TyNil", 
     "TyContext", 
@@ -765,6 +804,7 @@ object ParseTreeSerializerGenerator {
     "TySet",
     ("TyOption", "ValueTypeSerializer"),
     ("TyUnion", "ValueTypeSerializer", "ValueTypeSerializer"),
+    ("TyCustom", "OptionSerializer(NamespaceSerializer)", "StringSerializer"),
     ("Comment", "StringSerializer"),
     ("STComment", "CommentSerializer"),
     ("STExpr", "ExprSerializer"),
@@ -778,6 +818,9 @@ object ParseTreeSerializerGenerator {
     ("STAssign", "PatternSerializer", "BlockSerializer"),
     ("STDef", "MapSerializer(StringSerializer,VectorSerializer(DefCaseSerializer))", "BooleanSerializer", "OptionSerializer(ExprSerializer)"),
     ("DefCase", "StringSerializer", "PatternSerializer", "OptionSerializer(ValueTypeSerializer)", "BlockSerializer"),
+    ("DatatypeConstr", "StringSerializer", "OptionSerializer(PatternSerializer)"),
+    ("DatatypeCase", "StringSerializer", "VectorSerializer(DatatypeConstrSerializer)"),
+    ("STDatatype", "VectorSerializer(DatatypeCaseSerializer)"),
     ("STReturn", "OptionSerializer(ExprSerializer)"),
     ("STAssume", "OptionSerializer(StringSerializer)", "ExprSerializer"),
     ("STLet", "OptionSerializer(StringSerializer)", "ExprSerializer"),

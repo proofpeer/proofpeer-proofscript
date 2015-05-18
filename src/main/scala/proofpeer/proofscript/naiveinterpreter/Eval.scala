@@ -47,6 +47,7 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 
 class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
+	scriptTyperesolution : NamespaceResolution[String],
 	val logicNameresolution : NamespaceResolution[IndexedName], 
 	val aliases : Aliases, namespace : Namespace, output : Output) 
 {
@@ -400,7 +401,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					nonlinear = nonlinear + (name -> f)
 					functions = functions + (name -> f)
 				}
-				var defstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+				var defstate = new State(state.context, State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 				for ((_, f) <- functions) f.state = defstate
 				cont(success(state.bind(functions)))
 		}
@@ -1150,7 +1151,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							for (x <- notFound) error = error + " " + x
 							cont(fail(f, error))
 						case Left(nonlinear) =>
-							val funstate = new State(state.context, State.Env(nonlinear, Map()), Collect.emptyOne, true)
+							val funstate = new State(state.context, State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 							cont(success(SimpleFunctionValue(funstate, f)))
 					}
 				case App(u, v) => evalApp(expr, state, u, v, cont)
@@ -1670,13 +1671,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case (_ : TypeValue, TyType) => Some(value)
 			case (_ : BoolValue, TyBoolean) => Some(value)
 			case (_ : IntValue, TyInteger) => Some(value)
-			case (_ : SimpleFunctionValue, TyFunction) => Some(value)
-			case (_ : RecursiveFunctionValue, TyFunction) => Some(value)
-			case (_ : NativeFunctionValue, TyFunction) => Some(value)
 			case (_ : StringValue, TyString) => Some(value)
 			case (_ : TupleValue, TyTuple) =>	Some(value)	
 			case (_ : MapValue, TyMap) => Some(value)
 			case (_ : SetValue, TySet) =>	Some(value)
+			case (f, TyFunction) if StateValue.isFunction(f) => Some(value)
 			case _ => None
 		}
 	}
@@ -1732,9 +1731,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case (_ : TypeValue, TyType) => Some(value)
 			case (_ : BoolValue, TyBoolean) => Some(value)
 			case (_ : IntValue, TyInteger) => Some(value)
-			case (_ : SimpleFunctionValue, TyFunction) => Some(value)
-			case (_ : RecursiveFunctionValue, TyFunction) => Some(value)
-			case (_ : NativeFunctionValue, TyFunction) => Some(value)
+			case (f, TyFunction) if StateValue.isFunction(f) => Some(value)
 			case (_ : StringValue, TyString) => Some(value)
 			case (_ : TupleValue, TyTuple) =>	Some(value)	
 			case (_ : MapValue, TyMap) => Some(value)

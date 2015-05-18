@@ -238,15 +238,20 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     completedStates(namespace).get.env.nonlinear.keySet
   }
 
+  private def programLocalTypes(namespace : Namespace) : Set[String] = {
+    throw new RuntimeException("not implemented yet")
+  }
+
   private val logicNamespaceResolution = new NamespaceResolution[IndexedName](parentsOfNamespace _, logicLocalNames _)
   private val programNamespaceResolution = new NamespaceResolution[String](parentsOfNamespace _, programLocalNames _)
+  private val programTypeResolution = new NamespaceResolution[String](parentsOfNamespace _, programLocalTypes _)
 
   private def rootState : State = {
     val environment : Map[String, StateValue] = 
       NativeFunctions.environment.mapValues(f => NativeFunctionValue(f))
     val context = kernel.createNewNamespace(Kernel.root_namespace, Set(), 
       new Aliases(Kernel.root_namespace.parent.get, List()))
-    new State(context, State.Env(environment, Map()), Collect.Zero, false)
+    new State(context, State.Env(Map(), environment, Map()), Collect.Zero, false)
   }  
 
   private def makeState(namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : State = {
@@ -254,7 +259,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       if (!completedStates(p).isDefined) throw new RuntimeException("makeState: parent " + p + " has not been compiled yet")
     }
     val context = kernel.createNewNamespace(namespace, parentNamespaces, aliases)
-    new State(context, State.Env(Map(), Map()), Collect.Zero, false)
+    new State(context, State.emptyEnv, Collect.Zero, false)
   } 
 
   private final val MAX_TRACE_LENGTH = 1000
@@ -278,7 +283,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     def dumpOutput() {
       executionEnvironment.storeOutput(thy.compileKey, output.export())
     }
-    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, logicNamespaceResolution, thy.aliases, thy.namespace, output)
+    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, programTypeResolution, logicNamespaceResolution, thy.aliases, thy.namespace, output)
     val state : State = 
       if (thy.namespace == Kernel.root_namespace) 
         rootState

@@ -90,4 +90,5 @@ object UISTypeCodes {
   val STATEVALUE = 13
   val ENV = 14
   val STATE = 15
+  val CUSTOMTYPE = 16
 }

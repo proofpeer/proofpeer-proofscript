@@ -113,6 +113,16 @@ case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) e
 			MapValue(r, r.values.forall(v => v.isComparable))
 	}
 }
+case class ConstrValue(name : String, customtype : CustomType) extends StateValue {
+	def isComparable = true
+}
+case class ConstrAppliedValue(name : String, param : StateValue, customtype : CustomType, comparable : Boolean) extends StateValue {
+	def isComparable = comparable
+}
+case class ConstrUnappliedValue(var state : State, var name : String, var param : ParseTree.Pattern, var customtype : CustomType) extends StateValue {
+	def isComparable = false
+}
+case class CustomType(namespace : Namespace, name : String) extends UniquelyIdentifiable 	
 
 object StateValue {
 
@@ -123,6 +133,7 @@ object StateValue {
 			case _ : SimpleFunctionValue => true
 			case _ : RecursiveFunctionValue => true
 			case _ : NativeFunctionValue => true
+			case _ : ConstrUnappliedValue => true
 			case _ => false
 		}
 	}
@@ -167,9 +178,7 @@ object StateValue {
 			case NilValue => "nil"
 			case BoolValue(value) => if (value) "true" else "false"
 			case IntValue(value) => "" + value
-			case f : SimpleFunctionValue => "? : Function"
-			case f : RecursiveFunctionValue => "? : Function"
-			case f : NativeFunctionValue => "? : Function"
+			case f if isFunction(f) => "? : Function"
 			case TupleValue(value, _) =>
 				var s = "["
 				var first = true
@@ -229,7 +238,7 @@ object State {
 
 	case class StateValueRef(var value : StateValue)
 
-	case class Env(nonlinear : Map[String, StateValue], linear : Map[String, StateValueRef]) extends UniquelyIdentifiable {
+	case class Env(types : Map[String, CustomType], nonlinear : Map[String, StateValue], linear : Map[String, StateValueRef]) extends UniquelyIdentifiable {
 		def size = nonlinear.size + linear.size
 		def lookup(id : String) : Option[StateValue] = {
 			nonlinear.get(id) match {
@@ -254,11 +263,11 @@ object State {
 		}
 		def freeze : Env = 
 			if (linear.isEmpty) this 
-			else Env(nonlinear ++ (linear.mapValues(_.value)), Map())
+			else Env(types, nonlinear ++ (linear.mapValues(_.value)), Map())
 		def bind(id : String, value : StateValue) : Env = 
-			Env(nonlinear - id, linear + (id -> StateValueRef(value)))
+			Env(types, nonlinear - id, linear + (id -> StateValueRef(value)))
 		def bind(m : Map[String, StateValue]) : Env = 
-			Env(nonlinear -- m.keySet, linear ++ m.mapValues(StateValueRef(_)))
+			Env(types, nonlinear -- m.keySet, linear ++ m.mapValues(StateValueRef(_)))
 		def rebind(id : String, value : StateValue) : Env = {
 			linear(id).value = value
 			this
@@ -269,6 +278,9 @@ object State {
 		}
 		def linearIds : Set[String] = linear.keySet
 	}
+
+	def emptyEnv : Env = Env(Map(), Map(), Map())
+
 }
 
 class State(val context : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) extends UniquelyIdentifiable {
