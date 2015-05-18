@@ -139,25 +139,6 @@ context
     p
   assert (t : Term) == '∀ p. p → (∀ a. p)'
 
-# theorems without the theorem keyword
-context 
-  t: '∀ p. p → p'
-    let 'p : ℙ'
-    assume p: 'p'
-    let 'a'
-    p
-  : '∀ p. p → p' 
-    let 'p : ℙ'
-    assume p: 'p'
-    let 'a'
-    p
-  : '∀ p. p → (∀ a. p)'
-    let 'p : ℙ'
-    assume p: 'p'
-    let 'a'
-    p
-
-
 # context
   ------------------------------------
 

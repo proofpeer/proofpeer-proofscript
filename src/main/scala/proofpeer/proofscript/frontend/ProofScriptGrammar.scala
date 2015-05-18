@@ -668,8 +668,6 @@ val g_choose =
                   c.Block)) 
 
 val g_theorem = 
-  arule("TheoremOptAssign", "Colon", CS.First("Colon"), c => None) ++
-  arule("TheoremOptAssign", "IndexedName Colon", CS.Line("IndexedName", "Colon"), c => Some(c.text("IndexedName"))) ++
   arule("TheoremOptAssign", "Theorem OptAssign", CS.Indent("Theorem", "OptAssign"), c => c.OptAssign[Any]) ++
   arule("ST", "TheoremOptAssign PrimitiveExpr Block",
     CS.and(
