@@ -2,7 +2,7 @@ theory Automation extends \root
 
 context
   assume t: '∀ p. p → p'
-  s : t 
+  theorem s : t 
   show s
 
 failure theorem imp: '∀ p. p → p' .

@@ -30,7 +30,7 @@ object ParseTree {
     else 
       Id(name.name.toString)
   }
-  
+
   sealed trait Expr extends ParseTree {
     protected def calcFreeVars : Set[String]
     protected def calcVars = (calcFreeVars, Set())
@@ -177,6 +177,7 @@ object ParseTree {
   sealed trait UnaryOperator extends Operator 
   case object Neg extends UnaryOperator
   case object Not extends UnaryOperator
+  case object Destruct extends UnaryOperator
 
   sealed trait BinaryOperator extends Operator
   case object RangeTo extends BinaryOperator
@@ -217,6 +218,7 @@ object ParseTree {
   case object TySet extends ValueType
   case class TyUnion(vt1 : ValueType, vt2 : ValueType) extends ValueType
   case class TyOption(vt : ValueType) extends ValueType
+  case class TyCustom(namespace : Option[Namespace], name : String) extends ValueType
   
   sealed trait Pattern extends ParseTree
   
@@ -225,6 +227,10 @@ object ParseTree {
   }
   
   case class PId(name : String) extends Pattern {
+    protected def calcVars = (Set(), Set(name))
+  }
+
+  case class PPattern(name : String) extends Pattern {
     protected def calcVars = (Set(), Set(name))
   }
   
@@ -320,6 +326,14 @@ object ParseTree {
     protected def calcVars = pat.calcVars
   }
 
+  case class PConstr(name : Name, arg : Option[Pattern]) extends Pattern {
+    protected def calcVars = 
+      arg match {
+        case None => (Set(), Set())
+        case Some(arg) => (arg.freeVars, arg.introVars)
+      }
+  }
+
   case class Comment(text : String) extends ParseTree {
     protected def calcVars = (Set(), Set())
   }
@@ -391,7 +405,39 @@ object ParseTree {
   case class DefCase(name : String, param : Pattern, returnType : Option[ValueType], body : Block) extends ParseTree {
     protected def calcVars = (param.freeVars ++ (body.freeVars -- param.introVars), Set(name))
   }
-  
+
+  case class DatatypeConstr(name : String, param : Option[Pattern]) extends ParseTree {
+    def calcVars = 
+      param match {
+        case None => (Set(), Set(name))
+        case Some(param) => (param.freeVars, Set(name))
+      }
+  }
+
+  case class DatatypeCase(typename : String, constrs : Vector[DatatypeConstr]) extends ParseTree {
+    def calcVars = {
+      var names = Set[String]()
+      var frees = Set[String]()
+      for (constr <- constrs) {
+        names = names ++ constr.introVars
+        frees = frees ++ constr.freeVars
+      }
+      (frees, names)      
+    }
+  }
+
+  case class STDatatype(cases : Vector[DatatypeCase]) extends Statement {
+    def calcVars = {
+      var names = Set[String]()
+      var frees = Set[String]()
+      for (c <- cases) {
+        names = names ++ c.introVars
+        frees = frees ++ c.freeVars
+      }
+      (frees -- names, names)      
+    }
+  }
+
   case class STReturn(expr : Option[Expr]) extends Statement {
     protected def calcVars = (if (expr.isDefined) expr.get.freeVars else Set(), Set())
   }

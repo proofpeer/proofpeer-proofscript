@@ -98,14 +98,14 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
             else if (line.startsWith("extends")) {
               state = 2
               true
-            } else if (parseProofscriptVersion && line.startsWith("val ProofScriptVersion = ")) {
+            } else if (parseProofscriptVersion && line.startsWith("val versionOfProofScript = ")) {
               state = 3
               true
             } else false
           case 2 =>
             if (isIndented) true
             else if (!parseProofscriptVersion) false
-            else if (line.startsWith("val ProofScriptVersion = ")) {
+            else if (line.startsWith("val versionOfProofScript = ")) {
               state = 3
               true
             } else false

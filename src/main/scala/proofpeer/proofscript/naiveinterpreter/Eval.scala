@@ -1,5 +1,6 @@
 package proofpeer.proofscript.naiveinterpreter
 
+import proofpeer.general.StringUtils
 import proofpeer.proofscript.frontend._
 import proofpeer.proofscript.logic._
 import proofpeer.indent.Span
@@ -391,6 +392,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				var functions : Map[String, RecursiveFunctionValue] = Map()
 				var nonlinear = bindings
 				for ((name, cs) <- stdef.cases) {
+					if (StringUtils.isASCIIUpperLetter(name(0))) {
+						val error = "function names cannot start with uppercase letters: " + name
+						return cont(fail(stdef, error))						
+					}
 					val f = RecursiveFunctionValue(null, cs, if (stdef.memoize) Map() else null, inContext)
 					nonlinear = nonlinear + (name -> f)
 					functions = functions + (name -> f)

@@ -11,9 +11,9 @@ context
 context
   let 'f : ℙ → ℙ'
   match 'forall f'
-    case '∀ x. ‹P› x' =>
-      assert P == 'f'
+    case '∀ x. ‹p› x' =>
+      assert p == 'f'
   match '∀ y. f y'
-    case '∀ x. ‹P› x' =>
-      assert P == 'f'
+    case '∀ x. ‹p› x' =>
+      assert p == 'f'
 
