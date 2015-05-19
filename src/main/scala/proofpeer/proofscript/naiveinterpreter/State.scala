@@ -268,6 +268,9 @@ object State {
 			Env(types, nonlinear - id, linear + (id -> StateValueRef(value)))
 		def bind(m : Map[String, StateValue]) : Env = 
 			Env(types, nonlinear -- m.keySet, linear ++ m.mapValues(StateValueRef(_)))
+		def bindTypes(types : Map[String, CustomType], constrs : Map[String, StateValue]) : Env = {
+			Env(this.types ++ types, nonlinear, linear).bind(constrs)
+		}
 		def rebind(id : String, value : StateValue) : Env = {
 			linear(id).value = value
 			this
@@ -291,6 +294,10 @@ class State(val context : Context, val env : State.Env, val collect : Collect, v
 
 	def bind(vs : Map[String, StateValue]) : State = {
 		new State(context, env.bind(vs), collect, canReturn)
+	}
+
+	def bindTypes(types : Map[String, CustomType], constrs : Map[String, StateValue]) : State = {
+		new State(context, env.bindTypes(types, constrs), collect, canReturn)
 	}
 
 	def rebind(vs : Map[String, StateValue]) : State = {

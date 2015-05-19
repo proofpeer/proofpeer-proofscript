@@ -227,10 +227,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			decEvalDepth()
 		}
 
-	def evalStatement[T](state : State, st : Statement, isLastStatement : Boolean, _cont : RC[State, T]) : Thunk[T] = 
+	def evalStatement[T](state : State, st : Statement, toplevel : Boolean, isLastStatement : Boolean, _cont : RC[State, T]) : Thunk[T] = 
 	{
 		try {
-			if (incEvalDepth()) return Thunk.computation[T](() => evalStatement[T](state, st, isLastStatement, _cont))
+			if (incEvalDepth()) return Thunk.computation[T](() => evalStatement[T](state, st, toplevel, isLastStatement, _cont))
 
 			val cont : RC[State, T] = protectOverflowCont(recordTraceCont(st, _cont))
 			st match {
@@ -359,6 +359,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case Success(TermValue(tm), _) => evalSTDef[T](state, stdef, Some(tm.context), cont)						
 						case Success(v, _) => cont(fail(expr, "context, term or theorem expected, found: " + display(state, v)))
 					})
+				case stdatatype : STDatatype => 
+					if (toplevel)
+						evalSTDatatype[T](state, stdatatype, cont)
+					else
+						cont(fail(st, "datatype statement only allowed at the top level"))
 				case st if isLogicStatement(st) => 
 					evalLogicStatement[T](state, st, {
 						case f : Failed[_] => cont(fail(f))
@@ -401,13 +406,73 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					nonlinear = nonlinear + (name -> f)
 					functions = functions + (name -> f)
 				}
-				var defstate = new State(state.context, State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
+				val defstate = new State(state.context, State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 				for ((_, f) <- functions) f.state = defstate
 				cont(success(state.bind(functions)))
 		}
 	}
 
-	def evalBlocki[T](state : State, block : Block, i : Int, cont : RC[State, T]) : Thunk[T] = {
+	def evalSTDatatype[T](state : State, stdatatype : STDatatype, cont : RC[State, T]) : Thunk[T] = {
+		lookupVars(state, stdatatype.freeVars) match {
+			case Right(xs) =>
+				var error = "datatype definition depends on unknown free variables:"
+				for (x <- xs) error = error + " " + x
+				cont(fail(stdatatype, error))
+			case Left(bindings) =>
+				val typesInNamespace = state.env.types.keySet
+				var constructors : Map[String, StateValue] = Map()
+				var localTypes : Map[String, CustomType] = Map()
+				for (dcase <- stdatatype.cases) {
+					if (!StringUtils.isASCIIUpperLetter(dcase.typename(0))) {
+						val error = "type names must start with an uppercase letter: " + dcase.typename
+						return cont(fail(dcase, error))						
+					}
+					if (localTypes.get(dcase.typename).isDefined) {
+						val error = "duplicate definition of type: " + dcase.typename
+						return cont(fail(dcase, error))
+					}
+					if (typesInNamespace.contains(dcase.typename)) {
+						val error = "type is already defined: " + dcase.typename
+						return cont(fail(dcase, error))
+					}
+					val customtype = CustomType(namespace, dcase.typename)
+					localTypes = localTypes + (dcase.typename -> customtype)
+					for (c <- dcase.constrs) {
+						if (!StringUtils.isASCIIUpperLetter(c.name(0))) {
+							val error = "type constructors must start with an uppercase letter: " + c.name
+							return cont(fail(c, error))						
+						}
+						if (constructors.get(c.name).isDefined) {
+							val error = "duplicate definition of type constructor: " + c.name
+							return cont(fail(c, error))
+						}
+						val constr =
+							c.param match {
+								case None => 
+									ConstrValue(c.name, customtype) 
+								case Some(pattern) =>
+									ConstrUnappliedValue(null, c.name, pattern, customtype) 
+							}
+						constructors = constructors + (c.name -> constr)
+					}
+				}
+				val types = state.env.types ++ localTypes
+				val nonlinear = bindings ++ constructors
+				val constrstate = new State(state.context, State.Env(types, nonlinear, Map()), Collect.Zero, false)
+				for ((_, constr) <- constructors) {
+					constr match {
+						case constr : ConstrValue => 
+							// do nothing
+						case constr : ConstrUnappliedValue =>
+							constr.state = constrstate
+						case _ => throw new RuntimeException("does not match")
+					}
+				}
+				cont(success(state.bindTypes(localTypes, constructors)))
+		}
+	}
+
+	def evalBlocki[T](state : State, block : Block, toplevel : Boolean, i : Int, cont : RC[State, T]) : Thunk[T] = {
 		val num = block.statements.size 
 		if (i >= num) {
 			state.collect match {
@@ -415,21 +480,21 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case _ => cont(success(state))
 			}						
 		} else {
-			evalStatement(state, block.statements(i), i == num - 1,  {
+			evalStatement(state, block.statements(i), toplevel, i == num - 1,  {
 				case f : Failed[State] => cont(f)
 				case s @ Success(state, isReturnValue) => 
 					if (isReturnValue) cont(s)
-					else evalBlocki(state, block, i + 1,  cont)
+					else evalBlocki(state, block, toplevel, i + 1,  cont)
 			})
 		}
 	}
 
-	def evalBlock[T](state : State, block : Block,  cont : RC[State, T]) : Thunk[T] = {	
-		evalBlocki[T](state, block, 0,  cont)
+	def evalBlock[T](state : State, block : Block, cont : RC[State, T], toplevel : Boolean = false) : Thunk[T] = {	
+		evalBlocki[T](state, block, toplevel, 0,  cont)
 	}
 
-	def eval(state : State, block : Block) : Result[State] = {		
-		evalBlock[Result[State]](state, block, (r : Result[State]) => Thunk.value(r))()
+	def eval(state : State, block : Block, toplevel : Boolean) : Result[State] = {		
+		evalBlock[Result[State]](state, block, (r : Result[State]) => Thunk.value(r), toplevel)()
 	}
 
 	def isLogicStatement(st : Statement) : Boolean = {

@@ -327,11 +327,14 @@ object ParseTree {
   }
 
   case class PConstr(name : Name, arg : Option[Pattern]) extends Pattern {
-    protected def calcVars = 
+    protected def calcVars = {
+      val frees : Set[String] = 
+        if (name.namespace.isEmpty) Set(name.name.toString) else Set()
       arg match {
-        case None => (Set(), Set())
-        case Some(arg) => (arg.freeVars, arg.introVars)
+        case None => (frees, Set())
+        case Some(arg) => (arg.freeVars ++ frees, arg.introVars)
       }
+    }
   }
 
   case class Comment(text : String) extends ParseTree {
@@ -422,7 +425,7 @@ object ParseTree {
         names = names ++ constr.introVars
         frees = frees ++ constr.freeVars
       }
-      (frees, names)      
+      (frees -- names, names)      
     }
   }
 

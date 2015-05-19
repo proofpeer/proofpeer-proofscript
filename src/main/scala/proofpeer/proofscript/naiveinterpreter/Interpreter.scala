@@ -296,7 +296,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       }
     val result : Either[Result[State], String] = 
       try {
-        Left(evaluator.eval(state, ParseTree.Block(parsetree.statements.tail)))
+        Left(evaluator.eval(state, ParseTree.Block(parsetree.statements.tail), true))
       } catch {
         case x : StackOverflowError =>
           Right("cannot evaluate theory because the stack overflowed")
