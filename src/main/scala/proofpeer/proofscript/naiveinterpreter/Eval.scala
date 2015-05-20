@@ -1063,8 +1063,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case None => lookupVar(location, state, false, namespace, name)
 					case Some(v) => success(v)
 				}
-			case Some(namespace) =>
-				val ns = aliases.resolve(namespace)
+			case Some(_ns) =>
+				val ns = aliases.resolve(_ns)
 				if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
 					lookupVar(location, state, true, ns, name)
 				else 
