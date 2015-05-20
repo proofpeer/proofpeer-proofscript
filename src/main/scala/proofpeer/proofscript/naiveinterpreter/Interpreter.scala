@@ -239,7 +239,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
   }
 
   private def programLocalTypes(namespace : Namespace) : Set[String] = {
-    throw new RuntimeException("not implemented yet")
+    completedStates(namespace).get.env.types.keySet
   }
 
   private val logicNamespaceResolution = new NamespaceResolution[IndexedName](parentsOfNamespace _, logicLocalNames _)

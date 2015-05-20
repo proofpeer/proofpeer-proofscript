@@ -122,7 +122,9 @@ case class ConstrAppliedValue(name : String, param : StateValue, customtype : Cu
 case class ConstrUnappliedValue(var state : State, var name : String, var param : ParseTree.Pattern, var customtype : CustomType) extends StateValue {
 	def isComparable = false
 }
-case class CustomType(namespace : Namespace, name : String) extends UniquelyIdentifiable 	
+case class CustomType(namespace : Namespace, name : String) extends UniquelyIdentifiable {
+	override def toString : String = namespace.append(name).toString
+}
 
 object StateValue {
 
@@ -178,6 +180,8 @@ object StateValue {
 			case NilValue => "nil"
 			case BoolValue(value) => if (value) "true" else "false"
 			case IntValue(value) => "" + value
+			case c : ConstrValue => c.name 
+			case c : ConstrAppliedValue => c.name + " " + display(aliases, nameresolution, context, c.param)
 			case f if isFunction(f) => "? : Function"
 			case TupleValue(value, _) =>
 				var s = "["

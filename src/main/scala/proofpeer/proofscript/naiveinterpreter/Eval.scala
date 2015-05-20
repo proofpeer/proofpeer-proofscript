@@ -866,6 +866,13 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					Some(IsEq)
 				else
 					Some(IsNEq)
+			case (c1 : ConstrValue, c2 : ConstrValue) =>
+				if (c1 == c2) Some(IsEq) else Some(IsNEq)
+			case (c1 : ConstrAppliedValue, c2 : ConstrAppliedValue) =>
+				if (c1.name == c2.name && c1.customtype == c2.customtype)
+					cmp(state, c1.param, c2.param)
+				else 
+					Some(IsNEq)
 			case (TheoremValue(p), TheoremValue(q)) => None
 			case (_ : ContextValue, _ : ContextValue) => None
 			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
@@ -960,6 +967,15 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Left(value) => cont(success(value))
 					case Right(error) => cont(fail(location, error))
 				}
+			case constr : ConstrUnappliedValue =>
+				matchPattern[T](constr.state, constr.param, x, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(None, _) =>
+						cont(fail(locx, "constructor " + constr.name + " for type " + constr.customtype + 
+							" cannot be applied to: " + display(constr.state, x)))
+					case Success(Some(_), _) =>
+						cont(success(ConstrAppliedValue(constr.name, x, constr.customtype, x.isComparable)))
+				})
 			case StringValue(s) =>
 				x match {
 					case IntValue(i) =>
@@ -1040,6 +1056,22 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
+	def lookupId(location : ParseTree, state : State, namespaceOpt : Option[Namespace], name : String) : Result[StateValue] = {
+		namespaceOpt match {
+			case None =>
+				state.lookup(name) match {
+					case None => lookupVar(location, state, false, namespace, name)
+					case Some(v) => success(v)
+				}
+			case Some(namespace) =>
+				val ns = aliases.resolve(namespace)
+				if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
+					lookupVar(location, state, true, ns, name)
+				else 
+					fail(location, "unknown or inaccessible namespace: "+ns)			
+		}
+	}
+
 	def evalExpr[T](state : State, expr : Expr,  _cont : RC[StateValue, T]) : Thunk[T] = {
 		try {
 			val cont : RC[StateValue, T] = protectOverflowCont(_cont)
@@ -1049,23 +1081,15 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case Bool(b) => cont(success(BoolValue(b)))
 				case Integer(i) => cont(success(IntValue(i)))
 				case StringLiteral(s) => cont(success(StringValue(s)))
-				case Id(name) =>
-					state.lookup(name) match {
-						case None => cont(lookupVar(expr, state, false, namespace, name))
-						case Some(v) => cont(success(v))
-					}
-				case QualifiedId(_ns, name) =>
-					val ns = aliases.resolve(_ns)
-					if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
-						cont(lookupVar(expr, state, true, ns, name))
-					else 
-						cont(fail(expr, "unknown or inaccessible namespace: "+ns))
+				case Id(name) => cont(lookupId(expr, state, None, name))
+				case QualifiedId(ns, name) => cont(lookupId(expr, state, Some(ns), name))
 				case UnaryOperation(op, expr) =>
 					evalExpr[T](state, expr,  {
 						case Success(value, _) =>
 							(op, value) match {
 								case (Not, BoolValue(b)) => cont(success(BoolValue(!b)))
 								case (Neg, IntValue(i)) => cont(success(IntValue(-i)))
+								case (Destruct, c : ConstrAppliedValue) => cont(success(c.param))
 								case _ => cont(fail(op, "unary operator "+op+" cannot be applied to: "+display(state, value)))
 							}
 						case f => cont(f)
@@ -1287,9 +1311,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								c.returnType match {
 									case None => cont(success(returnValue))
 									case Some(returnType) =>
-										matchValueType(returnValue, returnType) match {
-											case None => cont(fail(c, "return value does not type check: " + display(state, returnValue)))
-											case Some(returnValue) => cont(success(returnValue))
+										matchValueType(state, returnValue, returnType) match {
+											case Left(false) => cont(fail(c, "return value does not type check: " + display(state, returnValue)))
+											case Left(true) => cont(success(returnValue))
+											case Right(error) => cont(fail(c, "invalid return type: " + error))
 										}
 								}
 						})
@@ -1608,9 +1633,36 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case r => cont(r)
 				})
 			case PType(p, valuetype) =>
-				matchValueType(value, valuetype) match {
-					case None => cont(success(None))
-					case Some(value) => matchPatternCont[T](state, p, value, matchings, cont)
+				matchValueType(state, value, valuetype) match {
+					case Left(false) => cont(success(None))
+					case Left(true) => matchPatternCont[T](state, p, value, matchings, cont)
+					case Right(error) => cont(fail(valuetype, "invalid type pattern: " + error))
+				}
+			case PConstr(name, arg) =>
+				val ns = name.namespace
+				val n = name.name.toString
+				if (StringUtils.isASCIIUpperLetter(n(0))) {
+					lookupId(pat, state, ns, n) match {
+						case failed : Failed[_] => cont(fail(pat, "unknown constructor: " + name))	
+						case Success(constr, _) =>
+							(constr, arg) match {
+								case (c : ConstrValue, None) =>
+									if (c == value) 
+										cont(success(Some(matchings)))
+									else 
+										cont(success(None))
+								case (c : ConstrUnappliedValue, Some(arg)) =>
+									value match {
+										case v : ConstrAppliedValue if v.name == c.name && v.customtype == c.customtype =>
+											matchPatternCont[T](state, arg, v.param, matchings, cont)
+										case _ => 
+											cont(success(None))
+									}
+								case _ => cont(fail(pat, "invalid constructor pattern"))
+							}
+					}
+				} else {
+					cont(fail(pat, "constructor expected, found: " + name))
 				}
 			case PLogicTerm(_preterm) =>
 				evalLogicPreterm(state.freeze, _preterm, {
@@ -1717,31 +1769,67 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}		
 	}
 
-	def matchValueType(value : StateValue, valuetype : ParseTree.ValueType) : Option[StateValue] = {
+	def matchValueType(state : State, value : StateValue, valuetype : ParseTree.ValueType) : Either[Boolean, String] = {
 		(value, valuetype) match {
-			case (_, TyAny) => Some(value)
-			case (NilValue, TyNil) => Some(value)
-			case (NilValue, TyOption(_)) => Some(value)
-			case (value, TyOption(vty)) => matchValueType(value, vty)
-			case (value, TyUnion(vty1, vty2)) =>
-				matchValueType(value, vty1) match {
-					case None =>
-						matchValueType(value, vty2)
+			case (_, TyAny) => Left(true)
+			case (NilValue, TyNil) => Left(true)
+			case (NilValue, TyOption(_)) => Left(true)
+			case (value, TyOption(vty)) => matchValueType(state, value, vty)
+			case (value, TyUnion(vty1, vty2)) => 
+				matchValueType(state, value, vty1) match {
+					case Left(false) =>
+						matchValueType(state, value, vty2)
 					case result =>
 						result
 				}
-			case (_ : ContextValue, TyContext) => Some(value)
-			case (_ : TheoremValue, TyTheorem) => Some(value)
-			case (_ : TermValue, TyTerm) => Some(value)
-			case (_ : TypeValue, TyType) => Some(value)
-			case (_ : BoolValue, TyBoolean) => Some(value)
-			case (_ : IntValue, TyInteger) => Some(value)
-			case (_ : StringValue, TyString) => Some(value)
-			case (_ : TupleValue, TyTuple) =>	Some(value)	
-			case (_ : MapValue, TyMap) => Some(value)
-			case (_ : SetValue, TySet) =>	Some(value)
-			case (f, TyFunction) if StateValue.isFunction(f) => Some(value)
-			case _ => None
+			case (_ : ContextValue, TyContext) => Left(true)
+			case (_ : TheoremValue, TyTheorem) => Left(true)
+			case (_ : TermValue, TyTerm) => Left(true)
+			case (_ : TypeValue, TyType) => Left(true)
+			case (_ : BoolValue, TyBoolean) => Left(true)
+			case (_ : IntValue, TyInteger) => Left(true)
+			case (_ : StringValue, TyString) => Left(true)
+			case (_ : TupleValue, TyTuple) =>	Left(true)	
+			case (_ : MapValue, TyMap) => Left(true)
+			case (_ : SetValue, TySet) =>	Left(true)
+			case (f, TyFunction) if StateValue.isFunction(f) => Left(true)
+			case (f, ty : TyCustom) => 
+				resolveCustomType(state, ty.namespace, ty.name) match {
+					case None => 
+						val typename = if (ty.namespace.isDefined) ty.namespace.get.append(ty.name).toString else ty.name
+						Right("unknown type " + typename)
+					case Some(ty) => Left(matchCustomType(f, ty)) 
+				}
+			case _ => Left(false)
+		}
+	}
+
+	def resolveCustomType(state : State, ns : Option[Namespace], name : String) : Option[CustomType] = {
+		def make(namespaces : Set[Namespace]) : Option[CustomType] = {
+			namespaces.size match {
+				case 1 => Some(CustomType(namespaces.head, name))
+				case _ => None
+			}
+		}
+		if (ns.isEmpty) {
+			state.env.types.get(name) match {
+				case s : Some[CustomType] => s
+				case None => make(scriptTyperesolution.baseResolution(namespace)(name))
+			}
+		} else {
+			val _ns = aliases.resolve(ns.get)
+			if (_ns == namespace) resolveCustomType(state, None, name)
+			else {
+				make(scriptTyperesolution.fullResolution(_ns)(name))
+			}
+		}
+	}
+
+	def matchCustomType(value : StateValue, customtype : CustomType) : Boolean = {
+		value match {
+			case c : ConstrValue => c.customtype == customtype
+			case c : ConstrAppliedValue => c.customtype == customtype
+			case _ => false
 		}
 	}
 
@@ -1862,6 +1950,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case (v : SetValue, TyMap) => toMapValue(asSeq(v))
 			case (v : MapValue, TyTuple) => toTupleValue(asSeq(v))
 			case (v : MapValue, TySet) => toSetValue(asSeq(v))
+			case (f, ty : TyCustom) => 
+				resolveCustomType(state, ty.namespace, ty.name) match {
+					case None => None
+					case Some(ty) => if (matchCustomType(f, ty)) Some(f) else None 
+				}
 			case _ => None
 		}
 	}

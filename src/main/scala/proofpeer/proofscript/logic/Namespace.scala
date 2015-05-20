@@ -36,6 +36,9 @@ sealed class Namespace (val isAbsolute : Boolean, val components : Vector[String
       case _ => false
     }
   }
+  def append(component : String) : Namespace = {
+    Namespace(isAbsolute, components :+ component)
+  }
   def absolute : Namespace = if (isAbsolute) this else Namespace(true, components)
   def relativeTo(parent : Namespace) : Namespace = {
     if (isAbsolute) 

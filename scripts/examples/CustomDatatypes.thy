@@ -21,7 +21,7 @@ def
   isLeapYear (Year year) if year mod 400 == 0 = true
   isLeapYear (Year year) if year mod 100 == 0 = false
   isLeapYear (Year year) if year mod 4 == 0 = true
-  isLeapYear (Year year) = true
+  isLeapYear (Year year) = false
 
 def countDaysOfMonth (month : Month, leap : Boolean) = 
   match !month
@@ -38,14 +38,14 @@ def countDaysOfMonth (month : Month, leap : Boolean) =
     case 11 => 30
     case 12 => 31
 
-assert do
+do
   val days = 0
   val leapDays = 0
   for i in 1 to 12 do
     days = days + countDaysOfMonth (Month i, false)
     leapDays = leapDays + countDaysOfMonth (Month i, true)
-  days == 365
-  leapDays == 366
+  assert days == 365
+  assert leapDays == 366
 
 def isValidDate (day : Day, month : Month, year : Year) : Boolean = 
   !day <= countDaysOfMonth(month, isLeapYear year)
@@ -68,4 +68,21 @@ def checkDate d =
 assert checkDate (20, 7, 1969)
 failure mkDate (29, 2, 2015)
 assert checkDate (28, 2, 2015)
+assert mkDate (20, 7, 1969) == mkDate(20, 7, 1969)
+assert mkDate (20, 7, 1969) <> mkDate(20, 8, 1969)
+assert mkDate (20, 7, 1969) <> mkDate(21, 7, 1969)
+assert mkDate (20, 7, 1969) <> mkDate(20, 7, 1970)
 
+def 
+  classify (_ : Month) = "month"
+  classify (_ : Year) = "year"
+  classify (_ : Day) = "day"
+  classify (_ : Date) = "date"
+
+assert classify (Year 2015) == "year"
+failure classify 2015
+assert classify (Month 10) == "month"
+assert classify (Day 11) == "day"
+assert classify (mkDate (20, 7, 1969)) == "date"
+assert ((Day 10) : Day) == (Day 10)
+failure ((Month 10) : Day) == (Day 10)
