@@ -171,10 +171,17 @@ def mkTuplePattern(elements : Vector[Pattern], collapse : Boolean) : Pattern = {
 
 def mkNamePattern(nametext : String, arg : Option[Pattern]) : Pattern = {
   val name = Syntax.parseName(nametext)
-  if (StringUtils.isASCIIUpperLetter(name.name.name(0)) || arg.isDefined || name.namespace.isDefined) {
+  if (StringUtils.isASCIIUpperLetter(name.name.name(0))) 
     PConstr(name, arg)
-  } else {
-    PId(name.toString)
+  else {
+    if (name.namespace.isDefined)
+      PError("unqualified identifier expected")
+    else {
+      arg match {
+        case None => PId(name.toString)
+        case Some(arg) => PDestruct(name.toString, arg)
+      }
+    }
   }
 }
 

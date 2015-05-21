@@ -113,16 +113,20 @@ case class MapValue(value : Map[StateValue, StateValue], comparable : Boolean) e
 			MapValue(r, r.values.forall(v => v.isComparable))
 	}
 }
-case class ConstrValue(name : String, customtype : CustomType) extends StateValue {
+case class ConstrValue(var name : String, var customtype : CustomType) extends StateValue {
 	def isComparable = true
 }
 case class ConstrAppliedValue(name : String, param : StateValue, customtype : CustomType, comparable : Boolean) extends StateValue {
 	def isComparable = comparable
 }
-case class ConstrUnappliedValue(var state : State, var name : String, var param : ParseTree.Pattern, var customtype : CustomType) extends StateValue {
-	def isComparable = false
+case class ConstrUnappliedValue(var name : String, var customtype : CustomType) extends StateValue {
+	def isComparable = true
+	def state : State = customtype.state
+	def param : ParseTree.Pattern = customtype.cases(name).get
 }
-case class CustomType(namespace : Namespace, name : String) extends UniquelyIdentifiable {
+case class CustomType(var namespace : Namespace, var name : String) extends UniquelyIdentifiable {
+	var state : State = null
+	var cases : Map[String, Option[ParseTree.Pattern]] = null
 	override def toString : String = namespace.append(name).toString
 }
 
@@ -182,6 +186,7 @@ object StateValue {
 			case IntValue(value) => "" + value
 			case c : ConstrValue => c.name 
 			case c : ConstrAppliedValue => c.name + " " + display(aliases, nameresolution, context, c.param)
+			case c : ConstrUnappliedValue => c.name + " : Function"
 			case f if isFunction(f) => "? : Function"
 			case TupleValue(value, _) =>
 				var s = "["

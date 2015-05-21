@@ -337,6 +337,17 @@ object ParseTree {
     }
   }
 
+  case class PDestruct(name : String, arg : Pattern) extends Pattern {
+    protected def calcVars = {
+      val frees = arg.freeVars
+      (arg.freeVars, arg.introVars + name)
+    }
+  }
+
+  case class PError(msg : String) extends Pattern {
+    protected def calcVars = (Set(), Set())
+  }
+
   case class Comment(text : String) extends ParseTree {
     protected def calcVars = (Set(), Set())
   }

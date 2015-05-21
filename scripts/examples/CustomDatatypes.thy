@@ -86,3 +86,22 @@ assert classify (Day 11) == "day"
 assert classify (mkDate (20, 7, 1969)) == "date"
 assert ((Day 10) : Day) == (Day 10)
 failure ((Month 10) : Day) == (Day 10)
+
+match Day 10
+  case f x => 
+    assert f == Day
+    assert x == 10
+  case _ =>
+
+def 
+  count f x = 1 + count x
+  count (x, y) = count x + count y
+  count _ = 0
+
+assert count Nil == 0
+assert count (Cons (1, Nil)) == 1
+assert count (Cons (1, Cons(2, Nil))) == 2
+assert Nil == Nil
+assert Cons == Cons
+assert Nil <> Cons
+assert size {Nil, Cons} == 2

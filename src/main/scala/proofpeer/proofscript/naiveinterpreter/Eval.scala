@@ -437,6 +437,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					}
 					val customtype = CustomType(namespace, dcase.typename)
 					localTypes = localTypes + (dcase.typename -> customtype)
+					var cases : Map[String, Option[Pattern]] = Map()
 					for (c <- dcase.constrs) {
 						if (!StringUtils.isASCIIUpperLetter(c.name(0))) {
 							val error = "type constructors must start with an uppercase letter: " + c.name
@@ -447,27 +448,19 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							return cont(fail(c, error))
 						}
 						val constr =
-							c.param match {
-								case None => 
-									ConstrValue(c.name, customtype) 
-								case Some(pattern) =>
-									ConstrUnappliedValue(null, c.name, pattern, customtype) 
-							}
+							if (c.param.isEmpty) 
+								ConstrValue(c.name, customtype)
+							else
+								ConstrUnappliedValue(c.name, customtype)
 						constructors = constructors + (c.name -> constr)
+						cases = cases + (c.name -> c.param)
 					}
+					customtype.cases = cases
 				}
 				val types = state.env.types ++ localTypes
-				val nonlinear = bindings ++ constructors
-				val constrstate = new State(state.context, State.Env(types, nonlinear, Map()), Collect.Zero, false)
-				for ((_, constr) <- constructors) {
-					constr match {
-						case constr : ConstrValue => 
-							// do nothing
-						case constr : ConstrUnappliedValue =>
-							constr.state = constrstate
-						case _ => throw new RuntimeException("does not match")
-					}
-				}
+				val nonlinear = bindings ++ constructors 
+				val typestate = new State(state.context, State.Env(types, nonlinear, Map()), Collect.Zero, false)
+				for ((_, customtype) <- localTypes) customtype.state = typestate
 				cont(success(state.bindTypes(localTypes, constructors)))
 		}
 	}
@@ -873,6 +866,10 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					cmp(state, c1.param, c2.param)
 				else 
 					Some(IsNEq)
+			case (c1 : ConstrUnappliedValue, c2 : ConstrUnappliedValue) =>
+				if (c1 == c2) Some(IsEq) else Some(IsNEq)
+			case (_ : ConstrUnappliedValue, _) => Some(IsNEq)
+			case (_ , _ : ConstrUnappliedValue) => Some(IsNEq)			
 			case (TheoremValue(p), TheoremValue(q)) => None
 			case (_ : ContextValue, _ : ContextValue) => None
 			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
@@ -1553,7 +1550,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case PId(name) => 
 				matchings.get(name) match {
 					case None => cont(success(Some(matchings + (name -> value))))
-					case Some(v) => cont(fail(pat, "pattern is not linear, multiple use of: "+v))
+					case Some(_) => cont(fail(pat, "pattern is not linear, multiple use of: "+name))
 				}
 			case PInt(x) =>
 				value match {
@@ -1641,28 +1638,39 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case PConstr(name, arg) =>
 				val ns = name.namespace
 				val n = name.name.toString
-				if (StringUtils.isASCIIUpperLetter(n(0))) {
-					lookupId(pat, state, ns, n) match {
-						case failed : Failed[_] => cont(fail(pat, "unknown constructor: " + name))	
-						case Success(constr, _) =>
-							(constr, arg) match {
-								case (c : ConstrValue, None) =>
-									if (c == value) 
-										cont(success(Some(matchings)))
-									else 
+				lookupId(pat, state, ns, n) match {
+					case failed : Failed[_] => cont(fail(pat, "unknown constructor: " + name))	
+					case Success(constr, _) =>
+						(constr, arg) match {
+							case (c : ConstrValue, None) =>
+								if (c == value) 
+									cont(success(Some(matchings)))
+								else 
+									cont(success(None))
+							case (c : ConstrUnappliedValue, Some(arg)) =>
+								value match {
+									case v : ConstrAppliedValue if v.name == c.name && v.customtype == c.customtype =>
+										matchPatternCont[T](state, arg, v.param, matchings, cont)
+									case _ => 
 										cont(success(None))
-								case (c : ConstrUnappliedValue, Some(arg)) =>
-									value match {
-										case v : ConstrAppliedValue if v.name == c.name && v.customtype == c.customtype =>
-											matchPatternCont[T](state, arg, v.param, matchings, cont)
-										case _ => 
-											cont(success(None))
-									}
-								case _ => cont(fail(pat, "invalid constructor pattern"))
-							}
-					}
-				} else {
-					cont(fail(pat, "constructor expected, found: " + name))
+								}
+							case _ => cont(fail(pat, "invalid constructor pattern"))
+						}
+				}
+			case PDestruct(name, arg) =>
+				value match {
+					case c: ConstrAppliedValue =>
+						matchPatternCont[T](state, arg, c.param, matchings, {
+							case Success(Some(matchings), _) =>
+								matchings.get(name) match {
+									case None => 
+										val constr = ConstrUnappliedValue(c.name, c.customtype)
+										cont(success(Some(matchings + (name -> constr))))
+									case Some(_) => cont(fail(pat, "pattern is not linear, multiple use of: " + name))
+								}
+							case result => cont(result)
+						})
+					case _ => cont(success(None))
 				}
 			case PLogicTerm(_preterm) =>
 				evalLogicPreterm(state.freeze, _preterm, {
@@ -1765,6 +1773,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							case _ => cont(success(None))
 						}
 				})
+			case PError(msg) => cont(fail(pat, "invalid pattern: " + msg))
 			case _ => cont(fail(pat, "pattern has not been implemented yet"))
 		}		
 	}
@@ -1807,7 +1816,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def resolveCustomType(state : State, ns : Option[Namespace], name : String) : Option[CustomType] = {
 		def make(namespaces : Set[Namespace]) : Option[CustomType] = {
 			namespaces.size match {
-				case 1 => Some(CustomType(namespaces.head, name))
+				case 1 => completedStates(namespaces.head).get.env.types.get(name)
 				case _ => None
 			}
 		}

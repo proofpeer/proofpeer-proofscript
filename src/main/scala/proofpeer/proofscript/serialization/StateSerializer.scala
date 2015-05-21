@@ -56,14 +56,39 @@ final class CustomizableCollectSerializer(StateValueSerializer : Serializer[Stat
 object NativeFunctionSerializer extends TransformSerializer[NativeFunctions.F, String](StringSerializer, _.name, 
   NativeFunctions.environment(_))
 
-final class BasicCustomTypeSerializer(NamespaceSerializer : Serializer[Namespace]) 
-  extends TransformSerializer[CustomType, (Namespace, String)](
-    PairSerializer(NamespaceSerializer, StringSerializer),
-    ct => (ct.namespace, ct.name), CustomType.tupled)
+final class BasicCustomTypeSerializer(NamespaceSerializer : Serializer[Namespace], 
+  StateSerializer : Serializer[State], PatternSerializer : Serializer[ParseTree.Pattern]) 
+  extends TransformSerializer[CustomType, (Namespace, String, State, Map[String, Option[ParseTree.Pattern]])](
+    QuadrupleSerializer(NamespaceSerializer, StringSerializer, StateSerializer,
+      MapSerializer(StringSerializer, OptionSerializer(PatternSerializer))),
+    ct => (ct.namespace, ct.name, ct.state, ct.cases), 
+    { case (ns : Namespace, n : String, s : State, c : Map[String, Option[ParseTree.Pattern]]) => 
+        val ct = CustomType(ns, n)
+        ct.state = s
+        ct.cases = c 
+        ct
+    })
+  with CyclicSerializer[CustomType] 
+{
+
+  def create(b : Any) : CustomType = {
+    CustomType(null, null)
+  }
+
+  def assign(dest : CustomType, src : CustomType) : CustomType = {
+    dest.namespace = src.namespace
+    dest.name = src.name
+    dest.state = src.state
+    dest.cases = src.cases
+    dest
+  }
+
+}
 
 final class CustomizableCustomTypeSerializer(store : UniquelyIdentifiableStore,
-  NamespaceSerializer : Serializer[Namespace]) extends UniquelyIdentifiableSerializer[CustomType](store, 
-    new BasicCustomTypeSerializer(NamespaceSerializer), UISTypeCodes.CUSTOMTYPE)
+  NamespaceSerializer : Serializer[Namespace], StateSerializer : Serializer[State], PatternSerializer : Serializer[ParseTree.Pattern]) 
+  extends UniquelyIdentifiableSerializer[CustomType](store, 
+    new BasicCustomTypeSerializer(NamespaceSerializer, StateSerializer, PatternSerializer), UISTypeCodes.CUSTOMTYPE)
 
 final class BasicStateValueSerializer(StateValueSerializer : Serializer[StateValue], CustomTypeSerializer : Serializer[CustomType],
   StateSerializer : Serializer[State], kernelSerializers : KernelSerializers, ParseTreeSerializer : Serializer[ParseTree]) 
@@ -117,7 +142,7 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       val MAPVALUE = PairSerializer(MapSerializer(StateValueSerializer, StateValueSerializer),BooleanSerializer)
       val CONSTRVALUE = PairSerializer(StringSerializer,CustomTypeSerializer)
       val CONSTRAPPLIEDVALUE = QuadrupleSerializer(StringSerializer,StateValueSerializer,CustomTypeSerializer,BooleanSerializer)
-      val CONSTRUNAPPLIEDVALUE = QuadrupleSerializer(StateSerializer,StringSerializer,PTPatternSerializer,CustomTypeSerializer)
+      val CONSTRUNAPPLIEDVALUE = PairSerializer(StringSerializer,CustomTypeSerializer)
     }
 
     def decomposeAndSerialize(obj : StateValue) : (Int, Option[Any]) = {
@@ -207,7 +232,9 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       case StateValueSerializerBase.Kind.RECURSIVEFUNCTIONVALUE =>
         RecursiveFunctionValue(null, null, null, null)
       case StateValueSerializerBase.Kind.CONSTRUNAPPLIEDVALUE =>
-        ConstrUnappliedValue(null, null, null, null)
+        ConstrUnappliedValue(null, null)
+      case StateValueSerializerBase.Kind.CONSTRVALUE =>
+        ConstrValue(null, null)
       case _ => null
     }
   }
@@ -223,9 +250,12 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
         dest
       case v : ConstrUnappliedValue =>
         val w = dest.asInstanceOf[ConstrUnappliedValue]
-        w.state = v.state
         w.name = v.name
-        w.param = v.param
+        w.customtype = v.customtype
+        dest
+      case v : ConstrValue =>
+        val w = dest.asInstanceOf[ConstrValue]
+        w.name = v.name
         w.customtype = v.customtype
         dest
       case _ =>
@@ -274,7 +304,8 @@ extends NestedSerializer[State]
   val ParseTreeSerializer = new CustomizableParseTreeSerializer(SourcePositionSerializer, 
     kernelSerializers.IndexedNameSerializer, kernelSerializers.NamespaceSerializer, kernelSerializers.NameSerializer, 
     kernelSerializers.TermSerializer, kernelSerializers.TypeSerializer).ParseTreeSerializer
-  val CustomTypeSerializer = new CustomizableCustomTypeSerializer(store, kernelSerializers.NamespaceSerializer)
+  val PatternSerializer = new TypecastSerializer[ParseTree.Pattern, ParseTree](ParseTreeSerializer)
+  val CustomTypeSerializer = new CustomizableCustomTypeSerializer(store, kernelSerializers.NamespaceSerializer, this, PatternSerializer)
   val StateValueSerializer = new CustomizableStateValueSerializer(store, CustomTypeSerializer, this, kernelSerializers, ParseTreeSerializer)
   val EnvSerializer = new UniquelyIdentifiableSerializer(store, new BasicEnvSerializer(StateValueSerializer, CustomTypeSerializer), UISTypeCodes.ENV)
   val CollectSerializer = new CustomizableCollectSerializer(StateValueSerializer)
@@ -305,7 +336,7 @@ object StateSerializerGenerator {
     ("MapValue", "MapSerializer(StateValueSerializer, StateValueSerializer)", "BooleanSerializer"),
     ("ConstrValue", "StringSerializer", "CustomTypeSerializer"),
     ("ConstrAppliedValue", "StringSerializer", "StateValueSerializer", "CustomTypeSerializer", "BooleanSerializer"),
-    ("ConstrUnappliedValue", "StateSerializer", "StringSerializer", "PTPatternSerializer", "CustomTypeSerializer")
+    ("ConstrUnappliedValue", "StringSerializer", "CustomTypeSerializer")
   )
 
   def _main(args : Array[String]) {

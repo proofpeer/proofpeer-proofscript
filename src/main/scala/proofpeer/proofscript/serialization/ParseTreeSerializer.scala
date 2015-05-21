@@ -143,46 +143,47 @@ extends Serializer[TracksSourcePosition]
       val PNIL = 31
       val PTYPE = -31
       val PCONSTR = 32
-      val TYANY = -32
-      val TYNIL = 33
-      val TYCONTEXT = -33
-      val TYTHEOREM = 34
-      val TYTERM = -34
-      val TYTYPE = 35
-      val TYBOOLEAN = -35
-      val TYINTEGER = 36
-      val TYFUNCTION = -36
-      val TYSTRING = 37
-      val TYTUPLE = -37
-      val TYMAP = 38
-      val TYSET = -38
-      val TYOPTION = 39
-      val TYUNION = -39
-      val TYCUSTOM = 40
-      val COMMENT = -40
-      val STCOMMENT = 41
-      val STEXPR = -41
-      val STCONTROLFLOW = 42
-      val STSHOW = -42
-      val STFAIL = 43
-      val STASSERT = -43
-      val STFAILURE = 44
-      val STVAL = -44
-      val STVALINTRO = 45
-      val STASSIGN = -45
-      val STDEF = 46
-      val DEFCASE = -46
-      val DATATYPECONSTR = 47
-      val DATATYPECASE = -47
-      val STDATATYPE = 48
-      val STRETURN = -48
-      val STASSUME = 49
-      val STLET = -49
-      val STCHOOSE = 50
-      val STTHEOREM = -50
-      val STTHEOREMBY = 51
-      val STTHEORY = -51
-      val BLOCK = 52
+      val PDESTRUCT = -32
+      val TYANY = 33
+      val TYNIL = -33
+      val TYCONTEXT = 34
+      val TYTHEOREM = -34
+      val TYTERM = 35
+      val TYTYPE = -35
+      val TYBOOLEAN = 36
+      val TYINTEGER = -36
+      val TYFUNCTION = 37
+      val TYSTRING = -37
+      val TYTUPLE = 38
+      val TYMAP = -38
+      val TYSET = 39
+      val TYOPTION = -39
+      val TYUNION = 40
+      val TYCUSTOM = -40
+      val COMMENT = 41
+      val STCOMMENT = -41
+      val STEXPR = 42
+      val STCONTROLFLOW = -42
+      val STSHOW = 43
+      val STFAIL = -43
+      val STASSERT = 44
+      val STFAILURE = -44
+      val STVAL = 45
+      val STVALINTRO = -45
+      val STASSIGN = 46
+      val STDEF = -46
+      val DEFCASE = 47
+      val DATATYPECONSTR = -47
+      val DATATYPECASE = 48
+      val STDATATYPE = -48
+      val STRETURN = 49
+      val STASSUME = -49
+      val STLET = 50
+      val STCHOOSE = -50
+      val STTHEOREM = 51
+      val STTHEOREMBY = -51
+      val STTHEORY = 52
+      val BLOCK = -52
     }
 
     object Serializers {
@@ -225,6 +226,7 @@ extends Serializer[TracksSourcePosition]
       val PAS = PairSerializer(PatternSerializer,StringSerializer)
       val PTYPE = PairSerializer(PatternSerializer,ValueTypeSerializer)
       val PCONSTR = PairSerializer(NameSerializer,OptionSerializer(PatternSerializer))
+      val PDESTRUCT = PairSerializer(StringSerializer,PatternSerializer)
       val TYOPTION = ValueTypeSerializer
       val TYUNION = PairSerializer(ValueTypeSerializer,ValueTypeSerializer)
       val TYCUSTOM = PairSerializer(OptionSerializer(NamespaceSerializer),StringSerializer)
@@ -384,6 +386,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.PTYPE, Some(Serializers.PTYPE.serialize(PType.unapply(t).get)))
         case t : PConstr =>
           (Kind.PCONSTR, Some(Serializers.PCONSTR.serialize(PConstr.unapply(t).get)))
+        case t : PDestruct =>
+          (Kind.PDESTRUCT, Some(Serializers.PDESTRUCT.serialize(PDestruct.unapply(t).get)))
         case TyAny =>
           (Kind.TYANY, None)
         case TyNil =>
@@ -598,6 +602,8 @@ extends Serializer[TracksSourcePosition]
           PType.tupled(Serializers.PTYPE.deserialize(args.get))
         case Kind.PCONSTR if args.isDefined => 
           PConstr.tupled(Serializers.PCONSTR.deserialize(args.get))
+        case Kind.PDESTRUCT if args.isDefined => 
+          PDestruct.tupled(Serializers.PDESTRUCT.deserialize(args.get))
         case Kind.TYANY if args.isEmpty => 
           TyAny
         case Kind.TYNIL if args.isEmpty => 
@@ -789,6 +795,7 @@ object ParseTreeSerializerGenerator {
     "PNil",
     ("PType", "PatternSerializer", "ValueTypeSerializer"),
     ("PConstr", "NameSerializer", "OptionSerializer(PatternSerializer)"),
+    ("PDestruct", "StringSerializer", "PatternSerializer"),
     "TyAny", 
     "TyNil", 
     "TyContext", 
