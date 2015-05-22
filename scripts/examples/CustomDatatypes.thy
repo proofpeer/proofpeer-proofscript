@@ -105,3 +105,11 @@ assert Nil == Nil
 assert Cons == Cons
 assert Nil <> Cons
 assert size {Nil, Cons} == 2
+assert Cons <> Some
+failure (x => Cons x) == (x => Cons x)
+failure Cons == (x => Cons x)
+failure (x => Cons x) == Cons
+assert Cons <> 1
+
+
+

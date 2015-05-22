@@ -868,8 +868,6 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					Some(IsNEq)
 			case (c1 : ConstrUnappliedValue, c2 : ConstrUnappliedValue) =>
 				if (c1 == c2) Some(IsEq) else Some(IsNEq)
-			case (_ : ConstrUnappliedValue, _) => Some(IsNEq)
-			case (_ , _ : ConstrUnappliedValue) => Some(IsNEq)			
 			case (TheoremValue(p), TheoremValue(q)) => None
 			case (_ : ContextValue, _ : ContextValue) => None
 			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
