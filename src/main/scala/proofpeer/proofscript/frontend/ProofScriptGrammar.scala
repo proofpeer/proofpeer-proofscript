@@ -425,9 +425,9 @@ val g_match =
           CS.Indent("Match", "PExpr"),
           Subalign("Match", "STMatchCases")),
       c => Match(c.PExpr, c.STMatchCases)) ++
-  arule("STMatchCases", "STMatchCases STMatchCase", 
-      CS.or(CS.Align("STMatchCases", "STMatchCase"), CS.Line("STMatchCases", "STMatchCase")),
-      c => c.STMatchCases[Vector[MatchCase]] :+ c.STMatchCase) ++
+  arule("STMatchCases", "STMatchCases_0 STMatchCase", 
+      CS.or(CS.Align("STMatchCases_0", "STMatchCase"), CS.Line("STMatchCases_0", "STMatchCase")),
+      c => c.STMatchCases_0[Vector[MatchCase]] :+ c.STMatchCase) ++
   arule("STMatchCases", "", c => Vector[MatchCase]()) ++
   arule("STMatchCase", "Case Pattern DoubleArrow Block", 
       CS.and(
@@ -528,7 +528,7 @@ val g_pattern =
 val g_comment =
   arule("Comment", "CommentText", c => Comment(c.text("CommentText"))) ++
   arule("CommentText", "Hash", c => null) ++
-  arule("CommentText", "CommentText AnyToken", CS.Indent("CommentText", "AnyToken"), c => null) ++
+  arule("CommentText", "CommentText_0 AnyToken", CS.Indent("CommentText_0", "AnyToken"), c => null) ++
   arule("ST", "Comment", c => STComment(c.Comment))
 
 val g_show =
@@ -607,9 +607,9 @@ val g_def =
         CS.not(CS.SameLine("Table", "Block"))),
       c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), true, c.OptContextParam)) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++
-  arule("DefCases", "DefCases DefCase", 
-      CS.Align("DefCases", "DefCase"),
-      c => c.DefCases[Vector[DefCase]] :+ c.DefCase) ++
+  arule("DefCases", "DefCases_0 DefCase", 
+      CS.Align("DefCases_0", "DefCase"),
+      c => c.DefCases_0[Vector[DefCase]] :+ c.DefCase) ++
   arule("DefCase", "IndexedName ArgumentPattern DefType Eq Block",
       CS.and(
           CS.Indent("IndexedName", "ArgumentPattern"),
@@ -630,17 +630,17 @@ val g_datatype =
       CS.Indent("Datatype", "DatatypeConstrs")),
     c => STDatatype(Vector(DatatypeCase(c.text("IndexedName"), c.DatatypeConstrs)))) ++
   arule("DatatypeConstrs", "", c => Vector()) ++
-  arule("DatatypeConstrs", "DatatypeConstrs DatatypeConstr",
-    CS.Align("DatatypeConstrs", "DatatypeConstr"),
-    c => c.DatatypeConstrs[Vector[DatatypeConstr]] :+ c.DatatypeConstr[DatatypeConstr]) ++
+  arule("DatatypeConstrs", "DatatypeConstrs_0 DatatypeConstr",
+    CS.Align("DatatypeConstrs_0", "DatatypeConstr"),
+    c => c.DatatypeConstrs_0[Vector[DatatypeConstr]] :+ c.DatatypeConstr[DatatypeConstr]) ++
   arule("DatatypeConstr", "IndexedName", 
     c => DatatypeConstr(c.text("IndexedName"), None)) ++
   arule("DatatypeConstr", "IndexedName Pattern", CS.Indent("IndexedName", "Pattern"),
     c => DatatypeConstr(c.text("IndexedName"), Some(c.Pattern))) ++
   arule("DatatypeCases", "", c => Vector()) ++
-  arule("DatatypeCases", "DatatypeCases DatatypeCase", 
-    CS.Align("DatatypeCases", "DatatypeCase"),
-    c => c.DatatypeCases[Vector[DatatypeCase]] :+ c.DatatypeCase[DatatypeCase]) ++
+  arule("DatatypeCases", "DatatypeCases_0 DatatypeCase", 
+    CS.Align("DatatypeCases_0", "DatatypeCase"),
+    c => c.DatatypeCases_0[Vector[DatatypeCase]] :+ c.DatatypeCase[DatatypeCase]) ++
   arule("DatatypeCase", "IndexedName DatatypeConstrs",
     CS.Indent("IndexedName", "DatatypeConstrs"),
     c => DatatypeCase(c.text("IndexedName"), c.DatatypeConstrs))
@@ -725,8 +725,8 @@ val g_statement =
   arule("Statement", "ST", _.ST[Any]) ++
   arule("Statement", "STControlFlow", c => STControlFlow(c.STControlFlow)) ++ 
   arule("Statements", "", c => Vector[Statement]()) ++
-  arule("Statements", "Statements Statement", CS.Align("Statements", "Statement"),
-      c => c.Statements[Vector[Statement]] :+ c.Statement) ++
+  arule("Statements", "Statements_0 Statement", CS.Align("Statements_0", "Statement"),
+      c => c.Statements_0[Vector[Statement]] :+ c.Statement) ++
   arule("Block", "Statements", c => Block(c.Statements)) 
 
 val g_header = 
@@ -745,9 +745,9 @@ val g_header =
   arule("NamespaceList", "NamespaceList Namespace",
     c => Namespace(c.text("Namespace")) :: c.NamespaceList[List[Namespace]]) ++
   arule("AliasList", "", c => List[(Id, Namespace)]()) ++
-  arule("AliasList", "AliasList Alias", 
-    CS.Align("AliasList", "Alias"),
-    c => c.Alias[(Id, Namespace)] :: c.AliasList[List[(Id, Namespace)]]) ++
+  arule("AliasList", "AliasList_0 Alias", 
+    CS.Align("AliasList_0", "Alias"),
+    c => c.Alias[(Id, Namespace)] :: c.AliasList_0[List[(Id, Namespace)]]) ++
   arule("Alias", "IndexedName Eq Namespace", 
     c => (Id(c.text("IndexedName")), Namespace(c.text("Namespace"))))
 
