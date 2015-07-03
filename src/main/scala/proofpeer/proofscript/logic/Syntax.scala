@@ -165,8 +165,11 @@ object Syntax {
     }
   }
 
-  def rule(n : String, rhs : String, action : ParseContext => Any) : Grammar = 
-    Grammar(ParseRule(n, string2rhs(rhs), Constraint.unconstrained, action))
+  def rule(n : String, rhs : String, action : ParseContext => Any) : Grammar =  {
+    val (r, i) = string2rhsi(rhs)
+    Grammar(ParseRule(n, r, i, Constraint.unconstrained, action))
+
+  }
 
   val lowerLetter = chars('a', 'z')
   val upperLetter = chars('A', 'Z')
