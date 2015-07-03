@@ -193,8 +193,8 @@ def mkTyCustom(text : String) : TyCustom = {
 def mkStringLiteral(c : ParseContext, quot1 : Span, quot2 : Span) : StringLiteral = 
 {
   import proofpeer.general.StringUtils
-  val len = quot2.lastTokenIndex - quot1.firstTokenIndex + 1
-  val s = c.document.getText(quot1.firstTokenIndex, len)
+  val len = quot2.lastIndexExcl - quot1.firstIndexIncl
+  val s = c.document.getText(quot1.firstIndexIncl, len)
   mkStringLiteralFromCodes(StringUtils.codePoints(s.substring(1, s.length - 1)))
 }
 

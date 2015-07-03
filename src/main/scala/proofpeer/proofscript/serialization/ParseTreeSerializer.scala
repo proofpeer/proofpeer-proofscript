@@ -16,7 +16,7 @@ final class CustomizableSourceSerializer(store : UniquelyIdentifiableStore) exte
 
 object SpanSerializer extends TransformSerializer(VectorSerializer(IntSerializer),
   (s : Span) => Vector(s.firstRow, s.lastRow, s.leftMostInFirst, s.leftMost, s.leftMostFirst, s.leftMostRest, 
-    s.rightMostLast, s.firstTokenIndex, s.lastTokenIndex),
+    s.rightMostLast, s.firstIndexIncl, s.lastIndexExcl),
   (s : Vector[Int]) => 
     if (s.size == 9) Span(s(0), s(1), s(2), s(3), s(4), s(5), s(6), s(7), s(8))
     else throw new RuntimeException("cannot deserialize span: " + s))
