@@ -590,6 +590,7 @@ val g_def =
         CS.Indent("Def", "DefType"),
         CS.Indent("Def", "Eq"),
         CS.Indent("Def", "Block"), 
+        CS.not(CS.NullSpan("Block")),
         CS.not(CS.SameLine("Def", "Block"))),
       c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), false, c.OptContextParam)) ++
   arule("ST", "Table OptContextParam DefCases",
@@ -605,6 +606,7 @@ val g_def =
         CS.Indent("Table", "DefType"),
         CS.Indent("Table", "Eq"),
         CS.Indent("Table", "Block"), 
+        CS.not(CS.NullSpan("Block")),
         CS.not(CS.SameLine("Table", "Block"))),
       c => mkSTDef(Vector(DefCase(c.text("IndexedName"), c.ArgumentPattern, c.DefType, c.Block)), true, c.OptContextParam)) ++
   arule("DefCases", "", c => Vector[DefCase]()) ++

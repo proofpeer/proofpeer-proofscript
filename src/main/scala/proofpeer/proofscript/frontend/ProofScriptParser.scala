@@ -66,6 +66,10 @@ class ProofScriptParser {
       case Left(parsetree) =>
         if (parsetree.hasAmbiguities) {
           val span = parsetree.ambiguities.head.span
+          import proofpeer.indent.l3paper.PrettyParseTrees
+          val graph = PrettyParseTrees.mkGraph(document, parsetree)
+          val s = PrettyParseTrees.asDot("ambiguity", graph)
+          println(s)
           AmbiguousParse(new SourcePos(if (span == null) None else Some(span)))
         } else {
           SuccessfulParse(parsetree.getValue)
