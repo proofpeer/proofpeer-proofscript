@@ -2,7 +2,7 @@ organization := "net.proofpeer"
 
 name := "ProofPeer ProofScript"
 
-version := "0.2-SNAPSHOT"
+version := "0.2"
 
 scalaVersion := "2.11.6"
 
