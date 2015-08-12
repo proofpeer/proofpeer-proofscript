@@ -21,7 +21,7 @@ lazy val foo = crossProject.in(file(".")).
     libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
   ).
   jsSettings(
-    libraryDependencies += "com.github.japgolly.fork.scalaz" %%% "scalaz-core" % "7.1.0-4"
+    libraryDependencies += "com.github.japgolly.fork.scalaz" %%% "scalaz-core" % "7.1.3"
   )
 
 lazy val fooJS = foo.js
