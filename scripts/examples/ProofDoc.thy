@@ -1,6 +1,4 @@
-theory Markdown extends \root
-
-# Probably Markdown is a bad name, something like ProofDoc would probably be better.
+theory ProofDoc extends \root
 
 #
   ~labelstart a0h2wawdjjuk
