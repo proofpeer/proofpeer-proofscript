@@ -14,10 +14,11 @@ lazy val foo = crossProject.in(file(".")).
     scalacOptions += "-deprecation",
     libraryDependencies += "net.proofpeer" %%% "proofpeer-general" % "0.1-SNAPSHOT",
     libraryDependencies += "net.proofpeer" %%% "proofpeer-indent" % "0.5-SNAPSHOT",
-    libraryDependencies += "net.proofpeer" %%% "metis" % "0.2-SNAPSHOT"
+    libraryDependencies += "net.proofpeer" %%% "metis" % "0.2-SNAPSHOT",
+    libraryDependencies += "net.proofpeer" %%% "proofpeer-versionary" % "0.1-SNAPSHOT"    
   ).
   jvmSettings(
-    libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.1",
+    libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.1.3",
     libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.10.1" % "test"
   ).
   jsSettings(

@@ -17,7 +17,7 @@ trait TracksSourcePosition {
   var sourcePosition : SourcePosition = null
 }
 
-sealed trait ParseTree extends TracksSourcePosition {
+trait ParseTree extends TracksSourcePosition {
   lazy val (freeVars, introVars) : (Set[String], Set[String]) = calcVars
   protected def calcVars : (Set[String], Set[String])
 }
