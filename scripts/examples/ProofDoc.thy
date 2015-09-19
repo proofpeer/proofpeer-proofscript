@@ -40,11 +40,11 @@ theory ProofDoc extends \root
     It's better to burn out than to fade away!
   There are the typical ways to designate *italic* and **bold** text. 
   I can refer to user @obua just like that.
-  I can point to a label with a reference like that: ~ref a0h2wawdjjuk~
-  I can point to a label within a given theory like that: ~ref \bootstrap\classical | a0h2wawdjjuk~
+  I can point to a label with a reference like that: ~ref:a0h2wawdjjuk~
+  I can point to a label within a given theory like that: ~ref:\bootstrap\classical | a0h2wawdjjuk~
   I can point to a given theory (or image, or article) like that: ~ref \bootstrap\classical~. 
   It is possible to fully qualify the theory with branch, version and location: 
-    ~ref \bootstrap\classical@main:48@proofpeer.net | a0h2wawdjjuk~.
+    ~ref:\bootstrap\classical@main:48@proofpeer.net|a0h2wawdjjuk~.
   You can use ref not only to point to labels, but also to entities:
     ~ref \bootstrap\classical / choiceDef~.
   You can use other ways of referencing: ~doi:10.1007/978-3-319-20615-8_6~, ~arXiv:1007.3023~,
