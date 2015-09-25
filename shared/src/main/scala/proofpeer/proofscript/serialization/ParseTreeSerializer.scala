@@ -15,10 +15,10 @@ final class CustomizableSourceSerializer(store : UniquelyIdentifiableStore) exte
   store, BasicSourceSerializer, UISTypeCodes.SOURCE)
 
 object SpanSerializer extends TransformSerializer(VectorSerializer(IntSerializer),
-  (s : Span) => Vector(s.firstRow, s.lastRow, s.leftMostInFirst, s.leftMost, s.leftMostFirst, s.leftMostRest, 
+  (s : Span) => Vector(s.firstRow, s.lastRow, s.maxRowGap, s.leftMostInFirst, s.leftMost, s.leftMostFirst, s.leftMostRest, 
     s.rightMostLast, s.firstIndexIncl, s.lastIndexExcl),
   (s : Vector[Int]) => 
-    if (s.size == 9) Span(s(0), s(1), s(2), s(3), s(4), s(5), s(6), s(7), s(8))
+    if (s.size == 10) Span(s(0), s(1), s(2), s(3), s(4), s(5), s(6), s(7), s(8), s(9))
     else throw new RuntimeException("cannot deserialize span: " + s))
 
 final class BasicSourcePositionSerializer(SourceSerializer : Serializer[Source]) 
