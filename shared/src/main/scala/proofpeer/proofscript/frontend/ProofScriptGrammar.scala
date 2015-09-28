@@ -11,7 +11,7 @@ import proofpeer.proofscript.logic.{Preterm, Syntax, Namespace}
 class ProofScriptGrammar(annotate : (Any, Option[Span]) => Any) {
     
 def lex(terminal : String, expr : RegularExpr, prio : Option[Int] = None) : Grammar = 
-  Grammar(ScanRule(terminal, "\\root", prio, expr))
+  proofpeer.indent.rule(terminal, expr, prio, "\\root")
 
 var keywords : Set[String] = Set()
 
@@ -144,7 +144,7 @@ def arule(n : String, rhs : String, constraint : Constraint,
     annotate(action(c), optspan(c.span))
   }
   val (r, i) = string2rhsi(rhs)
-  Grammar(ParseRule(n, r, i, constraint, annotatedAction))
+  Grammar(ParseRule(n, r, i, proofpeer.indent.ParseParam.noParams(r.length), constraint, annotatedAction))
 }
 
 def annotateUnop(b : UnaryOperator, span : Span) : UnaryOperator = 

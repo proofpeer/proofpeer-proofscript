@@ -137,7 +137,7 @@ object Syntax {
   import Pretype._
 
   def lex(terminal : String, expr : RegularExpr, prio : Option[Int] = None) : Grammar = 
-    Grammar(ScanRule(terminal, "\\root", prio, expr))
+    proofpeer.indent.rule(terminal, expr, prio, "\\root")
    
   def parseIndexedName(s : String) : IndexedName = {
     val index = s.lastIndexOf("_")
@@ -167,7 +167,8 @@ object Syntax {
 
   def rule(n : String, rhs : String, action : ParseContext => Any) : Grammar =  {
     val (r, i) = string2rhsi(rhs)
-    Grammar(ParseRule(n, r, i, Constraint.unconstrained, action))
+    val noparams = proofpeer.indent.ParseParam.noParams(r.length)
+    Grammar(ParseRule(n, r, i, noparams, Constraint.unconstrained, action))
 
   }
 
