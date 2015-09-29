@@ -167,7 +167,7 @@ object Syntax {
 
   def rule(n : String, rhs : String, action : ParseContext => Any) : Grammar =  {
     val (r, params) = string2rhs(rhs)
-    Grammar(ParseRule(n, r, makeIncludes(r), params, Constraint.unconstrained, action))
+    Grammar(ParseRule(n, r, params, Constraint.unconstrained, action))
 
   }
 

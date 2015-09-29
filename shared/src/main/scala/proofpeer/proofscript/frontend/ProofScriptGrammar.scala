@@ -144,7 +144,7 @@ def arule(n : String, rhs : String, constraint : Constraint,
     annotate(action(c), optspan(c.span))
   }
   val (r, params) = string2rhs(rhs)
-  Grammar(ParseRule(n, r, makeIncludes(r), params, constraint, annotatedAction))
+  Grammar(ParseRule(n, r, params, constraint, annotatedAction))
 }
 
 def annotateUnop(b : UnaryOperator, span : Span) : UnaryOperator = 
