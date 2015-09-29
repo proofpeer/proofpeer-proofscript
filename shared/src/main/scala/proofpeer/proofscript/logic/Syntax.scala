@@ -166,9 +166,8 @@ object Syntax {
   }
 
   def rule(n : String, rhs : String, action : ParseContext => Any) : Grammar =  {
-    val (r, i) = string2rhsi(rhs)
-    val noparams = proofpeer.indent.ParseParam.noParams(r.length)
-    Grammar(ParseRule(n, r, i, noparams, Constraint.unconstrained, action))
+    val (r, params) = string2rhs(rhs)
+    Grammar(ParseRule(n, r, makeIncludes(r), params, Constraint.unconstrained, action))
 
   }
 
