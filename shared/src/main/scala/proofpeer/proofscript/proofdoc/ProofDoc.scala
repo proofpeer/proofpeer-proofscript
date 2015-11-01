@@ -943,7 +943,7 @@ class ProofDocMode extends js.Object {
     r            
   }
 
-  def mainx(args : Array[String]) {
+  def main(args : Array[String]) {
     println("ProofDocTest")
     parse(testSource)
     parse(testSource)
