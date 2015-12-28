@@ -2,6 +2,7 @@ package proofpeer.proofscript.proofdoc
 
 import proofpeer.proofscript.frontend.{TracksSourcePosition, ParseTree}
 import proofpeer.general.StringUtils
+import proofpeer.indent.Document
 
 sealed trait ProofDoc extends ParseTree 
 
@@ -58,6 +59,14 @@ final object ProofDoc {
 
   case object Hashtag extends T
 
+  case object InlineMath extends T
+
+  case object InlineVerbatim extends T
+
+  case object InlineProofScript extends T
+
+  case object InlineRun extends T
+
   case object Math extends T
 
   case object Verbatim extends T
@@ -104,6 +113,293 @@ final object ProofDoc {
   case object Ambiguity extends T 
 
 }
+
+final object Linearization {
+  import ProofDoc.V
+
+  type Style = String
+
+  final case class Position(row : Int, column : Int) extends Ordered[Position] {
+    def compare(that : Position) : Int = {
+      if (row < that.row) -1
+      else if (row > that.row) 1
+      else if (column < that.column) -1
+      else if (column > that.column) 1
+      else 0
+    }
+    def inc(document : Document) : Position = {
+      Position(row, column + 1)
+    }
+    def dec(document : Document) : Position = {
+      if (column > 0)
+        Position(row, column - 1)
+      else {
+        assert(row > 0)
+        Position(row - 1, document.lengthOfRow(row - 1))
+      }
+    }
+  }
+
+  case class Token(startPosition : Position, endPosition : Position, styles : Set[String]) {
+    assert(startPosition <= endPosition)
+  }
+
+  type Tokens = Vector[Token]
+
+  val empty : Tokens = Vector()
+
+  def single(token : Token) : Tokens = Vector(token)
+
+  def concat(tokens1 : Tokens, tokens2 : Tokens) : Tokens = {
+    if (tokens1.isEmpty) tokens2
+    else if (tokens2.isEmpty) tokens1
+    else {
+      val u = tokens1.last
+      val v = tokens2.head
+      assert (u.endPosition < v.startPosition)
+      tokens1 ++ tokens2
+    }
+  }
+
+  def append(tokens : Tokens, v : Token) : Tokens = {
+    if (tokens.isEmpty) single(v) 
+    else {
+      val u = tokens.last
+      assert (u.endPosition < v.startPosition)
+      tokens :+ v
+    }
+  }
+
+  def make(document : Document, v : V) : Tokens = {
+    new MakeTokens(document).make(v)
+  }
+
+  private class MakeTokens(document : Document) {
+
+    def increment(p : Position, limit : Position) : Position = {
+      val q = p.inc(document)
+      if (q > limit) limit else q
+    }
+
+    def decrement(p : Position, limit : Position) : Position = {
+      val q = p.dec(document)
+      if (q < limit) limit else q
+    }
+
+    def make(v : V) : Tokens = {
+      val tokens = make(v, empty)
+      val r = document.numberOfRows - 1
+      if (r >= 0) {
+        val start = Position(0, 0)
+        val end = Position(r, document.lengthOfRow(r))
+        addStyle(addStyle(tokens, start, end, "text"), start, end, "proofdoc")
+      } else 
+        tokens
+    }
+
+    def make(v : V, tokens : Tokens) : Tokens = {
+      import ProofDoc._
+      v.ty match {
+        case Fallback => makeFallback(v, "error", tokens)
+        case Ambiguity => makeSimple(v, "ambiguity", tokens)
+        case Reference => makeSimple(v, "reference", tokens)
+        case User => makeSimple(v, "user", tokens)
+        case Link => makeSimpleRecursive(v, "link", tokens)
+        case Emph => makeSimpleRecursive(v, "emph", tokens)
+        case Label => makeSimple(v, "label", tokens)
+        case LabelOpen => makeSimple(v, "label", tokens)
+        case LabelClose => makeSimple(v, "label", tokens)
+        case DoubleEmph => makeSimpleRecursive(v, "doubleemph", tokens)
+        case Header => 
+          val level = v.props(KEYWORD_PROP).asInstanceOf[StringProp].s.length
+          val style = "header" + (if (level <= 3) level else 3)
+          makeSimpleRecursive(v, style, tokens)
+        case Emoticon => makeSimple(v, "emoticon", tokens)
+        case Hashtag => makeSimple(v, "hashtag", tokens)
+        case InlineMath => makeSimple(v, "inlinemath", tokens)
+        case InlineVerbatim => makeSimple(v, "inlineverbatim", tokens)
+        case InlineRun => makeSimple(v, "inlinerun", tokens)
+        case InlineProofScript => makeSimple(v, "inlineproofscript", tokens)
+        case Math => makeKeywordAnythingBlock(v, "keyword", "math", tokens)
+        case Verbatim => makeKeywordAnythingBlock(v, "keyword", "verbatim", tokens)
+        case ProofScript => makeKeywordAnythingBlock(v, "keyword", "proofscript", tokens)
+        case Run => makeKeywordAnythingBlock(v, "keyword", "run", tokens)
+        case ListItem => makeKeywordRecursive(v, "listbullet", tokens)
+        case Table => makeKeywordRecursive(v, "keyword", tokens)
+        case Line => makeKeywordRecursive(v, "keyword", tokens)
+        case Row => makeKeywordRecursive(v, "keyword", tokens)
+        case Cell => makeKeywordRecursive(v, "keyword", tokens)
+        case TableParam => makeTableParam(v, tokens)
+        case Quote => makeQuote(v, "keyword", "quote", tokens)
+        case References => makeKeywordRecursive(v, "keyword", tokens)
+        case RefItem => makeDefaultRecursive(v, "label", tokens)
+        case RefItemFields => makeRecursive(v, tokens)
+        case RefItemField => makeKeywordRecursive(v, "keyword", tokens)
+        case _ => makeRecursive(v, tokens)
+      }
+    }
+
+    def isEmpty(t : TracksSourcePosition) : Boolean = {
+      t.sourcePosition.span.get.isNull
+    }
+
+    def locationOf(t : TracksSourcePosition) : (Position, Position) = {
+      if (document.size == 0) return (Position(0, 0), Position(0, 0))
+      val span = t.sourcePosition.span.get
+      if (span.firstIndexIncl < span.lastIndexExcl) {
+        val (r1, c1, _) = document.character(span.firstIndexIncl)
+        val (r2, c2, _) = document.character(span.lastIndexExcl - 1)
+        (Position(r1, c1), Position(r2, c2))
+      } else if (span.firstIndexIncl > 0 && span.firstIndexIncl < document.size) {
+        val (r1, c1, _) = document.character(span.firstIndexIncl - 1)
+        val (r2, c2, _) = document.character(span.firstIndexIncl)
+        (Position(r1, c1 + 1), Position(r2, c2))
+      } else if (span.firstIndexIncl == 0) {
+        val (r, c, _) = document.character(0)
+        (Position(0, 0), Position(r, c))
+      } else /* span.firstIndexIncl >= document.size */ {
+        val (r, c, _) = document.character(span.firstIndexIncl - 1)
+        (Position(r, c), Position(r, c + 1))
+      }
+    }
+
+    def addStyle(tokens : Tokens, startPosition : Position, endPosition : Position, style : Style) : Tokens = {
+      assert(startPosition <= endPosition)
+      var start = startPosition
+      var end = endPosition
+      var processing : Boolean = true
+      var newTokens : Tokens = Vector()
+      for (t <- tokens) {
+        if (processing) {
+          if (end < t.startPosition) {
+            newTokens = append(append(newTokens, Token(start, end, Set(style))), t)
+            processing = false
+          } else if (start > t.endPosition) {
+            newTokens = append(newTokens, t)
+            processing = true
+          } else {
+            if (start < t.startPosition) {
+              newTokens = append(newTokens, Token(start, decrement(t.startPosition, start), Set(style)))
+              start = t.startPosition
+            } else if (start > t.startPosition) {
+              newTokens = append(newTokens, Token(t.startPosition, decrement(start, t.startPosition), t.styles))
+            } 
+            // start points now to the beginning of the new token with the combined styles
+            if (end > t.endPosition) {
+              newTokens = append(newTokens, Token(start, t.endPosition, t.styles + style))
+              start = increment(t.endPosition, end)
+              processing = true
+            } else if (end < t.endPosition) {
+              newTokens = append(newTokens, Token(start, end, t.styles + style))
+              newTokens = append(newTokens, Token(increment(end, t.endPosition), t.endPosition, t.styles))
+              processing = false
+            } else /* end == t.endPosition */ {
+              newTokens = append(newTokens, Token(start, end, t.styles + style))
+              processing = false
+            }
+          }
+        } else 
+          newTokens = append(newTokens, t)
+      }
+      if (processing) {
+        newTokens = append(newTokens, Token(start, end, Set(style)))
+      }
+      newTokens
+    }
+
+    // apply the style to the whole span of V
+    // do not descend further into V
+    def makeSimple(v : V, style : Style, tokens : Tokens) : Tokens = {
+      val l = locationOf(v)
+      val ts = if (isEmpty(v)) empty else single(Token(l._1, l._2, Set(style))) 
+      val errors = makeErrors(v.errors.map(locationOf _), ts)
+      concat(tokens, errors)
+    }
+
+    def makeFallback(v : V, style : Style, tokens : Tokens) : Tokens = {
+      val l = locationOf(v)
+      addStyle(tokens, l._1, l._2, "error")
+    }
+
+    // descend into V to compute the styles to be applied 
+    def makeRecursive(v : V, tokens : Tokens) : Tokens = {
+      var ts : Tokens = empty
+      for (value <- v.values) ts = make(value, ts)
+      concat(tokens, makeErrors(v.errors.map(locationOf _), ts))
+    }
+
+    // combines makeSimple and makeRecursive
+    def makeSimpleRecursive(v : V, style : Style, tokens : Tokens) : Tokens = {
+      var ts : Tokens = empty
+      for (value <- v.values) ts = make(value, ts)
+      val l = locationOf(v)
+      ts = if (isEmpty(v)) ts else addStyle(ts, l._1, l._2, style)
+      concat(tokens, makeErrors(v.errors.map(locationOf _), ts))
+    }
+
+    def makeErrors(errors : Vector[(Position, Position)], tokens : Tokens) : Tokens = {
+      var ts = tokens
+      for ((startPosition, endPosition) <- errors)
+        ts = addStyle(ts, startPosition, endPosition, "error")
+      ts
+    }
+
+    def makeKeywordAnythingBlock(v : V, keywordStyle : Style, anythingStyle : Style, tokens : Tokens) : Tokens = {
+      val keywordLocation = locationOf(v.props(ProofDoc.KEYWORD_PROP))
+      val keywordToken = Token(keywordLocation._1, keywordLocation._2, Set(keywordStyle))
+      val span = v.values(0).sourcePosition.span.get
+      val ts = 
+        if (span.isNull) {
+          single(keywordToken)
+        } else {
+          val start = Position(span.firstRow, 0)
+          val end = Position(span.lastRow, document.lengthOfRow(span.lastRow) - 1)
+          addStyle(single(keywordToken), start, end, anythingStyle)
+        }
+      concat(tokens, makeErrors(v.errors.map(locationOf _), ts))
+    }
+
+    def makeKeywordRecursive(v : V, keywordStyle : Style, tokens : Tokens) : Tokens = {
+      val keywordLocation = locationOf(v.props(ProofDoc.KEYWORD_PROP))
+      val keywordToken = Token(keywordLocation._1, keywordLocation._2, Set(keywordStyle))
+      makeRecursive(v, append(tokens, keywordToken))
+    }
+
+    def makeDefaultRecursive(v : V, keywordStyle : Style, tokens : Tokens) : Tokens = {
+      val keywordLocation = locationOf(v.props(ProofDoc.DEFAULT_PROP))
+      val keywordToken = Token(keywordLocation._1, keywordLocation._2, Set(keywordStyle))
+      makeRecursive(v, append(tokens, keywordToken))
+    }
+
+    def makeQuote(v : V, keywordStyle : Style, quoteStyle : Style, tokens : Tokens) : Tokens = {
+      val keywordLocation = locationOf(v.props(ProofDoc.KEYWORD_PROP))
+      val keywordToken = Token(keywordLocation._1, keywordLocation._2, Set(keywordStyle))
+      val ts = makeRecursive(v, append(tokens, keywordToken))
+      val token = ts.last
+      val start = Position(keywordToken.startPosition.row + 1, 0)
+      val end = locationOf(v)._2
+      if (start <= end) addStyle(ts, start, end, quoteStyle) else ts
+    }
+
+    def makeTableParam(v : V, tokens : Tokens) : Tokens = {
+      val paramProp = v.props(ProofDoc.DEFAULT_PROP)
+      val (pos, _) = locationOf(paramProp)
+      val s = paramProp.asInstanceOf[ProofDoc.StringProp].s
+      var ts = makeRecursive(v, tokens)
+      var i = 0
+      for (c <- s) {
+        val style = if (c == '|') "tableparam-bar" else "tableparam-orientation"
+        val p = Position(pos.row, pos.column + i)
+        ts = addStyle(ts, p, p, style)
+        i = i + 1
+      }
+      ts
+    }
+
+  }
+
+}
+
 
 class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
 
@@ -231,9 +527,9 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   // The Lexer library should be extended at some point to cover these cases.
   private object InlineProofScriptLexer extends Lexer {
 
-    val zero : Boolean = false
+    val zero = false
 
-    val first : Range = Range('`')
+    val first = Range('`')
 
     def lex(d : Document, startPosition : Int, param : ParseParam.V) : (Int, ParseParam.V) = {
       val size = d.size
@@ -279,9 +575,9 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
 
   private object ProtrudeLexer extends Lexer {
 
-    val zero : Boolean = false
+    val zero = false
 
-    val first : Range = Range.universal
+    val first = Range.universal
 
     def lex(d : Document, startPosition : Int, param : ParseParam.V) : (Int, ParseParam.V) = {
       val size = d.size
@@ -335,8 +631,8 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   lex("USER", seq(char('@'), OPT(simpleword)))
   lex("HASHTAG", seq(char('#'), OPT(simpleword)))
   lex("LABEL", seq(string("::"), simpleword))
-  lex("LABELOPEN", seq(string("(:"), simpleword))
-  lex("LABELCLOSE", seq(simpleword, string(":)")))
+  lex("LABELOPEN", seq(string("::("), simpleword))
+  lex("LABELCLOSE", seq(simpleword, string(")::")))
   lex("HYPHEN", char('-'))
   lex("ENDASH", string("--"))
   lex("EMDASH", string("---"))
@@ -344,7 +640,7 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   lex("RIGHTQUOTE", Lexer.demandRightBorder(Lexer.untilWhitespace(string("'")), 0, nonsimple)) 
   lex("LEFTDOUBLEQUOTE", Lexer.demandLeftBorder(Lexer.untilWhitespace(char('"')), 0, nonsimple))
   lex("RIGHTDOUBLEQUOTE", Lexer.demandRightBorder(Lexer.untilWhitespace(char('"')), 0, nonsimple)) 
-  klex("REFITEMLABEL", seq(string("::"), simpleword))
+  klex("REFITEMLABEL", simpleword)
   klex("LISTBULLET", alt(char('-'), seq(alt(REPEAT1(digit), letter), char('.'))))
   klex("ITEMHYPHEN", char('-'))
   klex("KEYWORD", seq(REPEAT1(char('~')), REPEAT(letter), OPT(char('$'))))  
@@ -355,7 +651,7 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   klex("QUOTE", cis("~quote"))
   klex("TABLE", cis("~table"))
   klex("REFERENCES", cis("~references"))
-  lex("TABLEPARAM", REPEAT1(alt(char('|'), cis("c"), cis("l"), cis("r"))))
+  lex("TABLEPARAM", Lexer.untilNewline(REPEAT1(alt(char('|'), cis("c"), cis("l"), cis("r")))))
   klex("ROW", cis("~row"))
   klex("LINE", cis("~line"))
   klex("HEADER", REPEAT1(char('~')))
@@ -368,11 +664,11 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   klex("DAY", cis("~day"))
   lex("EMOTICON", alt(string(":-)"), string(";-)"), string(":-D"), string(":-P"),
     string(":-/"), string(":-|"), string(":-("), string(":-O")))
-  lex("INLINEMATH", Lexer.untilNewline(seq(char('$'), REPEAT(CHAR(-range('$'))), OPT(char('$')))))
-  lex("INLINEVERBATIM", Lexer.untilNewline(seq(char('`'), REPEAT(CHAR(-range('`'))), OPT(char('`')))))
-  lex("INLINERUN", Lexer.untilNewline(seq(char('{'), REPEAT(CHAR(-range('}'))), OPT(char('}')))))
+  lex("INLINEMATH", Lexer.untilNewline(seq(char('$'), REPEAT(CHAR(-Range('$'))), OPT(char('$')))))
+  lex("INLINEVERBATIM", Lexer.untilNewline(seq(char('`'), REPEAT(CHAR(-Range('`'))), OPT(char('`')))))
+  lex("INLINERUN", Lexer.untilNewline(seq(char('{'), REPEAT(CHAR(-Range('}'))), OPT(char('}')))))
   lex("INLINEPROOFSCRIPT", InlineProofScriptLexer)
-  lex("REFERENCE", Lexer.untilNewline(seq(char('<'), REPEAT(CHAR(-range('>'))), OPT(char('>')))))
+  lex("REFERENCE", Lexer.untilNewline(seq(char('<'), REPEAT(CHAR(-Range('>'))), OPT(char('>')))))
   lex("ANYTHING", Lexer.untilEnd(anything))
 
   def mkLexedEntity(c : ParseContext, ty : T, start : String, stop : String, prep : String => String = (x => x)) : V = {
@@ -388,13 +684,13 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
     v
   }
 
-  def mkInlineMath(c : ParseContext) : V = mkLexedEntity(c, Math, "$", "$")
+  def mkInlineMath(c : ParseContext) : V = mkLexedEntity(c, InlineMath, "$", "$")
 
   def mkReference(c : ParseContext) : V = mkLexedEntity(c, Reference, "<", ">")
 
-  def mkInlineVerbatim(c : ParseContext) : V = mkLexedEntity(c, Verbatim, "`", "`")
+  def mkInlineVerbatim(c : ParseContext) : V = mkLexedEntity(c, InlineVerbatim, "`", "`")
 
-  def mkInlineRun(c : ParseContext) : V = mkLexedEntity(c, Run, "{", "}")
+  def mkInlineRun(c : ParseContext) : V = mkLexedEntity(c, InlineRun, "{", "}")
 
   def mkUser(c : ParseContext) : V = {
     val v = mkLexedEntity(c, User, "@", "", unescape _)
@@ -408,7 +704,7 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
 
   def mkInlineProofScript(c : ParseContext) : V = {
     def prep(s : String) : String = if (s.endsWith("`")) s.substring(0, s.size - 1) else s 
-    mkLexedEntity(c, ProofScript, "``", "``", prep _)
+    mkLexedEntity(c, InlineProofScript, "``", "``", prep _)
   }
 
   /** Grammar rules */
@@ -429,10 +725,6 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
     c => c.Words_1[V].add(c.CompactWord[V]))
   grule("Words", "Words_1~ BlockWord(~.1, ~.2, Words_1.val, Words_1.lastRow + 1, ~.5) { BlockWord.leftMost }",
     c => c.Words_1[V].add(c.BlockWord[V]))
-
-  grule("LineOfWords", "Words~", Constraint.Line("Words"), _.Words[V])
-  grule("LineOfWords", "", c => V(Words))
-  grule("LineOfWords", "FALLBACKLINE~", c => fallback(c, "LineOfWords"))
 
   // These are the bits which can be set in the "type" parameter for Words / CompactWord
   private val B_LINK = 0 
@@ -465,8 +757,8 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   grule("CompactWord", "INLINERUN~", c => mkInlineRun(c))
   grule("CompactWord", "HASHTAG~", c => mkHashtag(c))
   grule("CompactWord", "LABEL~", c => mkLexedEntity(c, Label, "::", "", unescape _))
-  grule("CompactWord", "LABELOPEN~", c => mkLexedEntity(c, LabelOpen, "(:", "", unescape _))
-  grule("CompactWord", "LABELCLOSE~", c => mkLexedEntity(c, LabelClose, "", ":)", unescape _))
+  grule("CompactWord", "LABELOPEN~", c => mkLexedEntity(c, LabelOpen, "::(", "", unescape _))
+  grule("CompactWord", "LABELCLOSE~", c => mkLexedEntity(c, LabelClose, "", ")::", unescape _))
   grule("CompactWord", "Link~ { Link.val }", Not(TestBit(ParameterSelect(5), B_LINK)), _.Link[V])
   grule("CompactWord", "OPENLINK~", TestBit(ParameterSelect(5), B_LINK),   
     c => V(Text).addError(eprop(c, "cannot have link within link")))
@@ -479,14 +771,25 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   // BlockWord: (minColumn, minRow, maxStartColumn, maxStartRow, type) => ?
   grule("BlockWord", "HEADER~ Blocks(HEADER.leftMost + 1, nil)",
     c => V(Header).add(KEYWORD_PROP, sprop(c, "HEADER")).add(c.Blocks[V]))
-  grule("BlockWord", "QUOTE~ LineOfWords(QUOTE.leftMost + 1, nil, nil, QUOTE.lastRow, ~.5) Blocks(QUOTE.leftMost + 1, QUOTE.lastRow + 1)",
-    c => V(Quote).add(KEYWORD_PROP, sprop(c, "QUOTE")).add(c.LineOfWords[V]).add(c.Blocks[V]))
-  grule("BlockWord", "MATH~ Anything(MATH.leftMost + 1, MATH.lastRow + 1)", c => V(Math, c.Anything[V]))
-  grule("BlockWord", "VERBATIM~ Anything(VERBATIM.leftMost + 1, VERBATIM.lastRow + 1)", c => V(Verbatim, c.Anything[V]))
-  grule("BlockWord", "PROOFSCRIPT~ Anything(PROOFSCRIPT.leftMost + 1, PROOFSCRIPT.lastRow + 1)", c => V(ProofScript, c.Anything[V]))
-  grule("BlockWord", "RUN~ Anything(RUN.leftMost + 1, RUN.lastRow + 1)", c => V(Run, c.Anything[V]))
+  grule("BlockWord", "QUOTE~ Blocks(QUOTE.leftMost + 1, QUOTE.lastRow + 1)",
+    c => V(Quote).add(KEYWORD_PROP, sprop(c, "QUOTE")).add(c.Blocks[V]))
+  grule("BlockWord", "QUOTE~ FALLBACKLINE(nil, nil, nil, QUOTE.lastRow) Blocks(QUOTE.leftMost + 1, QUOTE.lastRow + 1)",
+    c => V(Quote).add(KEYWORD_PROP, sprop(c, "QUOTE")).addError(
+      eprop(c, "FALLBACKLINE", "superfluous parameter")).add(c.Blocks[V]))
   grule("BlockWord", "Table~", _.Table[V])
   grule("BlockWord", "References~", _.References[V])
+  
+  def mkBlockWord(terminal : String, t : T) {
+    grule("BlockWord", s"$terminal~ Anything($terminal.leftMost + 1, $terminal.lastRow + 1)", 
+      c => V(t, c.Anything[V]).add(KEYWORD_PROP, sprop(c, terminal)))
+    grule("BlockWord", s"$terminal~ FALLBACKLINE(nil, nil, nil, $terminal.lastRow) Anything($terminal.leftMost + 1, $terminal.lastRow + 1)", 
+      c => V(t, c.Anything[V]).addError(eprop(c, "FALLBACKLINE", "superfluous parameter")).add(KEYWORD_PROP, sprop(c, terminal)))
+  }
+  
+  mkBlockWord("MATH", Math)
+  mkBlockWord("VERBATIM", Verbatim)
+  mkBlockWord("PROOFSCRIPT", ProofScript)
+  mkBlockWord("RUN", Run)
 
   // Reference
   grule("Reference", "REFERENCE~", c => mkReference(c)) 
@@ -541,7 +844,7 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
     c => c.TableParamCore[V].addError(eprop(c, "FALLBACKLINE", "invalid table parameters")))
   grule("TableParam", "TableParamCore~", c => c.TableParamCore[V])
   grule("TableParamCore", "TABLEPARAM(nil, nil, nil, ~)", c => V(TableParam, sprop(c)))
-  grule("TableParamCore", "", c => V(TableParam))
+  grule("TableParamCore", "", c => V(TableParam, sprop(c)))
 
   // TableBody: minColumn => maxStartColumn
   grule("TableBody", "", c => V(Table))
@@ -554,15 +857,17 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   grule("TableElem", "FALLBACKPROTRUDE~", c => fallback(c, "TableElem"))
 
   // TableLine: (minColumn, maxStartColumn) => ?
-  grule("TableLine", "LINE(~.1, nil, ~.2)", c => V(ProofDoc.Line))
-  grule("TableLine", "LINE(~.1, nil, ~.2) FALLBACKLINE(nil, nil, nil, LINE.lastRow)", 
-    c => V(ProofDoc.Line).addError(eprop(c, "FALLBACKLINE", "unexpected parameters to ~line")))
+  grule("TableLine", "LINE(~.1, nil, ~.2)", c => V(ProofDoc.Line).add(KEYWORD_PROP, sprop(c, "LINE")))
+  grule("TableLine", "LINE(~.1, nil, ~.2) FALLBACK(LINE.leftMost + 1)", 
+    c => V(ProofDoc.Line).add(KEYWORD_PROP, sprop(c, "LINE")).addError(
+      eprop(c, "FALLBACK", "unexpected parameters to ~line")))
 
   // TableRow: (minColumn, maxStartColumn) => ?
   grule("TableRow", "ROW(~.1, nil, ~.2) TableCells(ROW.leftMost + 1, nil)", 
     c => c.TableCells[V].add(KEYWORD_PROP, sprop(c, "ROW")))
   grule("TableRow", "ROW(~.1, nil, ~.2) FALLBACKLINE(nil, nil, nil, ROW.lastRow) TableCells(ROW.leftMost + 1, nil)", 
-    c => c.TableCells[V].add(KEYWORD_PROP, sprop(c, "ROW")).addError(eprop(c, "FALLBACKLINE", "unexpected parameters to ~row")))
+    c => c.TableCells[V].add(KEYWORD_PROP, sprop(c, "ROW")).addError(
+      eprop(c, "FALLBACKLINE", "unexpected parameters to ~row")))
 
   // TableCells, TableCell: (minColumn, maxStartColumn) => maxStartColumn
   grule("TableCells", "", c => V(Row))
@@ -575,6 +880,8 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   // References
   grule("References", "REFERENCES~ RefItems(REFERENCES.leftMost + 1)", 
     c => c.RefItems[V].add(KEYWORD_PROP, sprop(c, "REFERENCES")))
+  grule("References", "REFERENCES~ FALLBACKLINE(nil, nil, nil, REFERENCES.lastRow) RefItems(REFERENCES.leftMost + 1)", 
+    c => c.RefItems[V].add(KEYWORD_PROP, sprop(c, "REFERENCES")).addError(eprop(c, "FALLBACKLINE", "superfluous parameter")))
 
   // RefItems: minColumn => maxStartColumn
   grule("RefItems", "", c => V(References))
@@ -587,7 +894,7 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   grule("RefItem", "RefItemLabel~ RefItemReference(RefItemLabel.lastRow) FALLBACKLINE(nil, nil, nil, RefItemLabel.lastRow) RefItemFields(RefItemLabel.leftMost + 1)", 
     c => c.RefItemLabel[V].add(c.RefItemReference[V]).add(c.RefItemFields[V]).addError(eprop(c, "FALLBACKLINE", "invalid reference item parameter")))
   grule("RefItem", "FALLBACKPROTRUDE~", c => fallback(c, "RefItem"))
-  grule("RefItemLabel", "REFITEMLABEL(~.1, nil, ~.2)", c => mkLexedEntity(c, RefItem, "::", "", unescape _))
+  grule("RefItemLabel", "REFITEMLABEL(~.1, nil, ~.2)", c => mkLexedEntity(c, RefItem, "", "", unescape _))
   grule("RefItemReference", "Reference(nil, nil, nil, ~)", _.Reference[V])
   grule("RefItemReference", "", c => null)
 
@@ -599,7 +906,7 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   // RefItemField: (minColumn, maxStartColumn) => ?
   def gRefItemField(FIELD : String) {
     grule("RefItemField", FIELD + "(~.1, nil, ~.2) Blocks(" + FIELD + ".leftMost + 1)", 
-      c => V(RefItemField, c.Blocks[V]).add(DEFAULT_PROP, sprop(c, FIELD)))
+      c => V(RefItemField, c.Blocks[V]).add(KEYWORD_PROP, sprop(c, FIELD)))
   }
   
   grule("RefItemField", "FALLBACKPROTRUDE~", c => fallback(c, "RefItemField"))
@@ -649,309 +956,5 @@ class ProofDocSyntax(annotate : (Any, Option[proofpeer.indent.Span]) => Any) {
   grule("F", "XOPEN~ E~ XCLOSE~", c => V(Bracket, c.E[V]))
   grule("F", "XOPEN~ E~ ERROR", c => V(Bracket, c.E[V]).addError(eprop(c, "missing closing bracket")))  
   grule("F", "ERROR_F~", c => fallback(c, "F").add(DEFAULT_PROP,sprop(c)))
-
-}
-
-object ProofDocTest {
-
-  val testSource = """
-package proofpeer.editor
-
-import proofpeer.vue._
-import proofpeer.vue.dom._
-import proofpeer.vue.components._
-
-import scala.scalajs.js
-import js.annotation._
-
-
-object CodeMirror extends CustomComponentClass {
-
-  case object READONLY extends CustomAttributeName[Boolean]("readonly")
-
-  trait KeyHandler {
-    def allowKeypress(c : String) : Boolean
-    def allowKeydown(keycode : Int) : Boolean
-  }
-  case object KEY_HANDLER extends CustomAttributeName[KeyHandler]("keyhandler")
-
-  trait ActivityHandler {
-    def cursorActivity()
-    def scrollActivity()
-    def contentActivity()
-  }
-  case object ACTIVITY_HANDLER extends CustomAttributeName[ActivityHandler]("activityhandler")
-
-
-  private val DEFAULT_KEY_HANDLER = new KeyHandler {
-    def allowKeypress(c : String) : Boolean = true
-    def allowKeydown(keycode : Int) : Boolean = true
-  }
-
-  private val DEFAULT_ACTIVITY_HANDLER = new ActivityHandler {
-    def cursorActivity() {}
-    def scrollActivity() {}
-    def contentActivity() {}
-  }
-
-  def render(parentNode : dom.Node, component : CustomComponent) : Blueprint = {
-    DIV(component)()
-  }
-
-  private class Router(keyHandler : KeyHandler, activityHandler : ActivityHandler) {
-
-    def keypresshandler(cm : js.Dynamic, event : js.Dynamic) {
-      val c : Char = event.charCode.asInstanceOf[Int].toChar
-      if (!keyHandler.allowKeypress(c.toString)) {
-        event.preventDefault()
-      }
-    }
-
-    def keydownhandler(cm : js.Dynamic, event : js.Dynamic) {
-      if (!keyHandler.allowKeydown(event.keyCode.asInstanceOf[Int])) {
-        event.preventDefault()
-      }
-    }
-
-    def cursorActivity() {
-      activityHandler.cursorActivity()
-    }
-
-    def scrollActivity() {
-      activityHandler.scrollActivity()
-    }
-
-    def contentActivity() {
-      activityHandler.contentActivity()
-    }
-
-    def register(cm : js.Dynamic) {
-      cm.on("keydown", (keydownhandler _) : js.Function2[js.Dynamic, js.Dynamic, Unit])
-      cm.on("keypress", (keypresshandler _) : js.Function2[js.Dynamic, js.Dynamic, Unit])
-      cm.on("cursorActivity", (cursorActivity _) : js.Function0[Unit])
-      cm.on("scroll", (scrollActivity _) : js.Function0[Unit])
-      cm.on("change", (contentActivity _) : js.Function0[Unit])
-    }
-
-  }
-
-  override def componentDidMount(component : CustomComponent) {
-    val readOnly : Any = 
-      if (component.attributes(READONLY, true)) "nocursor" else false
-    val editor = js.Dynamic.global.CodeMirror(component.mountNode(), 
-      js.Dictionary("lineNumbers" -> true, "readOnly" -> readOnly, 
-        "indentUnit" -> 2, "tabSize" -> 2, "indentWithTabs" -> true, "mode" -> "proofdoc"))
-    component.setLocalState(editor)
-    val dims = component.attributes(DIMS)
-    editor.setSize(dims.width.get - 4, dims.height.get - 4)
-    editor.setValue("")
-    val router = new Router(
-      component.attributes(KEY_HANDLER, DEFAULT_KEY_HANDLER),
-      component.attributes(ACTIVITY_HANDLER, DEFAULT_ACTIVITY_HANDLER))
-    editor.focus()
-    router.register(editor)
-  }
-
-  override def componentWillReceiveBlueprint(component : CustomComponent, nextBlueprint : Blueprint) {
-    val editor : js.Dynamic = component.localState
-    if (editor != null) {
-      val dims = nextBlueprint.attributes(DIMS)
-      val readOnly = component.attributes(READONLY, true)
-      editor.setSize(dims.width.get - 4, dims.height.get - 4)
-    }
-  }
-
-  private def codeMirror(component : Component) : js.Dynamic = {
-    component.asInstanceOf[CustomComponent].localState[js.Dynamic]    
-  }
-
-  def insertAtCursor(component : Component, s : String) {
-    val cm = codeMirror(component)
-    val pos = cm.getCursor()
-    cm.replaceRange(s, pos)
-    cm.focus()
-  }
-
-  def focus(component : Component) {
-    codeMirror(component).focus()
-  }
-
-  def getContent(component : Component) : String = {
-    val cm = codeMirror(component)
-    cm.getValue().asInstanceOf[String]
-  }
-
-  def getCursorPosition(component : Component) : (Int, Int) = {
-    val cm = codeMirror(component)
-    val cursor = cm.getCursor()
-    (cursor.line.asInstanceOf[Int], cursor.ch.asInstanceOf[Int])
-  }
-
-  def isInitialized(component : Component) = codeMirror(component) != null
-
-  def getScrollPosition(component : Component) : (Int, Int) = {
-    val cm = codeMirror(component)
-    val info = cm.getScrollInfo()
-    (info.left.asInstanceOf[Int], info.top.asInstanceOf[Int])
-  }
-
-  private var hasBeenSetup : Boolean = false
-
-  def setup() {
-    if (hasBeenSetup) return
-    hasBeenSetup = true
-    val cs = ConfigSheet()
-    val fs = cs.bodyStyle
-    Styling.addRules(
-      .CodeMirror {
-        background-color: white;
-        border: solid 2px #c9c9c9;
-      }
-    )
-    def mkMode(config : js.Dynamic, modeConfig : js.Dynamic) : js.Any = {
-      new ProofDocMode()
-    }
-    js.Dynamic.global.CodeMirror.defineMode("proofdoc", (mkMode _ ) : js.Function2[js.Dynamic, js.Dynamic, js.Any]) 
-  }
-  
-}
-
-@ScalaJSDefined
-class ProofDocModeState extends js.Object {
-  var len : Int = 0
-}
-
-@ScalaJSDefined
-class ProofDocMode extends js.Object {
-
-  def println(x : Any) {
-    //System.out.println(x)
-  }
-  
-  def startState() : ProofDocModeState = {
-    println("startState")
-    new ProofDocModeState()
-  }
-
-  def copyState(p : ProofDocModeState) : ProofDocModeState = {
-    println("copyState (len = " + p.len + ")")
-    val q = new ProofDocModeState()
-    q.len = p.len
-    q
-  }
-
-  def token(stream : js.Dynamic, state : ProofDocModeState) : String = {
-    var len = state.len
-    def isWhitespace(s : String) : Boolean = s == " "
-    def isNotWhitespace(s : String) : Boolean = s != null && s != " "
-    def str(s : js.Dynamic) : String = {
-      s.asInstanceOf[js.UndefOr[String]].toOption match {
-        case None => null
-        case Some(s) => s
-      }      
-    }
-    def peek(stream : js.Dynamic) : String = {
-      str(stream.peek())
-    }
-    def next(stream : js.Dynamic) : String = {
-      str(stream.next())
-    }
-    while (isWhitespace(peek(stream))) { 
-      len += 1 
-      next(stream)
-    }
-    if (len != state.len) {
-      state.len = len
-      null
-    } else {
-      var token = ""
-      while (isNotWhitespace(peek(stream))) {
-        len += 1
-        token += next(stream)
-      }
-      println("token at (" + state.len + "): " + token)
-      state.len = len
-      "error"
-    }
-  }
-
-  def blankLine(state : ProofDocModeState) {
-    println("blankLine (len = " + state.len + ")")
-  }
-
-
-
-}
-
-"""    
-
-  import proofpeer.indent._
-  import proofpeer.proofscript.frontend._
-  import proofpeer.proofscript.logic.Namespace
-
-  private val src = new Source(Namespace.root, "userinput")
-
-  def mkSourcePosition(s : Option[Span]) : SourcePosition = {
-    new SourcePosition {
-      def source = src
-      def span = s
-    }
-  }
-
-  def annotate(obj : Any, span : Option[Span]) : Any = {
-    if (obj.isInstanceOf[TracksSourcePosition]) {
-      obj.asInstanceOf[TracksSourcePosition].sourcePosition = mkSourcePosition(span)
-    }
-    obj
-  }
-
-  val grammar = new ProofDocSyntax(annotate _).grammar
-  val parser = new Parser(grammar, true)
-
-  def parse(content : String) {
-    proofpeer.indent.earley.Earley.debug = true
-    val d = Document.fromString(content, Some(2))
-    var r : String = ""
-    def report(s : String) {
-      println(s)
-    }
-    report("parsing ...")
-    def loc(s : Span) : String = {
-      if (s.firstRow == s.lastRow) {
-        if (s.rightMostLast == s.leftMostFirst)
-          "line " + (s.firstRow + 1) + ", column " + (s.leftMostFirst + 1)
-        else
-          "line " + (s.firstRow + 1) + ", columns " + (s.leftMostFirst + 1) + " - " + (s.rightMostLast + 1) 
-      } else {
-        "line " + (s.firstRow + 1) + ", column " + (s.leftMostFirst + 1) + " - "
-        "line " + (s.lastRow + 1) + ", column " + (s.rightMostLast + 1) 
-      }
-    }
-    val t1 = System.currentTimeMillis
-    parser.earley.parse(d, "ProofDoc") match {
-      case Left(parsetree) => 
-        val t2 = System.currentTimeMillis
-        report("parsed in: " + (t2 - t1))
-      case Right(errorposition) => 
-        if (errorposition < 0) report("error parsing at start of document")
-        else if (errorposition >= d.size) report("error parsing at end of document")
-        else {
-          val (row, column, _) = d.character(errorposition)
-          report("error parsing at line " + (row + 1) + ", column " + (column + 1))
-        }   
-    }
-    r            
-  }
-
-  def main(args : Array[String]) {
-    println("ProofDocTest")
-    parse(testSource)
-    parse(testSource)
-  }
-
-
-
-
-
 
 }
