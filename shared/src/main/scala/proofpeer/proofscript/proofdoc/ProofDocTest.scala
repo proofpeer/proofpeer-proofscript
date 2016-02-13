@@ -291,7 +291,7 @@ class ProofDocMode extends js.Object {
     r            
   }
 
-  def main(args : Array[String]) {
+  def main_(args : Array[String]) {
     println("ProofDocTest")
     parse(testSource)
     parse(testSource)

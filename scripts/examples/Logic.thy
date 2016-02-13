@@ -236,4 +236,11 @@ context
     assert body == 'f k'
     assert body == 'f ‹x›'
 
+# you cannot create a new variable that has the same name as a previous variable
+  ------------------------------------------------------------------------------
+context
+  let 'x'
+  failure 
+    let 'x'
+
 
