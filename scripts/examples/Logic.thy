@@ -243,4 +243,18 @@ context
   failure 
     let 'x'
 
+# testing if literal context is already implemented
+  -------------------------------------------------
+
+context
+  val x1 = 'empty'
+  def mkSin() = 
+    let x2: 'empty'
+    assert x1 <> x2
+    val x3 = 'empty'
+    # once literal context is implemented, the next line should be
+      assert x3 == x1
+    assert x3 == x2
+    nil
+  show mkSin()
 
