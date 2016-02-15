@@ -258,3 +258,10 @@ context
     nil
   show mkSin()
 
+
+# testing if "main context thread" is already implemented
+  -------------------------------------------------------
+
+let 'sin'
+show 'sin'
+failure '\Logic\sin'
