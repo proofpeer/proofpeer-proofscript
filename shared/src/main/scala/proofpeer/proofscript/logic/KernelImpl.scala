@@ -603,6 +603,7 @@ private class KernelImpl(
   // Sets the main thread for this Namespace, returns whether successful
   private def setMainThread(context : ContextImpl) : Boolean = {
     val namespace = context.namespace
+    if (namespaces.contains(namespace)) return false
     mainthreads.get(namespace) match {
       case None => 
         mainthreads += (namespace -> context)
