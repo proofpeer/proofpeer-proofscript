@@ -318,11 +318,18 @@ class State(val context : Context, val env : State.Env, val collect : Collect, v
 	}
 
 	def freeze : State = {
-		new State(context, env.freeze, collect, false)
+		new State(context.spawnThread, env.freeze, collect, false)
 	}
 
 	def setContext(ctx : Context) : State = {
 		new State(ctx, env, collect, canReturn)
+	}
+
+	def spawnThread : State = {
+		if (context.isMainThread)
+			new State(context.spawnThread, env, collect, canReturn)
+		else
+			this 
 	}
 
 	def setCollect(c : Collect) : State = {

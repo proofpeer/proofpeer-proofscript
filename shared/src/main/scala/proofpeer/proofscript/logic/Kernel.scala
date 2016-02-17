@@ -69,6 +69,7 @@ object ContextKind {
   case class Choose(const_name : Name, ty : Type, property : Term) extends ContextKind
   case class Introduce(const_name : Name, ty : Type) extends ContextKind
   case class Created(namespace : Namespace, parentNamespaces : Set[Namespace], ancestorNamespaces : Set[Namespace]) extends ContextKind
+  case object SpawnThread extends ContextKind
   case object Complete extends ContextKind
 }
 
@@ -78,6 +79,12 @@ trait Context extends UniquelyIdentifiable {
   def kernel : Kernel
   
   def kind : ContextKind
+
+  // Is this context guaranteed to lead to the final theory context?
+  def isMainThread : Boolean
+
+  // If this context is on the main thread it will spawn off a new context not on the main context thread.
+  def spawnThread : Context
 
   // The namespace of the context.
   def namespace : Namespace

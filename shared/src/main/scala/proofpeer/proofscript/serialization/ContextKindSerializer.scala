@@ -9,7 +9,7 @@ class BasicContextKindSerializer(TermSerializer : Serializer[Term], TypeSerializ
 
   import ContextKind._ 
 
-  private object ContextKindSerializerBase extends CaseClassSerializerBase[ContextKind] {
+  object ContextKindSerializerBase extends CaseClassSerializerBase[ContextKind] {
 
     object Kind {
       val ASSUME = 0
@@ -17,7 +17,8 @@ class BasicContextKindSerializer(TermSerializer : Serializer[Term], TypeSerializ
       val CHOOSE = -1
       val INTRODUCE = 2
       val CREATED = -2
-      val COMPLETE = 3
+      val SPAWNTHREAD = 3
+      val COMPLETE = -3
     }
 
     object Serializers {
@@ -40,6 +41,8 @@ class BasicContextKindSerializer(TermSerializer : Serializer[Term], TypeSerializ
           (Kind.INTRODUCE, Some(Serializers.INTRODUCE.serialize(Introduce.unapply(t).get)))
         case t : Created =>
           (Kind.CREATED, Some(Serializers.CREATED.serialize(Created.unapply(t).get)))
+        case SpawnThread =>
+          (Kind.SPAWNTHREAD, None)
         case Complete =>
           (Kind.COMPLETE, None)
         case _ => throw new RuntimeException("ContextKindSerializerBase: cannot serialize " + obj)
@@ -58,6 +61,8 @@ class BasicContextKindSerializer(TermSerializer : Serializer[Term], TypeSerializ
           Introduce.tupled(Serializers.INTRODUCE.deserialize(args.get))
         case Kind.CREATED if args.isDefined => 
           Created.tupled(Serializers.CREATED.deserialize(args.get))
+        case Kind.SPAWNTHREAD if args.isEmpty => 
+          SpawnThread
         case Kind.COMPLETE if args.isEmpty => 
           Complete
         case _ => throw new RuntimeException("ContextKindSerializerBase: cannot deserialize " + (kind, args))
@@ -83,6 +88,7 @@ object ContextKindSerializerGenerator {
     ("Choose", "NameSerializer", "TypeSerializer", "TermSerializer"),
     ("Introduce", "NameSerializer", "TypeSerializer"),
     ("Created", "NamespaceSerializer", "SetSerializer(NamespaceSerializer)", "SetSerializer(NamespaceSerializer)"),
+    "SpawnThread",
     "Complete"
   )
 

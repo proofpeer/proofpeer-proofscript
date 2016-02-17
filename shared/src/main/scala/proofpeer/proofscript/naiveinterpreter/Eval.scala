@@ -541,7 +541,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								if (n.namespace.isDefined) cont(fail(tm, "choose: constant must not have explicit namespace"))
 								else {
 									val name = Name(Some(state.context.namespace), n.name)
-									evalProof(state, proof, {
+									evalProof(state.spawnThread, proof, {
 										case failed : Failed[_] => cont(fail(failed))
 										case Success(value, true) => 
 											cont(Success((State.fromValue(value), thm_name, value), true))
@@ -574,7 +574,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							cont(fail(tm, "Proposition expected, found: " + display(state, TermValue(prop_))))
 						else {
 							val prop = optProp.get
-							evalProof(state, proof, {
+							evalProof(state.spawnThread, proof, {
 								case f : Failed[_] => cont(fail(f))
 								case Success(value, true) => 
 									cont(Success((State.fromValue(value), thm_name, value), true))
@@ -604,7 +604,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							})
 						}
 					case Success(Right(Left(preserve_structure)), _) =>
-						evalProof(state, proof, {
+						evalProof(state.spawnThread, proof, {
 							case f : Failed[_] => cont(fail(f))
 							case Success(value, true) => 
 								cont(Success((State.fromValue(value), thm_name, value), true))
@@ -1455,7 +1455,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def evalContextControl[T](state : State, control : ContextControl,  cont : RC[State, T]) : Thunk[T] = {
 		val contWithContext : Continuation[Context, T] = { 
 			case context : Context =>
-				evalBlock[T](state.setContext(context).setCollect(Collect.Zero), control.body,  {
+				evalBlock[T](state.setContext(context).setCollect(Collect.Zero).spawnThread, control.body,  {
 					case failed : Failed[_] => cont(failed)
 					case su @ Success(updatedState, isReturnValue) =>
 						if (isReturnValue) cont(su)	
@@ -1473,7 +1473,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		control.ctx match {
 			case None => contWithContext(state.context)
 			case Some(expr) =>
-				evalExpr[T](state.freeze, expr,  {
+				evalExpr[T](state.freeze, expr, {
 					case failed : Failed[_] => cont(fail(failed))
 					case Success(ContextValue(context), _) => contWithContext(context)
 					case Success(TheoremValue(thm), _) => contWithContext(thm.context)

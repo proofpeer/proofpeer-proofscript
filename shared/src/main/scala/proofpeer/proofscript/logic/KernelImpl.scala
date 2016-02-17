@@ -13,7 +13,8 @@ private class KernelImpl(
     mk_theorem_helper(context, betaEtaLongNormalform(context, term))
   }
 
-  private class ContextImpl(val kind : ContextKind,
+  private class ContextImpl(val isMainThread : Boolean,
+                            val kind : ContextKind,
                             val depth : Integer,
                             val created : ContextKind.Created,
                             val parentContext : Option[ContextImpl],
@@ -96,18 +97,34 @@ private class KernelImpl(
        n == Kernel.forall.name || 
        n == Kernel.exists.name)
     }
+
+    private def mkChild(kind : ContextKind, constants : Map[Name, Type]) : ContextImpl = {
+      if (!isMainThread) {
+        new ContextImpl(false, kind, depth + 1, created, Some(this), constants)
+      } else {
+        val c = new ContextImpl(true, kind, depth + 1, created, Some(this), constants)
+        if (KernelImpl.this.setMainThread(c))
+          c
+        else
+          failwith("cannot create context in main thread of namespace: " + namespace)
+      }
+    }
     
+    def spawnThread : Context = {
+      if (!isMainThread) this
+      else {
+        new ContextImpl(false, ContextKind.SpawnThread, depth + 1, created, Some(this), constants)
+      }
+    }
+
     def introduce(const_name : Name, ty : Type) : Context = {
       if (isComplete) failwith("cannot extend completed context")
       ensureContextScope(const_name)
       if (contains(const_name, constants) || isPolyConst(const_name))
         failwith("constant name " + const_name + " clashes with other constant in current scope")
-      new ContextImpl(
-          ContextKind.Introduce(const_name, ty),
-          depth + 1,
-          created,
-          Some(this),
-          constants + (const_name -> ty))
+      mkChild(
+        ContextKind.Introduce(const_name, ty),
+        constants + (const_name -> ty))
     } 
 
     def assume(_assumption : CTerm) : Theorem = {
@@ -115,13 +132,7 @@ private class KernelImpl(
       val assumption = doautolift(_assumption)
       if (assumption.typeOf != Prop)
         failwith("assumption is not a valid proposition")
-      val context = 
-        new ContextImpl(
-          ContextKind.Assume(assumption.term),
-          depth + 1,
-          created,
-          Some(this),
-          constants)
+      val context = mkChild(ContextKind.Assume(assumption.term), constants)
       mk_theorem(context, assumption.term)
     }
 
@@ -151,13 +162,7 @@ private class KernelImpl(
       val tm = doautolift(tm_)
       val ty = tm.typeOf
       val eq = Comb(Comb(PolyConst(Kernel.equals, ty), Const(const_name)), tm.term)
-      val context = 
-        new ContextImpl(
-          ContextKind.Define(const_name, ty, tm.term),
-          depth + 1,
-          created,
-          Some(this),
-          constants + (const_name -> ty))
+      val context = mkChild(ContextKind.Define(const_name, ty, tm.term), constants + (const_name -> ty))
       mk_theorem(context, eq)         
     }
 
@@ -185,13 +190,7 @@ private class KernelImpl(
         val all = PolyConst(Kernel.forall, xty)
         prop = Comb(all, Abs(x, xty, prop))
       }
-      val context = 
-        new ContextImpl(
-              ContextKind.Choose(const_name, cty, prop),
-              depth + 1,
-              created,
-              Some(this),
-              constants + (const_name -> cty))
+      val context = mkChild(ContextKind.Choose(const_name, cty, prop), constants + (const_name -> cty))
       mk_theorem(context, prop)             
     }
     
@@ -598,24 +597,43 @@ private class KernelImpl(
       case None => failwith("there is no completed namespace '" + namespace + "'")
     }
   }
+
+  private var mainthreads : Map[Namespace, ContextImpl] = Map()
+
+  // Sets the main thread for this Namespace, returns whether successful
+  private def setMainThread(context : ContextImpl) : Boolean = {
+    val namespace = context.namespace
+    mainthreads.get(namespace) match {
+      case None => 
+        mainthreads += (namespace -> context)
+        true
+      case Some(mainthread) =>
+        if (context.parentContext == Some(mainthread)) {
+          mainthreads += (namespace -> context)
+          true
+        } else false
+    }
+  }
           
   def completeNamespace(context : Context) : Context = {
     if (!context.isInstanceOf[ContextImpl] || context.kernel != this) 
       failwith("context does not belong to this kernel")
     val namespace = context.namespace
-    if (namespaces.contains(namespace)) 
-      failwith("this namespace has already been completed: "+namespace)
+    if (namespaces.contains(namespace)) failwith("this namespace has already been completed: " + namespace)
     val ctx = context.asInstanceOf[ContextImpl]
     val constants = ctx.constants.filterKeys(n => isQualifiedName(n))   
     val completedContext = 
       new ContextImpl(
+          true,
           ContextKind.Complete,
           ctx.depth + 1,
           ctx.created,
           Some(ctx),
           constants)  
-    namespaces += (namespace -> completedContext)
-    completedContext
+    if (setMainThread(completedContext)) {
+      namespaces += (namespace -> completedContext)
+      completedContext 
+    } else failwith("Cannot complete namespace '" + namespace + "' because main context thread was snatched away.")
   }
 
   def restoreCompletedNamespace(parents : Set[Namespace], aliases : Aliases, context : Context) {
@@ -631,7 +649,7 @@ private class KernelImpl(
   def createNewNamespace(namespace : Namespace, parents : Set[Namespace], aliases : Aliases) : Context = {
     var ancestors : Set[Namespace] = Set()
     if (parentsOfNamespace(namespace).isDefined)
-      failwith("namespace already exists: "+namespace)
+      failwith("namespace already exists: " + namespace)
     for (parent <- parents) {
       contextOfNamespace(parent) match {
         case Some(context) =>
@@ -648,12 +666,15 @@ private class KernelImpl(
       else 
         Map()
     namespaceInfo = namespaceInfo + (namespace -> new NamespaceInfo(parents, aliases))
-    new ContextImpl(
-      created,
-      0,
-      created,
-      None,
-      constants)
+    val ctx = 
+      new ContextImpl(
+        true,
+        created,
+        0,
+        created,
+        None,
+        constants)
+    ctx
   }
         
   // This assumes that c1 and c2 belong to the same kernel and the same context
@@ -715,15 +736,15 @@ private class KernelImpl(
 
       val cis = new UniquelyIdentifiableSerializer(store, this, UISTypeCodes.CONTEXT)
 
-      val serializer = QuintupleSerializer(ContextKindSerializer, BigIntSerializer, 
+      val serializer = QuintupleSerializer(PairSerializer(BooleanSerializer, ContextKindSerializer), BigIntSerializer, 
         new TypecastSerializer[ContextKind.Created, ContextKind](ContextKindSerializer),
         OptionSerializer(cis), MapSerializer(NameSerializer, TypeSerializer))
 
-      def serialize(c : ContextImpl) : Any = serializer.serialize((c.kind, c.depth, c.created, c.parentContext, c.constants))
+      def serialize(c : ContextImpl) : Any = serializer.serialize(((c.isMainThread, c.kind), c.depth, c.created, c.parentContext, c.constants))
 
       def deserialize(b : Any) : ContextImpl = {
         val t = serializer.deserialize(b)
-        new ContextImpl(t._1, t._2, t._3, t._4, t._5)
+        new ContextImpl(t._1._1, t._1._2, t._2, t._3, t._4, t._5)
       }
 
     }
