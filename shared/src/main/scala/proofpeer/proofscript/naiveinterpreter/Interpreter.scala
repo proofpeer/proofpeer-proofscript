@@ -218,7 +218,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
 
   private def logicLocalNames(namespace : Namespace) : Set[IndexedName] =
     kernel.contextOfNamespace(namespace) match {
-      case None => Utils.failwith("no completed context for namespace: "+namespace)
+      case None => Utils.failwith("no completed context for namespace: " + namespace)
       case Some(context) => 
         var locals : Set[IndexedName] = Set()
         for (name <- context.localConstants) {

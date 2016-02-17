@@ -265,3 +265,4 @@ context
 let 'sin'
 show 'sin'
 failure '\Logic\sin'
+val sin = 'sin'

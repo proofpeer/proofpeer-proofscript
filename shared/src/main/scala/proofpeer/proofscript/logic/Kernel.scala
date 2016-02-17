@@ -108,6 +108,7 @@ trait Context extends UniquelyIdentifiable {
   
   // Introduces a new unspecified constant.
   // The name must either have no namespace, or must be equal to the current namespace.
+  // The name can only have a namespace if this context is on the main thread.
   def introduce(const_name : Name, ty : Type) : Context
 
   // Introduces an assumption. 
@@ -120,6 +121,7 @@ trait Context extends UniquelyIdentifiable {
   
   // Defines a new constant. 
   // The name must either have no namespace, or it must be equal to the current namespace.
+  // The name can only have a namespace if this context is on the main thread.
   def define(const_name : Name, tm : CTerm) : Theorem 
 
   def define(const_name : Name, tm : Term) : Theorem =
@@ -129,6 +131,7 @@ trait Context extends UniquelyIdentifiable {
   // The property is given in the shape of an existential theorem.
   // The theorem may have leading all-quantifiers; in this case the constant will be skolemized. 
   // The name must either have no namespace, or it must be equal to the current namespace.
+  // The name can only have a namespace if this context is on the main thread.
   def choose(const_name : Name, thm : Theorem) : Theorem
          
   // Converts a theorem into a theorem of this context (if possible). 

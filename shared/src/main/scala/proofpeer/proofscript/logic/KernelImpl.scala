@@ -47,7 +47,7 @@ private class KernelImpl(
       KernelUtils.typeOfTerm(this, Map(), term)
     
     private def hasContextScope(name : Name) : Boolean = {
-      name.namespace.isEmpty || name.namespace == Some(namespace)
+      name.namespace.isEmpty || (name.namespace == Some(namespace))
     }
       
     private def contextOfName(name : Name) : ContextImpl = {
@@ -82,6 +82,8 @@ private class KernelImpl(
     private def ensureContextScope(name : Name) {
       if (!hasContextScope(name)) 
         failwith("name "+name+" is outside of namespace: "+created.namespace)
+      if (!isMainThread && name.namespace.isDefined)
+        failwith("name "+name+" is only definable on the main thread")
     } 
     
     private def contains[T](name : Name, map : Map[Name, T]) : Boolean = {
@@ -449,7 +451,8 @@ private class KernelImpl(
       val term = doautolift(term_)
       term.term match {
         case Abs(name, ty, body) =>
-          val x = Const(Name(Some(namespace), mkFresh(name)))
+          val ns = if (isMainThread) Some(namespace) else None
+          val x = Const(Name(ns, mkFresh(name)))
           val context = introduce(x.name, ty)
           val cx = mk_cterm(context, x, ty)
           val cbody = 

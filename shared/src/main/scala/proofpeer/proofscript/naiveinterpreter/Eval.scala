@@ -540,7 +540,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							case Some((n, tys)) =>
 								if (n.namespace.isDefined) cont(fail(tm, "choose: constant must not have explicit namespace"))
 								else {
-									val name = Name(Some(state.context.namespace), n.name)
+									val name = 
+										if (state.context.isMainThread)
+											Name(Some(state.context.namespace), n.name)
+										else 
+											n
 									evalProof(state.spawnThread, proof, {
 										case failed : Failed[_] => cont(fail(failed))
 										case Success(value, true) => 
@@ -709,7 +713,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		val name = 
 			_name.namespace match {
 				case Some(ns) => return fail(st, "let intro: constant must not have explicit namespace")
-				case None => Name(Some(state.context.namespace), _name.name)
+				case None => 
+					if (state.context.isMainThread)
+						Name(Some(state.context.namespace), _name.name)
+					else
+						_name
 			}
 		Pretype.solve(tys) match {
 			case None => fail(st, "let intro: inconsistent type constraints")
@@ -754,7 +762,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		val name = 
 			_name.namespace match {
 				case Some(ns) => return fail(st, "let def: constant must not have explicit namespace")
-				case None => Name(Some(state.context.namespace), _name.name)
+				case None => 
+					if (state.context.isMainThread)
+						Name(Some(state.context.namespace), _name.name)
+					else 
+						_name
 			}
 		var rightHandSide = _rightHandSide
 		for (ty <- tys) rightHandSide = Preterm.PTmTyping(rightHandSide, ty)
