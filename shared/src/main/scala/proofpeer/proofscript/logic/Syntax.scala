@@ -608,32 +608,29 @@ val g_Pattern_term =
     }
   }
 
-  def checkprintTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
-    context : Context, tm : Term) : String = 
+  def checkprintTerm(context : Context, tm : Term) : String = 
   {
-    val res = Preterm.obtainNameResolution(aliases, nameresolution, context)
+    val res : Resolution = (name : Name) => context.resolveLogicalName(name)
     val u = printTerm(res, tm)
-    val tm2 = parseTerm(aliases, nameresolution, context, u)
+    val tm2 = parseTerm(context, u)
     if (!KernelUtils.alpha_equivalent(tm, tm2))
       Utils.failwith("term '"+u+"' is not a correct representation of: '"+tm+"'")
     else
       u
   }
 
-  def checkprintTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
-    context : Context, tm : CTerm) : String = 
+  def checkprintTerm(context : Context, tm : CTerm) : String = 
   {
     val term = context.lift(tm)
-    checkprintTerm(aliases, nameresolution, context, term.term)
+    checkprintTerm(context, term.term)
   }
 
-  def parseTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
-    context : Context, s : String) : Term =
+  def parseTerm(context : Context, s : String) : Term =
   {
     parsePreterm(s) match {
       case None => Utils.failwith("cannot parse as preterm: '"+s+"'")
       case Some(ptm) => 
-        val typingContext = Preterm.obtainTypingContext(aliases, nameresolution, context)
+        val typingContext = Preterm.obtainTypingContext(context)
         Preterm.inferTerm(typingContext, ptm) match {
           case Left(tm) => tm
           case Right(errors) =>
@@ -642,10 +639,9 @@ val g_Pattern_term =
     }    
   }
 
-  def parseCTerm(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName],
-    context : Context, s : String) : CTerm =
+  def parseCTerm(context : Context, s : String) : CTerm =
   {
-    context.certify(parseTerm(aliases, nameresolution, context, s))
+    context.certify(parseTerm(context, s))
   }
 
      

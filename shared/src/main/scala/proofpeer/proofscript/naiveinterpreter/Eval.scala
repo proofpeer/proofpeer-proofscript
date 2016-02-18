@@ -48,7 +48,6 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
 	scriptTyperesolution : NamespaceResolution[String],
-	val logicNameresolution : NamespaceResolution[IndexedName], 
 	val aliases : Aliases, namespace : Namespace, output : Output) 
 {
 
@@ -107,7 +106,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	}
 
 	def resolvePreterm(context : Context, preterm : Preterm) : Result[CTerm] = {
-		val typingContext = Preterm.obtainTypingContext(aliases, logicNameresolution, context)
+		val typingContext = Preterm.obtainTypingContext(context)
 		Preterm.inferCTerm(typingContext, preterm) match {
 			case Left(tm) => success(tm)
 			case Right(errors) => 
@@ -164,7 +163,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case Success(s : StringValue, _) =>
 				cont(
 					try {
-						success(Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)) 
+						success(Syntax.parseCTerm(state.context, s.toString)) 
 					} catch {
 						case ex : Utils.KernelException =>
 							fail(expr, "parse error: " + ex.reason)	
@@ -180,7 +179,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case Success(s : StringValue, _) =>
 				cont(
 					try {
-						success(Left(Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)))
+						success(Left(Syntax.parseCTerm(state.context, s.toString)))
 					} catch {
 						case ex : Utils.KernelException =>
 							fail(expr, "parse error: " + ex.reason)	
@@ -211,7 +210,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	}
 
 	def display(state : State, value : StateValue) : String = {
-		StateValue.display(aliases, logicNameresolution, state.context, value)	
+		StateValue.display(state.context, value)	
 	}
 
 	def recordTraceCont[T](tracks : TracksSourcePosition, cont : RC[State, T]) : RC[State, T] = { 
@@ -1692,7 +1691,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case TheoremValue(thm) => state.context.lift(thm).prop
 								case s : StringValue =>
 									try {
-										Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)
+										Syntax.parseCTerm(state.context, s.toString)
 									} catch {
 										case ex : Utils.KernelException =>
 											return cont(success(None))
@@ -1702,7 +1701,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						val optTerm = state.context.autolift(term_)
 						if (optTerm.isEmpty) return cont(fail(pat, "cannot automatically lift term into context: " + display(state, TermValue(term_))))
 						val term = optTerm.get
-						val tc = Preterm.obtainTypingContext(aliases, logicNameresolution, state.context)
+						val tc = Preterm.obtainTypingContext(state.context)
 						val (preterm, typeQuotes, typesOfTypeQuotes) = 
 							Preterm.inferPattern(tc, _preterm) match {
 								case Left(result) => result
@@ -1914,13 +1913,13 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				state.context.autolift(tm) match {
 					case None => None
 					case Some(tm) => 
-						Some(mkStringValue(Syntax.checkprintTerm(aliases, logicNameresolution, state.context, tm)))				
+						Some(mkStringValue(Syntax.checkprintTerm(state.context, tm)))				
 				}
 			case (TheoremValue(thm), TyString) =>
 				try {
 					val liftedTh = state.context.lift(thm)
 					val tm = liftedTh.proposition
-					Some(mkStringValue(Syntax.checkprintTerm(aliases, logicNameresolution, state.context, tm)))					
+					Some(mkStringValue(Syntax.checkprintTerm(state.context, tm)))					
 				} catch {
 					case _ : Utils.KernelException => None
 				}
@@ -1951,7 +1950,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}							
 			case (s : StringValue, TyTerm) =>
 				try {
-					Some(TermValue(Syntax.parseCTerm(aliases, logicNameresolution, state.context, s.toString)))
+					Some(TermValue(Syntax.parseCTerm(state.context, s.toString)))
 				} catch {
 					case _ : Utils.KernelException => None
 				}				

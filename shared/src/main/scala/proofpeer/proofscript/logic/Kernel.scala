@@ -182,8 +182,10 @@ trait Context extends UniquelyIdentifiable {
   // Instantiates the given all-quantified theorem. 
   def instantiate(p : Theorem, insts : List[Option[CTerm]]) : Theorem
 
-  // All constants of this context which are NOT constants of a parent namespace.
-  def localConstants : Set[Name]  
+  // All public constants of this context (which are NOT constants of a parent namespace).
+  def publicConstants : Set[Name]  
+
+  def resolveLogicalName(name : Name) : Either[Name, Set[Namespace]] 
 
   // Yep. Exactly. Don't use this.
   def magic(term : Term) : Theorem

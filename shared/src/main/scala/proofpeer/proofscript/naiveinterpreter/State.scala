@@ -165,27 +165,23 @@ object StateValue {
 		}
 	}
 
-	private def display(aliases : Aliases,
-							nameresolution : NamespaceResolution[IndexedName], 
-							context : Context, 
-							tm : Term) : String = 
+	private def display(context : Context, tm : Term) : String = 
 	{
-		"'" + Syntax.checkprintTerm(aliases, nameresolution, context, tm) + "'"
+		"'" + Syntax.checkprintTerm(context, tm) + "'"
 	}
 
 	private def displayRaw(tm : Term) : String = {
 		Syntax.printTerm(Preterm.unknownResolution, tm)
 	}
 
-	def display(aliases : Aliases, nameresolution : NamespaceResolution[IndexedName], 
-		context : Context, value : StateValue) : String = 
+	def display(context : Context, value : StateValue) : String = 
 	{
 		value match {
 			case NilValue => "nil"
 			case BoolValue(value) => if (value) "true" else "false"
 			case IntValue(value) => "" + value
 			case c : ConstrValue => c.name 
-			case c : ConstrAppliedValue => c.name + " " + display(aliases, nameresolution, context, c.param)
+			case c : ConstrAppliedValue => c.name + " " + display(context, c.param)
 			case c : ConstrUnappliedValue => c.name + " : Function"
 			case f if isFunction(f) => "? : Function"
 			case TupleValue(value, _) =>
@@ -193,7 +189,7 @@ object StateValue {
 				var first = true
 				for (v <- value) {
 					if (first) first = false else s = s + ", "
-					s = s + display(aliases, nameresolution, context, v)
+					s = s + display(context, v)
 				} 
 				s + "]"
 			case SetValue(value) =>
@@ -201,7 +197,7 @@ object StateValue {
 				var first = true
 				for (v <- value) {
 					if (first) first = false else s = s + ", "
-					s = s + display(aliases, nameresolution, context, v)
+					s = s + display(context, v)
 				} 
 				s + "}"
 			case MapValue(value, _) =>
@@ -209,8 +205,8 @@ object StateValue {
 				var first = true
 				for ((k, v) <- value) {
 					if (first) first = false else s = s + ", "
-					val sk = display(aliases, nameresolution, context, k)
-					val sv = display(aliases, nameresolution, context, v)
+					val sk = display(context, k)
+					val sv = display(context, v)
 					s = s + sk + " → " + sv
 				} 
 				if (first) "{→}" else s + "}"			
@@ -218,16 +214,16 @@ object StateValue {
 			case TheoremValue(th) =>
 				try {
 					val liftedTh = context.lift(th)
-					display(aliases, nameresolution, liftedTh.context, liftedTh.proposition) + " : Theorem"
+					display(liftedTh.context, liftedTh.proposition) + " : Theorem"
 				} catch {
 					case _ : Utils.KernelException => 
 						"{invalid in current context, context = " + display(th.context) + ", theorem = " + 
-						display(aliases, nameresolution, th.context, th.proposition) + "} : Theorem"
+						display(th.context, th.proposition) + "} : Theorem"
 				}
 			case TermValue(tm) => 
 				try {
 					val liftedTm = context.lift(tm)
-					display(aliases, nameresolution, context, liftedTm.term)
+					display(context, liftedTm.term)
 				} catch {
 					case _ : Utils.KernelException =>
 						"{invalid in current context, context = " + display(tm.context) + ", raw term is: '" + displayRaw(tm.term) + "'} : Term"

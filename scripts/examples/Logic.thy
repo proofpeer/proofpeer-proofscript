@@ -259,10 +259,30 @@ context
   show mkSin()
 
 
+# Both of these should never work but result in an error at compile time
+  Right now, the second one results in an error when called from Logic2,
+  and the first one works fine when called from Logic2.
+  ----------------------------------------------------------------------
+
+def testProgramNamespace() = 
+  Logic2Alias\message
+
+def testProgramNamespace2() = 
+  Logic2Alias2\message2
+
+val message = "This is a message in Logic."
+
 # testing if "main context thread" is already implemented
   -------------------------------------------------------
 
+context
+  let 'cos'
+  show 'cos'
+  failure '\examples\Logic\cos'
+
 let 'sin'
 show 'sin'
-failure '\Logic\sin'
+show '\examples\Logic\sin'
 val sin = 'sin'
+
+

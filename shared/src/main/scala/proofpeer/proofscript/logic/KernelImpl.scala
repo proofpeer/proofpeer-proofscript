@@ -93,13 +93,6 @@ private class KernelImpl(
         map.contains(name) || map.contains(Name(Some(namespace), name.name))
     }
     
-    private def isPolyConst(name : Name) : Boolean = {
-      val n = name.name
-      (n == Kernel.equals.name || 
-       n == Kernel.forall.name || 
-       n == Kernel.exists.name)
-    }
-
     private def mkChild(kind : ContextKind, constants : Map[Name, Type]) : ContextImpl = {
       if (!isMainThread) {
         new ContextImpl(false, kind, depth + 1, created, Some(this), constants)
@@ -116,6 +109,15 @@ private class KernelImpl(
       if (!isMainThread) this
       else {
         new ContextImpl(false, ContextKind.SpawnThread, depth + 1, created, Some(this), constants)
+      }
+    }
+
+    def isPolyConst(name : Name) : Boolean = {
+      name.name match {
+        case Kernel.equals.name => true
+        case Kernel.forall.name => true
+        case Kernel.exists.name => true
+        case _ => false
       }
     }
 
@@ -434,8 +436,7 @@ private class KernelImpl(
     }
 
     def mkFresh(name : IndexedName) : IndexedName = {
-      def isFresh(name : Name) = 
-        Kernel.isPolymorphicName(name) || typeOfConst(name).isEmpty
+      def isFresh(name : Name) = !isPolyConst(name) && typeOfConst(name).isEmpty
       var i : Utils.Integer = if (name.index.isDefined) name.index.get else 0
       do {
         val indexedName = IndexedName(name.name, if (i == 0) None else Some(i))
@@ -564,7 +565,7 @@ private class KernelImpl(
       }
     }
 
-    def localConstants : Set[Name] = {
+    def publicConstants : Set[Name] = {
       var set : Set[Name] = Set()
       if (namespace == Kernel.root_namespace) {
         set = set + Kernel.forall + Kernel.equals + Kernel.exists
@@ -577,12 +578,65 @@ private class KernelImpl(
       set
     }
 
+    def resolveLogicalName(name : Name) : Either[Name, Set[Namespace]] = {
+      def resolveQualifiedName(name : Name) : Either[Name, Set[Namespace]] = {
+        if (isPolyConst(name)) {
+          val c = 
+            name.name match {
+              case Kernel.equals.name => Kernel.equals
+              case Kernel.forall.name => Kernel.forall
+              case Kernel.exists.name => Kernel.exists
+              case _ => failwith("internal error in resolveLogicalName " + name)
+            }
+          Left(c)
+        } else if (typeOfConst(name).isDefined) {
+          Left(name)
+        } else {
+          baseResolutionOfNamespace(name.namespace.get).get(name.name) match {
+            case None => Right(Set())
+            case Some(namespaces) =>
+              if (namespaces.size == 1) 
+                Left(Name(Some(namespaces.head), name.name))
+              else
+                Right(namespaces)
+          }
+        }
+      }
+      if (name.namespace.isDefined) {
+        val ns = aliasesOfNamespace(namespace).get.resolve(name.namespace.get)
+        resolveQualifiedName(Name(Some(ns), name.name))
+      } else {
+        if (typeOfConst(name).isDefined)
+          Left(name)
+        else 
+          resolveQualifiedName(Name(Some(namespace), name.name))
+      }
+    }
+
   }
 
   private case class NamespaceInfo(parents : Set[Namespace], aliases : Aliases)
   
   private var namespaces : Map[Namespace, Context] = Map()
   private var namespaceInfo : Map[Namespace, NamespaceInfo] = Map()
+
+  private val logicNamespaceResolution = {
+
+    def parentsOf(namespace : Namespace) : Set[Namespace] =
+      parentsOfNamespace(namespace) match {
+        case None => Utils.failwith("no such namespace: " + namespace)
+        case Some(namespaces) => namespaces
+      }
+
+    def namesOf(namespace : Namespace) : Set[IndexedName] =
+      contextOfNamespace(namespace) match {
+        case None => Utils.failwith("no completed context for namespace: " + namespace)
+        case Some(context) => context.publicConstants.map(name => name.name)
+      }
+
+    new NamespaceResolution[IndexedName](parentsOf _, namesOf _)
+
+  }
   
   def completedNamespaces = namespaces.keySet
   
@@ -593,6 +647,10 @@ private class KernelImpl(
 
   def aliasesOfNamespace(namespace : Namespace) : Option[Aliases] =
     namespaceInfo.get(namespace).map(_.aliases) 
+
+  private def baseResolutionOfNamespace(namespace : Namespace) : NamespaceResolution.Resolution[IndexedName] = {
+    logicNamespaceResolution.baseResolution(namespace)
+  }
   
   private def completedContext(namespace : Namespace) : ContextImpl = {
     contextOfNamespace(namespace) match {

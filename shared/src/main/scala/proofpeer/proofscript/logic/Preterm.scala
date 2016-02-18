@@ -591,52 +591,11 @@ object Preterm {
     def context : Context
   }
 
-  def obtainNameResolution(aliases : Aliases, nr : NamespaceResolution[IndexedName], context : Context) : NameResolution = {
-    val namespace = context.namespace
-    def resolveName(name : Name) : Either[Name, Set[Namespace]] = {
-      if (name.namespace.isDefined) {
-        val ns = aliases.resolve(name.namespace.get)
-        val resolvedName = Name(Some(ns), name.name)
-        if (Kernel.isPolymorphicName(resolvedName) || context.typeOfConst(resolvedName).isDefined)
-          Left(resolvedName)
-        else {
-          nr.baseResolution(ns).get(name.name) match {
-            case None => Right(Set())
-            case Some(namespaces) =>
-              if (namespaces.size == 1) 
-                Left(Name(Some(namespaces.head), name.name))
-              else
-                Right(namespaces)
-          }
-        }
-      } else {
-        if (context.typeOfConst(name).isDefined)
-          Left(name)
-        else {
-          val qualifiedName = Name(Some(namespace), name.name)
-          if (Kernel.isPolymorphicName(qualifiedName) || context.typeOfConst(qualifiedName).isDefined)
-            Left(qualifiedName)
-          else {
-            nr.baseResolution(namespace).get(name.name) match {
-              case None => Right(Set())
-              case Some(namespaces) =>
-                if (namespaces.size == 1) 
-                  Left(Name(Some(namespaces.head), name.name))
-                else
-                  Right(namespaces)
-            }
-          }          
-        }
-      }
-    }
-    resolveName
+  def obtainTypingContext(context : Context) : TypingContext = {
+  	new TC(context, List())
   }
 
-  def obtainTypingContext(aliases : Aliases, nr : NamespaceResolution[IndexedName], context : Context) : TypingContext = {
-  	new TC(obtainNameResolution(aliases, nr, context), context, List())
-  }
-
-  private class TC(r : NameResolution, val context : Context, vars : List[(IndexedName, Pretype)]) 
+  private class TC(val context : Context, vars : List[(IndexedName, Pretype)]) 
   	extends TypingContext 
   {
   	private def polyTypeOf(name : Name, fresh : Integer) : Option[Pretype] = {
@@ -650,7 +609,7 @@ object Preterm {
   	}
   	private def lookupName(_name : Name, fresh : Integer) : Option[(Name, Pretype, Integer, Boolean)] = {
       val name =
-        r(_name) match {
+        context.resolveLogicalName(_name) match {
           case Left(name) => name
           case Right(_) => return None
         }
@@ -714,7 +673,7 @@ object Preterm {
 			} else resolveConst(name, ty)
   	}
   	def addVar(x : IndexedName, ty : Pretype) : TypingContext = {
-  		new TC(r, context, (x, ty)::vars)
+  		new TC(context, (x, ty)::vars)
   	}
   }
 }

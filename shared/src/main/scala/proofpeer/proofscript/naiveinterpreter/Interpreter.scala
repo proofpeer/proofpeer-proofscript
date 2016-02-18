@@ -216,17 +216,6 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       case Some(namespaces) => namespaces
     }
 
-  private def logicLocalNames(namespace : Namespace) : Set[IndexedName] =
-    kernel.contextOfNamespace(namespace) match {
-      case None => Utils.failwith("no completed context for namespace: " + namespace)
-      case Some(context) => 
-        var locals : Set[IndexedName] = Set()
-        for (name <- context.localConstants) {
-          if (name.namespace.isDefined) locals = locals + name.name
-        }
-        locals
-    }
-
   private def completedStates(namespace : Namespace) : Option[State] = {
     executionEnvironment.lookupTheory(namespace) match {
       case Some(theory : CompiledTheory) => Some(theory.state)
@@ -242,7 +231,6 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     completedStates(namespace).get.env.types.keySet
   }
 
-  private val logicNamespaceResolution = new NamespaceResolution[IndexedName](parentsOfNamespace _, logicLocalNames _)
   private val programNamespaceResolution = new NamespaceResolution[String](parentsOfNamespace _, programLocalNames _)
   private val programTypeResolution = new NamespaceResolution[String](parentsOfNamespace _, programLocalTypes _)
 
@@ -283,7 +271,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     def dumpOutput() {
       executionEnvironment.storeOutput(thy.compileKey, output.export())
     }
-    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, programTypeResolution, logicNamespaceResolution, thy.aliases, thy.namespace, output)
+    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, programTypeResolution, thy.aliases, thy.namespace, output)
     val state : State = 
       if (thy.namespace == Kernel.root_namespace) 
         rootState
