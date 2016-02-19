@@ -15,4 +15,5 @@ failure testProgramNamespace2()
 
 show Logic\message
 failure Logic2\message2
+failure Logic2\message
 
