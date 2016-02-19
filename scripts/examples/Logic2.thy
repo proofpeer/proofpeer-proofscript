@@ -8,10 +8,11 @@ show '\examples\Logic\sin'
 
 assert sin == 'Logic\sin'
 
-val message2 = "This is a message in Logic2."
+val message2 = "This is a message in Logic2!"
 
-show testProgramNamespace()
-failure show testProgramNamespace2()
+failure testProgramNamespace()
+failure testProgramNamespace2()
 
-failure show Logic2\message2
+show Logic\message
+failure Logic2\message2
 

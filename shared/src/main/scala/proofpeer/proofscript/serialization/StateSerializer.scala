@@ -290,11 +290,11 @@ final class BasicEnvSerializer(StateValueSerializer : Serializer[StateValue],
     MapSerializer(StringSerializer, new StateValueRefSerializer(StateValueSerializer))),
   (env : State.Env) => (env.types, env.nonlinear, env.linear), State.Env.tupled)
 
-final class BasicStateSerializer(ContextSerializer : Serializer[Context], EnvSerializer : Serializer[State.Env],
-  CollectSerializer : Serializer[Collect]) extends TransformSerializer(
-  QuintupleSerializer(ContextSerializer, OptionSerializer(ContextSerializer), EnvSerializer, CollectSerializer, BooleanSerializer),
-  (s : State) => (s.context, s.literalContext, s.env, s.collect, s.canReturn),
-  (s : (Context, Option[Context], State.Env, Collect, Boolean)) => new State(s._1, s._2, s._3, s._4, s._5))
+final class BasicStateSerializer(ContextSerializer : Serializer[Context], NamespaceSerializer : Serializer[Namespace],
+  EnvSerializer : Serializer[State.Env], CollectSerializer : Serializer[Collect]) extends TransformSerializer(
+  QuintupleSerializer(PairSerializer(NamespaceSerializer, ContextSerializer), OptionSerializer(ContextSerializer), EnvSerializer, CollectSerializer, BooleanSerializer),
+  (s : State) => ((s.toplevelNamespace, s.context), s.literalContext, s.env, s.collect, s.canReturn),
+  (s : ((Namespace, Context), Option[Context], State.Env, Collect, Boolean)) => new State(s._1._1, s._1._2, s._2, s._3, s._4, s._5))
 
 final class CustomizableStateSerializer(store : UniquelyIdentifiableStore, val kernelSerializers : KernelSerializers) 
 extends NestedSerializer[State] 
@@ -311,7 +311,7 @@ extends NestedSerializer[State]
   val CollectSerializer = new CustomizableCollectSerializer(StateValueSerializer)
 
   protected val innerSerializer : Serializer[State] = new UniquelyIdentifiableSerializer(store, new BasicStateSerializer(
-    kernelSerializers.ContextSerializer, EnvSerializer, CollectSerializer), UISTypeCodes.STATE)
+    kernelSerializers.ContextSerializer, kernelSerializers.NamespaceSerializer, EnvSerializer, CollectSerializer), UISTypeCodes.STATE)
 
 }
 

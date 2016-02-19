@@ -239,7 +239,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       NativeFunctions.environment.mapValues(f => NativeFunctionValue(f))
     val context = kernel.createNewNamespace(Kernel.root_namespace, Set(), 
       new Aliases(Kernel.root_namespace.parent.get, List()))
-    new State(context, None, State.Env(Map(), environment, Map()), Collect.Zero, false)
+    new State(context.namespace, context, None, State.Env(Map(), environment, Map()), Collect.Zero, false)
   }  
 
   private def makeState(namespace : Namespace, parentNamespaces : Set[Namespace], aliases : Aliases) : State = {
@@ -247,7 +247,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
       if (!completedStates(p).isDefined) throw new RuntimeException("makeState: parent " + p + " has not been compiled yet")
     }
     val context = kernel.createNewNamespace(namespace, parentNamespaces, aliases)
-    new State(context, None, State.emptyEnv, Collect.Zero, false)
+    new State(context.namespace, context, None, State.emptyEnv, Collect.Zero, false)
   } 
 
   private final val MAX_TRACE_LENGTH = 1000
@@ -271,7 +271,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
     def dumpOutput() {
       executionEnvironment.storeOutput(thy.compileKey, output.export())
     }
-    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, programTypeResolution, thy.aliases, thy.namespace, output)
+    val evaluator = new Eval(completedStates _, kernel, programNamespaceResolution, programTypeResolution, output)
     val state : State = 
       if (thy.namespace == Kernel.root_namespace) 
         rootState
@@ -311,7 +311,7 @@ class Interpreter(executionEnvironment : ExecutionEnvironment) {
           false
         } else {
           val completed = kernel.completeNamespace(state.context)
-          val completedState = new State(completed, None, state.env.freeze, Collect.Zero, false)
+          val completedState = new State(completed.namespace, completed, None, state.env.freeze, Collect.Zero, false)
           executionEnvironment.finishedCompiling(thy.namespace, completedState) 
           true 
         }

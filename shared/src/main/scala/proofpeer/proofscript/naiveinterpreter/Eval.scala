@@ -48,7 +48,7 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
 	scriptTyperesolution : NamespaceResolution[String],
-	val aliases : Aliases, namespace : Namespace, output : Output) 
+	/*val aliases : Aliases, namespace : Namespace,*/ output : Output) 
 {
 
 	import proofpeer.general.continuation._
@@ -308,7 +308,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					evalExpr[T](state.freeze, expr,  {
 						case f : Failed[_] => cont(fail(f)) 
 						case Success(value, _) => 
-							val (ns, span) = locationOf(st)
+							val (ns, span) = locationOf(state, st)
 							output.add(ns, span, OutputKind.SHOW, display(state, value))
 							cont(success(state))
 					})
@@ -328,7 +328,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				case STFailure(block) =>
 					evalBlock[T](state.freeze.setCollect(Collect.emptyMultiple), block,  {
 						case f : Failed[_] => 
-							val (ns, span) = locationOf(st)
+							val (ns, span) = locationOf(state, st)
 							output.add(ns, span, OutputKind.FAILURE, f.error)
 							cont(success(state))
 						case Success(newState, _) =>
@@ -405,7 +405,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					nonlinear = nonlinear + (name -> f)
 					functions = functions + (name -> f)
 				}
-				val defstate = new State(state.context.spawnThread, Some(state.currentLiteralContext), 
+				val defstate = new State(state.toplevelNamespace, state.context.spawnThread, Some(state.currentLiteralContext), 
 					State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 				for ((_, f) <- functions) f.state = defstate
 				cont(success(state.bind(functions)))
@@ -435,7 +435,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						val error = "type is already defined: " + dcase.typename
 						return cont(fail(dcase, error))
 					}
-					val customtype = CustomType(namespace, dcase.typename)
+					val customtype = CustomType(state.toplevelNamespace, dcase.typename)
 					localTypes = localTypes + (dcase.typename -> customtype)
 					var cases : Map[String, Option[Pattern]] = Map()
 					for (c <- dcase.constrs) {
@@ -459,7 +459,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}
 				val types = state.env.types ++ localTypes
 				val nonlinear = bindings ++ constructors 
-				val typestate = new State(state.context.spawnThread, Some(state.currentLiteralContext), State.Env(types, nonlinear, Map()), Collect.Zero, false)
+				val typestate = new State(state.toplevelNamespace, state.context.spawnThread, Some(state.currentLiteralContext), 
+					State.Env(types, nonlinear, Map()), Collect.Zero, false)
 				for ((_, customtype) <- localTypes) customtype.state = typestate
 				cont(success(state.bindTypes(localTypes, constructors)))
 		}
@@ -932,7 +933,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			state.lookup(name) match {
 				case Some(v) => values = values + (name -> v)
 				case None =>
-					lookupVar(null, state, false, namespace, name) match {
+					lookupVar(null, state, false, state.toplevelNamespace, name) match {
 						case Success(v, _) => values = values + (name -> v)
 						case _ => notfound = notfound + name
 					}
@@ -1067,15 +1068,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		namespaceOpt match {
 			case None =>
 				state.lookup(name) match {
-					case None => lookupVar(location, state, false, namespace, name)
+					case None => lookupVar(location, state, false, state.toplevelNamespace, name)
 					case Some(v) => success(v)
 				}
 			case Some(_ns) =>
+				val aliases = kernel.aliasesOfNamespace(state.toplevelNamespace).get
 				val ns = aliases.resolve(_ns)
-				if (scriptNameresolution.ancestorNamespaces(namespace).contains(ns))
+				if (scriptNameresolution.ancestorNamespaces(state.toplevelNamespace).contains(ns))
 					lookupVar(location, state, true, ns, name)
 				else 
-					fail(location, "unknown or inaccessible namespace: "+ns)			
+					fail(location, "unknown or incomplete namespace: "+ns)			
 		}
 	}
 
@@ -1247,7 +1249,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							for (x <- notFound) error = error + " " + x
 							cont(fail(f, error))
 						case Left(nonlinear) =>
-							val funstate = new State(state.context.spawnThread, Some(state.currentLiteralContext),
+							val funstate = new State(state.toplevelNamespace, state.context.spawnThread, Some(state.currentLiteralContext),
 								State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 							cont(success(SimpleFunctionValue(funstate, f)))
 					}
@@ -1496,9 +1498,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def locationOf(t : TracksSourcePosition) : (Namespace, Option[Span]) = {
+	def locationOf(state : State, t : TracksSourcePosition) : (Namespace, Option[Span]) = {
 		if (t == null || t.sourcePosition == null)
-			(namespace, None)
+			(state.toplevelNamespace, None)
 		else 
 			(t.sourcePosition.source.namespace, t.sourcePosition.span)
 	}
@@ -1507,7 +1509,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		val startTime = System.currentTimeMillis
 		def reportTime() {
 			val stopTime = System.currentTimeMillis
-			val (ns, span) = locationOf(control)
+			val (ns, span) = locationOf(state, control)
 			output.addTiming(ns, span, stopTime - startTime)
 		}
 		val timingState = 
@@ -1834,11 +1836,12 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		if (ns.isEmpty) {
 			state.env.types.get(name) match {
 				case s : Some[CustomType] => s
-				case None => make(scriptTyperesolution.baseResolution(namespace)(name))
+				case None => make(scriptTyperesolution.baseResolution(state.toplevelNamespace)(name))
 			}
 		} else {
+			val aliases = kernel.aliasesOfNamespace(state.toplevelNamespace).get
 			val _ns = aliases.resolve(ns.get)
-			if (_ns == namespace) resolveCustomType(state, None, name)
+			if (_ns == state.toplevelNamespace) resolveCustomType(state, None, name)
 			else {
 				make(scriptTyperesolution.fullResolution(_ns)(name))
 			}

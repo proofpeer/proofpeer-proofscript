@@ -260,8 +260,6 @@ context
 
 
 # Both of these should never work but result in an error at compile time
-  Right now, the second one results in an error when called from Logic2,
-  and the first one works fine when called from Logic2.
   ----------------------------------------------------------------------
 
 def testProgramNamespace() = 
