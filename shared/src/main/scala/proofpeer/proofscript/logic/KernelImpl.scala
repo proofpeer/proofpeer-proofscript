@@ -579,7 +579,7 @@ private class KernelImpl(
     }
 
     def resolveLogicalName(name : Name) : Either[Name, Set[Namespace]] = {
-      def resolveQualifiedName(name : Name) : Either[Name, Set[Namespace]] = {
+      def resolveQualifiedName(name : Name, allowBaseResolution : Boolean) : Either[Name, Set[Namespace]] = {
         if (isPolyConst(name)) {
           val c = 
             name.name match {
@@ -591,7 +591,7 @@ private class KernelImpl(
           Left(c)
         } else if (typeOfConst(name).isDefined) {
           Left(name)
-        } else {
+        } else if (allowBaseResolution) {
           baseResolutionOfNamespace(name.namespace.get).get(name.name) match {
             case None => Right(Set())
             case Some(namespaces) =>
@@ -600,16 +600,18 @@ private class KernelImpl(
               else
                 Right(namespaces)
           }
+        } else {
+          Right(Set())
         }
       }
       if (name.namespace.isDefined) {
         val ns = aliasesOfNamespace(namespace).get.resolve(name.namespace.get)
-        resolveQualifiedName(Name(Some(ns), name.name))
+        resolveQualifiedName(Name(Some(ns), name.name), name.namespace.get != namespace)
       } else {
         if (typeOfConst(name).isDefined)
           Left(name)
         else 
-          resolveQualifiedName(Name(Some(namespace), name.name))
+          resolveQualifiedName(Name(Some(namespace), name.name), true)
       }
     }
 

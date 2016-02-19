@@ -5,6 +5,7 @@ extends Logic
 
 show sin
 show '\examples\Logic\sin'
+failure '\examples\Logic2\sin'
 
 assert sin == 'Logic\sin'
 
