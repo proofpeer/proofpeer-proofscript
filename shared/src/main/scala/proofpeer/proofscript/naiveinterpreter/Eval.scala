@@ -48,7 +48,7 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
 	scriptNameresolution : NamespaceResolution[String], 
 	scriptTyperesolution : NamespaceResolution[String],
-	/*val aliases : Aliases, namespace : Namespace,*/ output : Output) 
+	output : Output) 
 {
 
 	import proofpeer.general.continuation._
