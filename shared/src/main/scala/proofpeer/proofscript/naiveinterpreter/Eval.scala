@@ -401,11 +401,12 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						val error = "function names cannot start with uppercase letters: " + name
 						return cont(fail(stdef, error))						
 					}
-					val f = RecursiveFunctionValue(null, cs, if (stdef.memoize) Map() else null, inContext)
+					val f = RecursiveFunctionValue(null, cs, if (stdef.memoize) Map() else null, inContext.map(c => c.spawnThread))
 					nonlinear = nonlinear + (name -> f)
 					functions = functions + (name -> f)
 				}
-				val defstate = new State(state.context, State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
+				val defstate = new State(state.context.spawnThread, Some(state.currentLiteralContext), 
+					State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 				for ((_, f) <- functions) f.state = defstate
 				cont(success(state.bind(functions)))
 		}
@@ -458,7 +459,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				}
 				val types = state.env.types ++ localTypes
 				val nonlinear = bindings ++ constructors 
-				val typestate = new State(state.context, State.Env(types, nonlinear, Map()), Collect.Zero, false)
+				val typestate = new State(state.context.spawnThread, Some(state.currentLiteralContext), State.Env(types, nonlinear, Map()), Collect.Zero, false)
 				for ((_, customtype) <- localTypes) customtype.state = typestate
 				cont(success(state.bindTypes(localTypes, constructors)))
 		}
@@ -1246,7 +1247,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							for (x <- notFound) error = error + " " + x
 							cont(fail(f, error))
 						case Left(nonlinear) =>
-							val funstate = new State(state.context, State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
+							val funstate = new State(state.context.spawnThread, Some(state.currentLiteralContext),
+								State.Env(state.env.types, nonlinear, Map()), Collect.emptyOne, true)
 							cont(success(SimpleFunctionValue(funstate, f)))
 					}
 				case App(u, v) => evalApp(expr, state, u, v, cont)

@@ -292,9 +292,9 @@ final class BasicEnvSerializer(StateValueSerializer : Serializer[StateValue],
 
 final class BasicStateSerializer(ContextSerializer : Serializer[Context], EnvSerializer : Serializer[State.Env],
   CollectSerializer : Serializer[Collect]) extends TransformSerializer(
-  QuadrupleSerializer(ContextSerializer, EnvSerializer, CollectSerializer, BooleanSerializer),
-  (s : State) => (s.context, s.env, s.collect, s.canReturn),
-  (s : (Context, State.Env, Collect, Boolean)) => new State(s._1, s._2, s._3, s._4))
+  QuintupleSerializer(ContextSerializer, OptionSerializer(ContextSerializer), EnvSerializer, CollectSerializer, BooleanSerializer),
+  (s : State) => (s.context, s.literalContext, s.env, s.collect, s.canReturn),
+  (s : (Context, Option[Context], State.Env, Collect, Boolean)) => new State(s._1, s._2, s._3, s._4, s._5))
 
 final class CustomizableStateSerializer(store : UniquelyIdentifiableStore, val kernelSerializers : KernelSerializers) 
 extends NestedSerializer[State] 

@@ -239,7 +239,7 @@ object StateValue {
 
 object State {
 	def fromValue(value : StateValue) : State = 
-		new State(null, null, Collect.One(Some(value)), false)
+		new State(null, null, null, Collect.One(Some(value)), false)
 
 	case class StateValueRef(var value : StateValue)
 
@@ -291,57 +291,64 @@ object State {
 
 }
 
-class State(val context : Context, val env : State.Env, val collect : Collect, val canReturn : Boolean) extends UniquelyIdentifiable {
+class State(val context : Context, val literalContext : Option[Context], val env : State.Env, val collect : Collect, val canReturn : Boolean) extends UniquelyIdentifiable {
+
+	def currentLiteralContext : Context = {
+		literalContext match {
+			case None => context.spawnThread
+			case Some(c) => c
+		}
+	}
 
 	def lookup(id : String) : Option[StateValue] = env.lookup(id)
 
 	def assignables : Set[String] = env.linearIds
 
 	def bind(vs : Map[String, StateValue]) : State = {
-		new State(context, env.bind(vs), collect, canReturn)
+		new State(context, literalContext, env.bind(vs), collect, canReturn)
 	}
 
 	def bindTypes(types : Map[String, CustomType], constrs : Map[String, StateValue]) : State = {
-		new State(context, env.bindTypes(types, constrs), collect, canReturn)
+		new State(context, literalContext, env.bindTypes(types, constrs), collect, canReturn)
 	}
 
 	def rebind(vs : Map[String, StateValue]) : State = {
-		new State(context, env.rebind(vs), collect, canReturn)
+		new State(context, literalContext, env.rebind(vs), collect, canReturn)
 	}
 
 	def setCanReturn(cR : Boolean) : State = {
-		new State(context, env, collect, cR)
+		new State(context, literalContext, env, collect, cR)
 	}
 
 	def freeze : State = {
-		new State(context.spawnThread, env.freeze, collect, false)
+		new State(context.spawnThread, literalContext, env.freeze, collect, false)
 	}
 
 	def setContext(ctx : Context) : State = {
-		new State(ctx, env, collect, canReturn)
+		new State(ctx, literalContext, env, collect, canReturn)
 	}
 
 	def spawnThread : State = {
 		if (context.isMainThread)
-			new State(context.spawnThread, env, collect, canReturn)
+			new State(context.spawnThread, literalContext, env, collect, canReturn)
 		else
 			this 
 	}
 
 	def setCollect(c : Collect) : State = {
-		new State(context, env, c, canReturn)
+		new State(context, literalContext, env, c, canReturn)
 	}
 
 	def subsume(state : State) : State = {
-		new State(state.context, env, state.collect, canReturn)
+		new State(state.context, literalContext, env, state.collect, canReturn)
 	} 
 
 	def addToCollect(value : StateValue) : State = {
 		collect match {
 			case Collect.One(None) =>
-				new State(context, env, Collect.One(Some(value)), canReturn)
+				new State(context, literalContext, env, Collect.One(Some(value)), canReturn)
 			case Collect.Multiple(collector) =>
-				new State(context, env, Collect.Multiple(collector.add(value)), canReturn)
+				new State(context, literalContext, env, Collect.Multiple(collector.add(value)), canReturn)
 			case _ => 
 				throw new RuntimeException("internal error: wrong collector multiplicty")
 
