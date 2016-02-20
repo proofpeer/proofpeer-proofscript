@@ -372,16 +372,6 @@ object Preterm {
     PTmTerm(liftedTm.term, liftedTm.typeOf)
   }
 
-  private def translateTerm(tm : Term) : Preterm = {
-    tm match {
-      case c : Term.PolyConst => PTmName(c.name, Pretype.translate(KernelUtils.typeOfPolyConst(c).get))
-      case Term.Const(name) => PTmName(name, Pretype.PTyAny) 
-      case Term.Var(name) => PTmName(Name(None, name), Pretype.PTyAny) 
-      case Term.Comb(f, g) => PTmComb(translateTerm(f), translateTerm(g), Some(true), Pretype.PTyAny)
-      case Term.Abs(name, ty, body) => PTmAbs(name, Pretype.translate(ty), translateTerm(body), Pretype.PTyAny)
-    }
-  }
-
   def translate(context : TypingContext, tm : Preterm) : Term = {
   	tm match {
   		case PTmTyping(tm, ty) => 
