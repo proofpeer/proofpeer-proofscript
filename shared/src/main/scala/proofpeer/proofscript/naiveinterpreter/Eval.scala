@@ -46,8 +46,7 @@ case class Failed[T](var trace : List[(SourcePosition, SourceLabel)], error : St
 }
 
 class Eval(completedStates : Namespace => Option[State], kernel : Kernel, 
-	scriptNameresolution : NamespaceResolution[String], 
-	scriptTyperesolution : NamespaceResolution[String],
+	scriptNameresolution : NamespaceResolution[String], scriptTyperesolution : NamespaceResolution[String],
 	output : Output) 
 {
 

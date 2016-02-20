@@ -363,7 +363,7 @@ object Preterm {
   def translate(context : Context, tm : Term) : Preterm = {
     context.typeOfTerm(tm) match {
       case Some(ty) => PTmTerm(tm, ty)
-      case None => Utils.failwith("wrapTranslate: term cannot be type in given context")
+      case None => Utils.failwith("wrapTranslate: term cannot be typed in given context")
     }
   }
 
