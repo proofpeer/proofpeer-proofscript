@@ -136,6 +136,8 @@ object Syntax {
   import Preterm._
   import Pretype._
 
+  val SPACES_PER_TAB = 2
+
   def lex(terminal : String, expr : RegularExpr, prio : Option[Int] = None) : Grammar = 
     proofpeer.indent.rule(terminal, expr, prio, "\\root")
    
@@ -429,7 +431,7 @@ val g_Pattern_term =
     g_Pattern_term
 
   def parsePreterm(input : String) : Option[Preterm] = {
-    val d = Document.fromString(input, Some(2))
+    val d = Document.fromString(input, Some(SPACES_PER_TAB))
     proofpeer.proofscript.frontend.Parser.earleyParser.parse(d, "ValueTerm") match {
       case Left(parsetree) if !parsetree.hasAmbiguities => 
         val preterm = parsetree.getValue[Preterm]
@@ -439,7 +441,7 @@ val g_Pattern_term =
   } 
 
   def parsePretype(input : String) : Option[Pretype] = {
-    val d = Document.fromString(input, Some(2))
+    val d = Document.fromString(input, Some(SPACES_PER_TAB))
     proofpeer.proofscript.frontend.Parser.earleyParser.parse(d, "ValueType") match {
       case Left(parsetree) if !parsetree.hasAmbiguities => 
         val pretype = parsetree.getValue[Pretype]
@@ -643,6 +645,5 @@ val g_Pattern_term =
   {
     context.certify(parseTerm(context, s))
   }
-
      
 }
