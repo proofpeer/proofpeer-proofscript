@@ -89,7 +89,7 @@ private def preterm2HOP(typingContext : Preterm.TypingContext, preterm : Preterm
     case q @ PTmQuote(_, ty) =>
       val id : Integer = quotes.size
       (MetaVar(id, ty), quotes + (id -> q))
-    case tm : PTmTerm => (term2HOP(typingContext.context, tm.tm), quotes)
+    case tm : PTmTerm => (term2HOP(typingContext.targetContext, tm.tm), quotes)
     case _ => throw new RuntimeException("preterm2HOP: internal error")
   }
 }

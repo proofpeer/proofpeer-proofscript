@@ -78,6 +78,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	def fail[S,T](f : Failed[S]) : Failed[T] = Failed(f.trace, f.error)
 
+	/** Evaluates term and type quotes which contain expressions, but leaves pattern quotes alone. 
+	    Term quotes are evaluated in the current context, and stored within the term as PTmTerms. */
 	def evalLogicPreterm[T](_state : State, tm : Preterm, cont : RC[Preterm, T]) : Thunk[T] = 
 	{
 		val state = _state.freeze
@@ -92,7 +94,12 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						case Success(s : StringValue, _) =>
 							Syntax.parsePreterm(s.toString) match {
 								case None => cont(Right(fail(expr, "parse error")))
-								case Some(preterm) => cont(Left(preterm))
+								case Some(preterm) => 
+									val typingContext = Preterm.obtainTypingContext(state.context, state.context)
+									Preterm.inferCTerm(typingContext, preterm) match {
+										case Left(t) => cont(Left(Preterm.translate(state.context, t)))
+										case _ => cont(Left(preterm))
+									}
 							}
 						case Success(v, _) => cont(Right(fail(expr, "term value expected, found: " + display(state, v))))
 					})    	
@@ -104,8 +111,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
-	def resolvePreterm(context : Context, preterm : Preterm) : Result[CTerm] = {
-		val typingContext = Preterm.obtainTypingContext(context)
+	def resolvePreterm(state : State, preterm : Preterm) : Result[CTerm] = {
+		val typingContext = Preterm.obtainTypingContext(state.currentLiteralContext, state.context)
 		Preterm.inferCTerm(typingContext, preterm) match {
 			case Left(tm) => success(tm)
 			case Right(errors) => 
@@ -118,7 +125,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def evalLogicTerm[T](state : State, tm : LogicTerm, cont : RC[CTerm, T]) : Thunk[T] = {
 		evalLogicPreterm[T](state, tm.tm, {
 			case failed : Failed[_] => cont(fail(failed))
-			case Success(preterm, _) => cont(resolvePreterm(state.context, preterm))
+			case Success(preterm, _) => cont(resolvePreterm(state, preterm))
 		})
 	} 
 
@@ -197,11 +204,6 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case _ => 
 				evalExpr[T](state.freeze, expr, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success(s : StringValue, _) =>
-						Syntax.parsePreterm(s.toString) match {
-							case None => cont(fail(expr, "parse error"))
-							case Some(preterm) => cont(success(preterm))
-						}
 					case Success(v, _) => cont(fail(expr, "Preterm expected, found: "+display(state, v)))
 				})
 		}
@@ -769,7 +771,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			}
 		var rightHandSide = _rightHandSide
 		for (ty <- tys) rightHandSide = Preterm.PTmTyping(rightHandSide, ty)
-		resolvePreterm(state.context, rightHandSide) match {
+		resolvePreterm(state, rightHandSide) match {
 			case failed : Failed[_] => fail(st, "let def: ")
 			case Success(tm, _) =>	
 				try {
@@ -1703,7 +1705,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						val optTerm = state.context.autolift(term_)
 						if (optTerm.isEmpty) return cont(fail(pat, "cannot automatically lift term into context: " + display(state, TermValue(term_))))
 						val term = optTerm.get
-						val tc = Preterm.obtainTypingContext(state.context)
+						val tc = Preterm.obtainTypingContext(state.currentLiteralContext, state.context)
 						val (preterm, typeQuotes, typesOfTypeQuotes) = 
 							Preterm.inferPattern(tc, _preterm) match {
 								case Left(result) => result

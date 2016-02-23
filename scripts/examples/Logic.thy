@@ -26,9 +26,9 @@ context
 context
   failure term (fresh "x")
   theorem t: '∀ a b c p. p → p'
-    let (fresh "x")
-    let (fresh "x")
-    let (fresh "x")
+    let '‹fresh "x"›'
+    let '‹fresh "x"›'
+    let '‹fresh "x"›'
     let p: '‹fresh "p"› : ℙ'
     assert p == 'p : ℙ'
     assume p
@@ -252,9 +252,7 @@ context
     let x2: 'empty'
     assert x1 <> x2
     val x3 = 'empty'
-    # once literal context is implemented, the next line should be
-      assert x3 == x1
-    assert x3 == x2
+    assert x3 == x1
     nil
   show mkSin()
 

@@ -450,7 +450,7 @@ object Preterm {
   		inferTypes1(context, t, typeVars) match {
   			case None => return None
   			case Some((s, vars)) =>
-  				if (s == t) return Some((t, typeVars))
+          if (s == t) return Some((t, typeVars))
   				t = s
           typeVars = vars
   		}
@@ -496,7 +496,7 @@ object Preterm {
 
   def inferCTerm(context : TypingContext, term : Preterm) : Either[CTerm, List[PTmError]] = {
     inferPreterm(context, term) match {
-      case Left(t) => Left(context.context.certify(translate(context, t)))
+      case Left(t) => Left(context.targetContext.certify(translate(context, t)))
       case Right(errors) => Right(errors)
     }
   }
@@ -578,14 +578,15 @@ object Preterm {
   	def lookup(name : Name) : Option[Pretype] // returns None for polymorphic constants!
   	def resolve(name : Name, ty : Pretype) : Option[Term] // returns None for polymorphic constants!
   	def addVar(name : IndexedName, ty : Pretype) : TypingContext
-    def context : Context
+    def literalContext : Context
+    def targetContext : Context
   }
 
-  def obtainTypingContext(context : Context) : TypingContext = {
-  	new TC(context, List())
+  def obtainTypingContext(literalContext : Context, targetContext : Context) : TypingContext = {
+  	new TC(literalContext, targetContext, List())
   }
 
-  private class TC(val context : Context, vars : List[(IndexedName, Pretype)]) 
+  private class TC(val literalContext : Context, val targetContext : Context, vars : List[(IndexedName, Pretype)]) 
   	extends TypingContext 
   {
   	private def polyTypeOf(name : Name, fresh : Integer) : Option[Pretype] = {
@@ -599,14 +600,14 @@ object Preterm {
   	}
   	private def lookupName(_name : Name, fresh : Integer) : Option[(Name, Pretype, Integer, Boolean)] = {
       val name =
-        context.resolveLogicalName(_name) match {
+        literalContext.resolveLogicalName(_name) match {
           case Left(name) => name
           case Right(_) => return None
         }
   		polyTypeOf(name, fresh) match {
   			case Some(ty) => Some((name, ty, fresh + 1, false))
   			case None => 
-  				context.typeOfConst(name) match {
+  				literalContext.typeOfConst(name) match {
   					case None => None
   					case Some(ty) => Some((name, Pretype.translate(ty), fresh, false))
   				}
@@ -663,7 +664,7 @@ object Preterm {
 			} else resolveConst(name, ty)
   	}
   	def addVar(x : IndexedName, ty : Pretype) : TypingContext = {
-  		new TC(context, (x, ty)::vars)
+  		new TC(literalContext, targetContext, (x, ty)::vars)
   	}
   }
 }

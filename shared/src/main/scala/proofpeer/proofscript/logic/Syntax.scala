@@ -632,7 +632,7 @@ val g_Pattern_term =
     parsePreterm(s) match {
       case None => Utils.failwith("cannot parse as preterm: '"+s+"'")
       case Some(ptm) => 
-        val typingContext = Preterm.obtainTypingContext(context)
+        val typingContext = Preterm.obtainTypingContext(context, context)
         Preterm.inferTerm(typingContext, ptm) match {
           case Left(tm) => tm
           case Right(errors) =>

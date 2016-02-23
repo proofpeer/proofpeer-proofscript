@@ -21,7 +21,7 @@ context
 context
   failure 'x'
   val x = "x"
-  let x
+  let '‹x›'
   assert 'x' == 'x : 𝒰'
 
 context

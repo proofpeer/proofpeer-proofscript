@@ -296,7 +296,7 @@ class State(val toplevelNamespace : Namespace, val context : Context, val litera
 
 	def currentLiteralContext : Context = {
 		literalContext match {
-			case None => context.spawnThread
+			case None => context
 			case Some(c) => c
 		}
 	}

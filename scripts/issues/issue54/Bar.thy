@@ -11,7 +11,11 @@ assert checkTypeHere ': 𝒰'
 
 let 'someEntity : ℙ'
 
-assert checkType ': ℙ'
+def checkType2 (ty : Type) : Boolean = 
+  'someEntity' == 'someEntity : ‹ty›'
+
+assert checkType2 ': ℙ'
+assert checkType ': 𝒰'
 assert checkTypeHere ': 𝒰'
 
 
