@@ -40,6 +40,8 @@ show x => x * x
 # here we apply this function literal to 7
 show (x => x * x) 7
 
+assert ((x, y) => x * y)(5, 6) == 30
+
 # This is a set literal
 show {1, 2, 9, 3}
 
@@ -133,7 +135,7 @@ assert "h" <+ ["e", "l", "l"] +> "o" == ["h", "e", "l", "l", "o"]
 # For sets and maps, you can also remove sets of elements / keys:
 assert {1 -> 2, 2 -> 1} -- {2} == {1 -> 2}
 assert {1, 2} -- {2} == {1}
-assert {1 -> 2, 2 -> 1, 3 -> 5} -- {1, 2} == {3 -> 5}
+assert {1 -> 2, 2 -> 1, 3 -> 5} -- {1, 2} == {3 -> 5} == {3 → 5}
 assert {1, 2, 3} -- {1, 2} == {3}
 
 # You can create ranges of integers like that:

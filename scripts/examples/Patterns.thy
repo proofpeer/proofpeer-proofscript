@@ -171,5 +171,16 @@ assert h 1 == 1
 assert h "hello" == "hello"
 failure h ': 𝒰'
 
+def fleq (x <+ _ +> y) if x == y = true
+assert fleq (1, 2, 1)
+failure fleq 1
+assert fleq (1, 1)
+failure fleq [1]
+assert fleq (1, 2, 3, 1)
+failure fleq (1, 2, 3, 4) 
+
+
+
+
 
 
