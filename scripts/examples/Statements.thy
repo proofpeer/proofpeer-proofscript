@@ -19,6 +19,25 @@ do
       x + 2
   assert y == [10, 11, 12]
 
+do
+  val result1 = 
+    do*
+      val (x, y, z) = (1, 2, 3)
+      x
+      -y
+      z
+
+  val result2 = 
+    do*
+      val (x, y, z) = (1, 2, 3)
+      x
+        -y
+      z
+  
+  assert result1 == (1, -2, 3) 
+  assert result2 == (-1, 3)
+
+
 
 # if
   -------------------------------
@@ -57,6 +76,18 @@ assert gcd (54, 24) == 6
 assert gcd (-54, -24) == 6
 assert gcd (54, 25) == 1
 
+def ggt (a, b) =
+  if a < 0 then ggt (-a, b)
+  else 
+    if b < 0 then ggt (a, -b)
+    else 
+      if b == 0 then a
+      else ggt (b, a mod b)
+
+assert ggt (54, 24) == 6
+assert ggt (-54, -24) == 6
+assert ggt (54, 25) == 1
+assert ggt (0, 0) == 0
 
 # for
   -------------------------------

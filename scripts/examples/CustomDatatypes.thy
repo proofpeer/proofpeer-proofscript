@@ -111,5 +111,8 @@ failure Cons == (x => Cons x)
 failure (x => Cons x) == Cons
 assert Cons <> 1
 
+datatype Test
+  Hey
+
 
 
