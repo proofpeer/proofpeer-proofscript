@@ -115,17 +115,12 @@ trait Context extends UniquelyIdentifiable {
   // The new context can be obtained from the theorem.
   def assume(assumption : CTerm) : Theorem
 
-  def assume(assumption : Term) : Theorem = assume(certify(assumption))
-
   def hasAssumptions : Boolean
   
   // Defines a new constant. 
   // The name must either have no namespace, or it must be equal to the current namespace.
   // The name can only have a namespace if this context is on the main thread.
   def define(const_name : Name, tm : CTerm) : Theorem 
-
-  def define(const_name : Name, tm : Term) : Theorem =
-    define(const_name, certify(tm))
   
   // Defines a new constant for which a given property holds. 
   // The property is given in the shape of an existential theorem.
@@ -151,7 +146,7 @@ trait Context extends UniquelyIdentifiable {
 
   def normalize(a : CTerm) : Theorem
 
-  // Assuming that thm and prop are alpha-equivalent, returns a theorem with prop as proposition
+  // Assuming that thm and prop are alpha/beta/eta-equivalent, returns a theorem with prop as proposition
   def normalize(thm : Theorem, prop : CTerm) : Theorem 
   
   // Creates a new constant name which is fresh for this context and resembles the given name

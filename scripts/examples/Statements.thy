@@ -37,6 +37,31 @@ do
   assert result1 == (1, -2, 3) 
   assert result2 == (-1, 3)
 
+do
+  val result = 
+    do*
+      val x = 10
+      def f x = 
+        do* 
+          x + 1
+          x = x * x
+          x * x
+      f x
+  assert result == [(11, 10000)]
+
+do
+  val result = 
+    do*
+      val x = 10
+      def f x = 
+        do* 
+          x + 1
+      x = x * x
+      x * x
+      f x
+  assert result == (10000, [101])
+
+
 
 
 # if
