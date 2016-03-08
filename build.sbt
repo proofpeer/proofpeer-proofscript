@@ -1,10 +1,10 @@
-lazy val root = project.in(file(".")).aggregate(fooJS, fooJVM).
+lazy val root = project.in(file(".")).aggregate(proofscriptJS, proofscriptJVM).
   settings(
     publish := {},
     publishLocal := {}
   )
 
-lazy val foo = crossProject.in(file(".")).
+lazy val proofscript = crossProject.in(file(".")).
   settings(
     name := "ProofPeer ProofScript",
     organization := "net.proofpeer",
@@ -25,5 +25,5 @@ lazy val foo = crossProject.in(file(".")).
     libraryDependencies += "com.github.japgolly.fork.scalaz" %%% "scalaz-core" % "7.1.3"
   )
 
-lazy val fooJS = foo.js
-lazy val fooJVM = foo.jvm
+lazy val proofscriptJS = proofscript.js
+lazy val proofscriptJVM = proofscript.jvm
