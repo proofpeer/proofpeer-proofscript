@@ -72,7 +72,8 @@ def g_literals =
   lex("QuestionMark", char('?')) ++
   lex("ExclamationMark", char('!')) ++
   lex("SquareBracketOpen", char('[')) ++
-  lex("SquareBracketClose", char(']')) ++
+  lex("SquareBracketClose", char(']')) ++ 
+  lex("ScriptMapsTo", ALT(char(0x21A6), string("=>"))) ++
   lex("DoubleArrow", ALT(char(0x21D2), string("=>"))) ++
   lex("SingleArrow", ALT(char(0x2192), string("->"))) ++
   lex("ScriptEq", string("==")) ++
@@ -326,7 +327,7 @@ val g_expr =
     c => UnaryOperation(annotateUnop(Destruct, c.span("ExclamationMark")), c.DestructExpr)) ++
   arule("LazyExpr", "OrExpr", _.OrExpr[Any]) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr)) ++ 
-  arule("FunExpr", "Pattern DoubleArrow Block", c => Fun(c.Pattern, c.Block)) ++
+  arule("FunExpr", "Pattern ScriptMapsTo Block", c => Fun(c.Pattern, c.Block)) ++
   arule("TypedExpr", "LazyExpr Colon ScriptValueType", c => TypeCast(c.LazyExpr, c.ScriptValueType)) ++
   arule("TypedExpr", "LazyExpr", _.LazyExpr[Any]) ++
   arule("FunExpr", "TypedExpr", _.TypedExpr[Any]) ++
