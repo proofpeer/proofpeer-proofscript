@@ -60,7 +60,7 @@ class ProofScriptParser {
 
   def parseFromSource(source : Source, prog : String, nonterminal : String = "Prog") : ParseResult = {
     currentSource = source
-    val document = Document.fromString(prog, Some(2))
+    val document = Document.fromString(prog, None)
     earleyParser.parse(document, nonterminal) match {
       case Right(i) => FailedParse(sourcepos(document, i, i))
       case Left(parsetree) =>
