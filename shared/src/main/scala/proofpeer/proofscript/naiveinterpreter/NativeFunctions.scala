@@ -26,6 +26,7 @@ object NativeFunctions {
       wrap("destcomb", destcomb),
       wrap("destabs", destabs),
       wrap("lift", lift),
+      wrap("liftstructurally", liftstructurally),
       wrap("callmetis", callmetis)
     )
 
@@ -212,13 +213,20 @@ object NativeFunctions {
     tm match {
       case TheoremValue(thm) => 
         Left(TheoremValue(ctx.lift(thm)))
-      case TupleValue(Vector(TheoremValue(thm), BoolValue(preserve_structure)),_) =>
-        Left(TheoremValue(ctx.lift(thm, preserve_structure)))
       case TermValue(tm) => 
         Left(TermValue(ctx.lift(tm)))
-      case TupleValue(Vector(TermValue(tm), BoolValue(preserve_structure)),_) =>
-        Left(TermValue(ctx.lift(tm, preserve_structure)))
-      case _ => Right("term/theorem or pair of term/theorem and boolean expected")
+      case _ => Right("term or theorem expected")
+    }
+  }
+
+  private def liftstructurally(eval : Eval, state : State, tm : StateValue) : Result = {
+    val ctx = state.context
+    tm match {
+      case TheoremValue(thm) => 
+        Left(TheoremValue(ctx.lift(thm, true)))
+      case TermValue(tm) => 
+        Left(TermValue(ctx.lift(tm, true)))
+      case _ => Right("term or theorem expected")
     }
   }
 

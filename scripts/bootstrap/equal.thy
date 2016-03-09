@@ -86,5 +86,5 @@ def
     val symthm
     context <ctx>
       symthm = gsym (instantiate (thm,x))
-    lift (symthm,true)
+    lift! symthm
   gsym thm = assertThm thm

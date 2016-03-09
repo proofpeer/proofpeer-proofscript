@@ -13,4 +13,4 @@ theorem '∀x. ⊤ = ⊤'
   val foo
   context <ctx>
     foo = reflexive '⊤'
-  lift (foo, true)
+  lift! foo

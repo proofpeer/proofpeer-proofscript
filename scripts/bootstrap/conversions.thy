@@ -113,7 +113,7 @@ def absConv conv =
         match cthm
           case nil  => nil
           case cthm =>
-            assertNotNil (abstract (lift (cthm,true)))
+            assertNotNil (abstract (lift! cthm))
       case _ => nil
 
 # Converts a term appearing as the left hand side of the given equation to the

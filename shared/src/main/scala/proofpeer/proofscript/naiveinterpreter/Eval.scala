@@ -1114,6 +1114,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 								case (Bang, c : ConstrAppliedValue) => cont(success(c.param))
 								case (Bang, NilValue) => cont(success(NilBangValue))
 								case (Bang, IntValue(i)) if i >= 0 => cont(success(IntValue(factorial(i))))
+								case (Bang, NativeFunctionValue(f)) if f.name == "lift" => 
+									cont(success(NativeFunctionValue(NativeFunctions.environment("liftstructurally"))))
 								case _ => cont(fail(op, "unary operator "+op+" cannot be applied to: "+display(state, value)))
 							}
 						case f => cont(f)
