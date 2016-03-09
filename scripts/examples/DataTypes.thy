@@ -23,6 +23,10 @@ show false
 # These are some integer literals:
 show 42
 show -1
+assert 6! == 720
+assert 0! == 1
+assert -1! == -1
+failure (-1)!
 
 # These are a few strings,
   some of them contain unicode characters specified
