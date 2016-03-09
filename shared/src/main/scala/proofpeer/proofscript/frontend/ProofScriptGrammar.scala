@@ -320,11 +320,11 @@ val g_expr =
       c => BinaryOperation(annotateBinop(Mod, c.span("Mod")), c.MultExpr, c.BasicExpr)) ++
   arule("MultExpr", "BasicExpr", _.BasicExpr[Any]) ++
   arule("BasicExpr", "AppExpr", _.AppExpr[Any]) ++
-  arule("AppExpr", "DestructExpr", _.DestructExpr[Any]) ++
-  arule("AppExpr", "AppExpr DestructExpr", c => App(c.AppExpr, c.DestructExpr)) ++
-  arule("DestructExpr", "PrimitiveExpr", _.PrimitiveExpr[Any]) ++
-  arule("DestructExpr", "ExclamationMark DestructExpr", 
-    c => UnaryOperation(annotateUnop(Destruct, c.span("ExclamationMark")), c.DestructExpr)) ++
+  arule("AppExpr", "BangExpr", _.BangExpr[Any]) ++
+  arule("AppExpr", "AppExpr BangExpr", c => App(c.AppExpr, c.BangExpr)) ++
+  arule("BangExpr", "PrimitiveExpr", _.PrimitiveExpr[Any]) ++
+  arule("BangExpr", "BangExpr ExclamationMark", 
+    c => UnaryOperation(annotateUnop(Bang, c.span("ExclamationMark")), c.BangExpr)) ++
   arule("LazyExpr", "OrExpr", _.OrExpr[Any]) ++
   arule("LazyExpr", "Lazy LazyExpr", c => Lazy(c.LazyExpr)) ++ 
   arule("FunExpr", "Pattern ScriptMapsTo Block", c => Fun(c.Pattern, c.Block)) ++
@@ -476,6 +476,7 @@ val g_controlflow =
 val g_pattern = 
   arule("AtomicPattern", "Underscore", c => PAny) ++
   arule("AtomicPattern", "Nil", c => PNil) ++
+  arule("AtomicPattern", "Nil ExclamationMark", c => PNilBang) ++  
   arule("AtomicPattern", "Name", c => mkNamePattern(c.text("Name"), None)) ++  
   arule("AtomicPattern", "Int", c => PInt(c.Int[Integer].value)) ++
   arule("AtomicPattern", "QuotationMark_1 StringLiteral QuotationMark_2", 
@@ -680,12 +681,12 @@ val g_choose =
 
 val g_theorem = 
   arule("TheoremOptAssign", "Theorem OptAssign", CS.Indent("Theorem", "OptAssign"), c => c.OptAssign[Any]) ++
-  arule("ST", "TheoremOptAssign PrimitiveExpr Block",
+  arule("ST", "TheoremOptAssign BangExpr Block",
     CS.and(
-      CS.Indent("TheoremOptAssign", "PrimitiveExpr"),
+      CS.Indent("TheoremOptAssign", "BangExpr"),
       CS.Indent("TheoremOptAssign", "Block")),
     c => STTheorem(c.TheoremOptAssign,
-                   c.PrimitiveExpr,
+                   c.BangExpr,
                    c.Block)) ++
   arule("ST", "TheoremOptAssign Block",
     CS.and(

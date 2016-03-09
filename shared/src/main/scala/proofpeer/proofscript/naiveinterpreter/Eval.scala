@@ -191,7 +191,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							fail(expr, "parse error: " + ex.reason)	
 					})
 			case Success(NilValue, _) => cont(success(Right(Left(false))))
-			case Success(BoolValue(b), _) => cont(success(Right(Left(b))))
+			case Success(NilBangValue, _) => cont(success(Right(Left(true))))
 			case Success(TheoremValue(t), _) => cont(success(Right(Right(t))))
 			case Success(v, _) => cont(fail(expr, "Term expected, found: "+display(state, v)))
 		})		
@@ -804,6 +804,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def cmp(state : State, x : StateValue, y : StateValue) : Option[CmpResult] = {
 		(x, y) match {
 			case (NilValue, NilValue) => Some(IsEq)
+			case (NilBangValue, NilBangValue) => Some(IsEq)	
+			case (NilValue, NilBangValue) => Some(IsNEq)
+			case (NilBangValue, NilValue) => Some(IsNEq)
 			case (IntValue(x), IntValue(y)) => 
 				if (x < y) Some(IsLess) 
 				else if (x > y) Some(IsGreater)
@@ -1081,6 +1084,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
+	private def factorial(i : BigInt) : BigInt = {
+		var result : BigInt = 1
+		var j : BigInt = i
+		while (j > 0) {
+			result *= j
+			j = j - 1
+		}
+		result
+	}
+
 	def evalExpr[T](state : State, expr : Expr,  _cont : RC[StateValue, T]) : Thunk[T] = {
 		try {
 			val cont : RC[StateValue, T] = protectOverflowCont(_cont)
@@ -1098,7 +1111,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 							(op, value) match {
 								case (Not, BoolValue(b)) => cont(success(BoolValue(!b)))
 								case (Neg, IntValue(i)) => cont(success(IntValue(-i)))
-								case (Destruct, c : ConstrAppliedValue) => cont(success(c.param))
+								case (Bang, c : ConstrAppliedValue) => cont(success(c.param))
+								case (Bang, NilValue) => cont(success(NilBangValue))
+								case (Bang, IntValue(i)) if i >= 0 => cont(success(IntValue(factorial(i))))
 								case _ => cont(fail(op, "unary operator "+op+" cannot be applied to: "+display(state, value)))
 							}
 						case f => cont(f)
@@ -1560,6 +1575,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case NilValue => cont(success(Some(matchings)))
 					case _ => cont(success(None))
 				}
+			case PNilBang =>
+				value match {
+					case NilBangValue => cont(success(Some(matchings)))
+					case _ => cont(success(None))
+				}			
 			case PId(name) => 
 				matchings.get(name) match {
 					case None => cont(success(Some(matchings + (name -> value))))
@@ -1795,6 +1815,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		(value, valuetype) match {
 			case (_, TyAny) => Left(true)
 			case (NilValue, TyNil) => Left(true)
+			case (NilBangValue, TyNil) => Left(true)			
 			case (NilValue, TyOption(_)) => Left(true)
 			case (value, TyOption(vty)) => matchValueType(state, value, vty)
 			case (value, TyUnion(vty1, vty2)) => 
@@ -1892,6 +1913,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		(value, valuetype) match {
 			case (_, TyAny) => Some(value)
 			case (NilValue, TyNil) => Some(value)
+			case (NilBangValue, TyNil) => Some(value)
 			case (NilValue, TyOption(_)) => Some(value)
 			case (value, TyOption(vty)) => convertValueType(state, value, vty)
 			case (value, TyUnion(vty1, vty2)) =>

@@ -76,6 +76,7 @@ extends Serializer[TracksSourcePosition]
   private object DatatypeConstrSerializer extends PTSerializer[DatatypeConstr]
   private object DatatypeCaseSerializer extends PTSerializer[DatatypeCase]
 
+
   private object ParseTreeSerializerBase extends CaseClassSerializerBase[TracksSourcePosition] {
 
     object Kind {
@@ -108,7 +109,7 @@ extends Serializer[TracksSourcePosition]
       val CONTEXTCONTROL = -13
       val NEG = 14
       val NOT = -14
-      val DESTRUCT = 15
+      val BANG = 15
       val RANGETO = -15
       val RANGEDOWNTO = 16
       val ADD = -16
@@ -141,49 +142,50 @@ extends Serializer[TracksSourcePosition]
       val PIF = 30
       val PAS = -30
       val PNIL = 31
-      val PTYPE = -31
-      val PCONSTR = 32
-      val PDESTRUCT = -32
-      val TYANY = 33
-      val TYNIL = -33
-      val TYCONTEXT = 34
-      val TYTHEOREM = -34
-      val TYTERM = 35
-      val TYTYPE = -35
-      val TYBOOLEAN = 36
-      val TYINTEGER = -36
-      val TYFUNCTION = 37
-      val TYSTRING = -37
-      val TYTUPLE = 38
-      val TYMAP = -38
-      val TYSET = 39
-      val TYOPTION = -39
-      val TYUNION = 40
-      val TYCUSTOM = -40
-      val COMMENT = 41
-      val STCOMMENT = -41
-      val STEXPR = 42
-      val STCONTROLFLOW = -42
-      val STSHOW = 43
-      val STFAIL = -43
-      val STASSERT = 44
-      val STFAILURE = -44
-      val STVAL = 45
-      val STVALINTRO = -45
-      val STASSIGN = 46
-      val STDEF = -46
-      val DEFCASE = 47
-      val DATATYPECONSTR = -47
-      val DATATYPECASE = 48
-      val STDATATYPE = -48
-      val STRETURN = 49
-      val STASSUME = -49
-      val STLET = 50
-      val STCHOOSE = -50
-      val STTHEOREM = 51
-      val STTHEOREMBY = -51
-      val STTHEORY = 52
-      val BLOCK = -52
+      val PNILBANG = -31
+      val PTYPE = 32
+      val PCONSTR = -32
+      val PDESTRUCT = 33
+      val TYANY = -33
+      val TYNIL = 34
+      val TYCONTEXT = -34
+      val TYTHEOREM = 35
+      val TYTERM = -35
+      val TYTYPE = 36
+      val TYBOOLEAN = -36
+      val TYINTEGER = 37
+      val TYFUNCTION = -37
+      val TYSTRING = 38
+      val TYTUPLE = -38
+      val TYMAP = 39
+      val TYSET = -39
+      val TYOPTION = 40
+      val TYUNION = -40
+      val TYCUSTOM = 41
+      val COMMENT = -41
+      val STCOMMENT = 42
+      val STEXPR = -42
+      val STCONTROLFLOW = 43
+      val STSHOW = -43
+      val STFAIL = 44
+      val STASSERT = -44
+      val STFAILURE = 45
+      val STVAL = -45
+      val STVALINTRO = 46
+      val STASSIGN = -46
+      val STDEF = 47
+      val DEFCASE = -47
+      val DATATYPECONSTR = 48
+      val DATATYPECASE = -48
+      val STDATATYPE = 49
+      val STRETURN = -49
+      val STASSUME = 50
+      val STLET = -50
+      val STCHOOSE = 51
+      val STTHEOREM = -51
+      val STTHEOREMBY = 52
+      val STTHEORY = -52
+      val BLOCK = 53
     }
 
     object Serializers {
@@ -316,8 +318,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.NEG, None)
         case Not =>
           (Kind.NOT, None)
-        case Destruct =>
-          (Kind.DESTRUCT, None)
+        case Bang =>
+          (Kind.BANG, None)
         case RangeTo =>
           (Kind.RANGETO, None)
         case RangeDownto =>
@@ -382,6 +384,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.PAS, Some(Serializers.PAS.serialize(PAs.unapply(t).get)))
         case PNil =>
           (Kind.PNIL, None)
+        case PNilBang =>
+          (Kind.PNILBANG, None)
         case t : PType =>
           (Kind.PTYPE, Some(Serializers.PTYPE.serialize(PType.unapply(t).get)))
         case t : PConstr =>
@@ -532,8 +536,8 @@ extends Serializer[TracksSourcePosition]
           Neg
         case Kind.NOT if args.isEmpty => 
           Not
-        case Kind.DESTRUCT if args.isEmpty => 
-          Destruct
+        case Kind.BANG if args.isEmpty => 
+          Bang
         case Kind.RANGETO if args.isEmpty => 
           RangeTo
         case Kind.RANGEDOWNTO if args.isEmpty => 
@@ -598,6 +602,8 @@ extends Serializer[TracksSourcePosition]
           PAs.tupled(Serializers.PAS.deserialize(args.get))
         case Kind.PNIL if args.isEmpty => 
           PNil
+        case Kind.PNILBANG if args.isEmpty => 
+          PNilBang
         case Kind.PTYPE if args.isDefined => 
           PType.tupled(Serializers.PTYPE.deserialize(args.get))
         case Kind.PCONSTR if args.isDefined => 
@@ -690,6 +696,7 @@ extends Serializer[TracksSourcePosition]
 
   }
 
+
   private def decodeInt(b : Any) : Int = {
     b match {
       case i : Int => i
@@ -760,7 +767,7 @@ object ParseTreeSerializerGenerator {
     ("ContextControl", "OptionSerializer(ExprSerializer)", "BlockSerializer"),
     "Neg",
     "Not",
-    "Destruct",
+    "Bang",
     "RangeTo",
     "RangeDownto",
     "Add",
@@ -793,6 +800,7 @@ object ParseTreeSerializerGenerator {
     ("PIf", "PatternSerializer", "ExprSerializer"),
     ("PAs", "PatternSerializer", "StringSerializer"),
     "PNil",
+    "PNilBang",
     ("PType", "PatternSerializer", "ValueTypeSerializer"),
     ("PConstr", "NameSerializer", "OptionSerializer(PatternSerializer)"),
     ("PDestruct", "StringSerializer", "PatternSerializer"),

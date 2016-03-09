@@ -125,7 +125,7 @@ def distribQuants tm =
 table skolemThm [a,b] =
   theorem '∀p. (∀x. ∃y. p x y) = (∃f: ‹a› → ‹b›. ∀x. p x (f x))'
     let p:'‹fresh "p"›:‹a› → ‹b› → ℙ'
-    theorem left: true
+    theorem left: nil!
       assume asm:'∀x. ∃y. ‹p› x y'
       choose '‹fresh "f"›' asm
     theorem right: '(∃f:‹a› → ‹b›. ∀x. ‹p› x (f x)) → (∀x. ∃y. ‹p› x y)'

@@ -24,7 +24,7 @@ def
   isLeapYear (Year year) = false
 
 def countDaysOfMonth (month : Month, leap : Boolean) = 
-  match !month
+  match month!
     case 1 => 31
     case 2 => if leap then 29 else 28
     case 3 => 31
@@ -48,7 +48,7 @@ do
   assert leapDays == 366
 
 def isValidDate (day : Day, month : Month, year : Year) : Boolean = 
-  !day <= countDaysOfMonth(month, isLeapYear year)
+  day! <= countDaysOfMonth(month, isLeapYear year)
   
 datatype Date
   Date dmy if isValidDate dmy
@@ -57,8 +57,8 @@ def mkDate (day : Integer, month : Integer, year : Integer) : Date =
   Date (Day day, Month month, Year year)
 
 def destDate (date : Date) = 
-  match !date
-    case (day, month, year) => (!day, !month, !year)
+  match date!
+    case (day, month, year) => (day!, month!, year!)
 
 def checkDate d = 
   val date = mkDate d

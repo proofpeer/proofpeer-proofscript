@@ -108,22 +108,23 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
 
     object Kind {
       val NILVALUE = 0
-      val CONTEXTVALUE = 1
-      val THEOREMVALUE = -1
-      val TERMVALUE = 2
-      val TYPEVALUE = -2
-      val BOOLVALUE = 3
-      val INTVALUE = -3
-      val SIMPLEFUNCTIONVALUE = 4
-      val RECURSIVEFUNCTIONVALUE = -4
-      val NATIVEFUNCTIONVALUE = 5
-      val STRINGVALUE = -5
-      val TUPLEVALUE = 6
-      val SETVALUE = -6
-      val MAPVALUE = 7
-      val CONSTRVALUE = -7
-      val CONSTRAPPLIEDVALUE = 8
-      val CONSTRUNAPPLIEDVALUE = -8
+      val NILBANGVALUE = 1
+      val CONTEXTVALUE = -1
+      val THEOREMVALUE = 2
+      val TERMVALUE = -2
+      val TYPEVALUE = 3
+      val BOOLVALUE = -3
+      val INTVALUE = 4
+      val SIMPLEFUNCTIONVALUE = -4
+      val RECURSIVEFUNCTIONVALUE = 5
+      val NATIVEFUNCTIONVALUE = -5
+      val STRINGVALUE = 6
+      val TUPLEVALUE = -6
+      val SETVALUE = 7
+      val MAPVALUE = -7
+      val CONSTRVALUE = 8
+      val CONSTRAPPLIEDVALUE = -8
+      val CONSTRUNAPPLIEDVALUE = 9
     }
 
     object Serializers {
@@ -149,6 +150,8 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       obj match {
         case NilValue =>
           (Kind.NILVALUE, None)
+        case NilBangValue =>
+          (Kind.NILBANGVALUE, None)
         case ContextValue(x) =>
           (Kind.CONTEXTVALUE, Some(Serializers.CONTEXTVALUE.serialize(x)))
         case TheoremValue(x) =>
@@ -189,6 +192,8 @@ extends NestedSerializer[StateValue] with CyclicSerializer[StateValue]
       kind match {
         case Kind.NILVALUE if args.isEmpty => 
           NilValue
+        case Kind.NILBANGVALUE if args.isEmpty => 
+          NilBangValue
         case Kind.CONTEXTVALUE if args.isDefined => 
           ContextValue(Serializers.CONTEXTVALUE.deserialize(args.get))
         case Kind.THEOREMVALUE if args.isDefined => 
@@ -321,6 +326,7 @@ object StateSerializerGenerator {
 
   val stateValueCases = Vector(
     "NilValue",
+    "NilBangValue",
     ("ContextValue", "ContextSerializer"),
     ("TheoremValue", "TheoremSerializer"),
     ("TermValue", "CTermSerializer"),

@@ -48,6 +48,9 @@ object Collect {
 case object NilValue extends StateValue {
 	def isComparable = true
 }
+case object NilBangValue extends StateValue {
+	def isComparable = true
+}
 case class ContextValue(value : Context) extends StateValue {
 	def isComparable = false
 }

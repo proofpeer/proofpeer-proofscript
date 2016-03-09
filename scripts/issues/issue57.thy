@@ -1,7 +1,7 @@
 theory issue57 extends \root
 
 def mkabs (ty, f) =
-  theorem eq: true
+  theorem eq: nil!
     val x = fresh "x"
     let x: '‹x› : ‹ty›'
     reflexive (f x)

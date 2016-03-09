@@ -177,7 +177,7 @@ object ParseTree {
   sealed trait UnaryOperator extends Operator 
   case object Neg extends UnaryOperator
   case object Not extends UnaryOperator
-  case object Destruct extends UnaryOperator
+  case object Bang extends UnaryOperator
 
   sealed trait BinaryOperator extends Operator
   case object RangeTo extends BinaryOperator
@@ -319,6 +319,10 @@ object ParseTree {
   }
 
   case object PNil extends Pattern {
+    protected def calcVars = (Set(), Set())
+  }
+
+  case object PNilBang extends Pattern {
     protected def calcVars = (Set(), Set())
   }
 

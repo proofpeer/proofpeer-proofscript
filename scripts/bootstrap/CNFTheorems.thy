@@ -180,12 +180,12 @@ choose anonymous: 'anonymous: 𝒰'
 theorem conjExistsAll: '∀P Q. ((∃x. P x) ∧ (∀x. Q x)) = (∃x. ∀y. P x ∧ Q y)'
   let 'P: 𝒰 → ℙ'
   let 'Q: 𝒰 → ℙ'
-  theorem left: true
+  theorem left: nil!
     assume asm:'(∃x. P x) ∧ (∀x. Q x)'
     val xIsP = choose 'x' (conjuncts asm 0)
     let 'y'
     andIntro [xIsP,instantiate (conjuncts asm 1,'y')]
-  theorem right: true
+  theorem right: nil!
     assume asm:'∃x. ∀y. P x ∧ Q y'
     theorem thereIsAP:
       val conj = choose 'x' asm
@@ -200,14 +200,14 @@ theorem conjExistsAll: '∀P Q. ((∃x. P x) ∧ (∀x. Q x)) = (∃x. ∀y. P x
 theorem disjExistsAll: '∀P Q. ((∃x. P x) ∨ (∀x. Q x)) = (∃x. ∀y. P x ∨ Q y)'
   let 'P: 𝒰 → ℙ'
   let 'Q: 𝒰 → ℙ'
-  theorem left: true
+  theorem left: nil!
     assume asm:'(∃x. P x) ∨ (∀x. Q x)'
-    theorem case1: true
+    theorem case1: nil!
       assume case:'∃x. P x'
       val thereIsAP = choose 'x' case
       let 'y:𝒰'
       orIntroL (thereIsAP, 'Q y')
-    theorem case2: true
+    theorem case2: nil!
       assume case:'∀x. Q x'
       let 'x = anonymous'
       let 'y'
@@ -236,7 +236,7 @@ theorem disjExistsAll: '∀P Q. ((∃x. P x) ∨ (∀x. Q x)) = (∃x. ∀y. P x
 theorem conjExists: '∀P Q. ((∃x. P x) ∧ (∃x. Q x)) = (∃x y. P x ∧ Q y)'
   let 'P:𝒰 → ℙ'
   let 'Q:𝒰 → ℙ'
-  theorem left: true
+  theorem left: nil!
     assume asm:'(∃x. P x) ∧ (∃x. Q x)'
     val aP = choose 'x' (conjuncts asm 0)
     val aQ = choose 'y' (conjuncts asm 1)

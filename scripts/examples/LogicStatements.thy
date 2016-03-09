@@ -132,7 +132,7 @@ context
     let 'a'
     p
   assert (t : Term) == '∀ p. p → p'
-  theorem t: true
+  theorem t: nil!
     let 'p : ℙ'
     assume p: 'p'
     let 'a'

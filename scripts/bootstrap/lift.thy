@@ -21,7 +21,7 @@ table<context> unfoldLetThm a =
 # TODO: This obviously needs a more general mechanism.
 theorem inductBool: '∀p. (p ⊤ ∧ p ⊥) = (∀b. p b)'
   let 'p:ℙ → ℙ'
-  theorem left: true
+  theorem left: nil!
     assume asm:'p ⊤ ∧ p ⊥'
     let 'b:ℙ'
     theorem bIsTrue:
