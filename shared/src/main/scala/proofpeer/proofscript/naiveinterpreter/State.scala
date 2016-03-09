@@ -181,6 +181,7 @@ object StateValue {
 	{
 		value match {
 			case NilValue => "nil"
+			case NilBangValue => "nil!"
 			case BoolValue(value) => if (value) "true" else "false"
 			case IntValue(value) => "" + value
 			case c : ConstrValue => c.name 

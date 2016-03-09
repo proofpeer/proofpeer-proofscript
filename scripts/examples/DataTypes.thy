@@ -3,6 +3,19 @@ theory DataTypes extends \root
 # This is the nil literal:
 show nil
 
+# And this is the nilbang value: 
+show nil!
+
+assert nil <> nil!
+assert nil == nil
+assert nil! == nil!
+
+assert match nil case x : Nil => x == nil
+assert match nil! case x : Nil => x == nil!
+assert match nil case x : Integer? => x == nil
+assert match nil! case x : Integer? => false case nil! => true 
+
+
 # These are the boolean literals:
 show true
 show false
@@ -179,3 +192,7 @@ assert ({->} : Tuple) == ()
 assert ({->} : Set) == {}
 assert ({1 -> 2} : Tuple) == [(1, 2)]
 assert ({1 -> 2, 5 -> 3} : Set) == {(1, 2), (5, 3)}
+assert (nil! : Nil) == nil!
+assert (nil : Nil) == nil
+assert (nil : Integer?) == nil
+failure (nil! : Integer?)
