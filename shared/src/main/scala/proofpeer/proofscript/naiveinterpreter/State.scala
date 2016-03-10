@@ -333,6 +333,10 @@ class State(val toplevelNamespace : Namespace, val context : Context, val litera
 		new State(toplevelNamespace, ctx, literalContext, env, collect, canReturn)
 	}
 
+	def setLiteralContext(optContext : Option[Context]) : State = {
+		new State(toplevelNamespace, context, optContext, env, collect, canReturn)
+	}
+
 	def spawnThread : State = {
 		if (context.isMainThread)
 			new State(toplevelNamespace, context.spawnThread, literalContext, env, collect, canReturn)

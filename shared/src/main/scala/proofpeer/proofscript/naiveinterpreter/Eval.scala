@@ -1100,6 +1100,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			if (incEvalDepth()) return Thunk.computation(() => evalExpr[T](state, expr, cont))
 			expr match {
 				case NilExpr => cont(success(NilValue))
+				case LiteralcontextExpr => cont(success(ContextValue(state.currentLiteralContext)))
 				case Bool(b) => cont(success(BoolValue(b)))
 				case Integer(i) => cont(success(IntValue(i)))
 				case StringLiteral(s) => cont(success(StringValue(s)))
@@ -1390,6 +1391,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case c : Match => evalMatch[T](state, c, cont)
 			case c : Timeit => evalTimeit[T](state, c, cont)
 			case c : ContextControl => evalContextControl[T](state, c,  cont)
+			case c : InContextControl => evalInContextControl[T](state, c, cont)
+			case c : InLiteralcontextControl => evalInLiteralcontextControl[T](state, c, cont)
 			case _ => cont(fail(controlflow, "controlflow not implemented yet: "+controlflow))
 		}
 	}
@@ -1513,6 +1516,62 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case Success(v, _) => cont(fail(expr, "context, term or theorem expected, found: " + display(state, v)))
 				})
 		}
+	}
+
+	def evalInContextControl[T](state : State, control : InContextControl,  cont : RC[State, T]) : Thunk[T] = {
+		val contWithContext : Continuation[Context, T] = { 
+			case context : Context =>
+				val collect = 
+					state.collect match {
+						case _ : Collect.One => Collect.emptyOne
+						case _ => Collect.Zero
+					}
+				evalBlock[T](state.setContext(context).setCollect(collect).spawnThread, control.body,  {
+					case failed : Failed[_] => cont(failed)
+					case su @ Success(updatedState, isReturnValue) =>
+						if (isReturnValue) cont(su)	
+						else {
+							state.collect match {
+								case _ : Collect.One =>
+									cont(success(state.addToCollect(updatedState.reapCollect)))
+								case _ => 
+									cont(success(state))
+							}
+						}
+				})
+		}
+
+		control.ctx match {
+			case None => contWithContext(state.context)
+			case Some(expr) =>
+				evalExpr[T](state.freeze, expr, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(ContextValue(context), _) => contWithContext(context)
+					case Success(TheoremValue(thm), _) => contWithContext(thm.context)
+					case Success(TermValue(tm), _) => contWithContext(tm.context)
+					case Success(v, _) => cont(fail(expr, "context, term or theorem expected, found: " + display(state, v)))
+				})
+		}		
+	}
+
+	def evalInLiteralcontextControl[T](state : State, control : InLiteralcontextControl,  cont : RC[State, T]) : Thunk[T] = {
+		val contWithContext : Continuation[Option[Context], T] = { 
+			case optContext : Option[Context] =>
+				evalSubBlock(state.setLiteralContext(optContext), control.body, cont)
+		}
+
+		control.ctx match {
+			case None => contWithContext(None)
+			case Some(expr) =>
+				evalExpr[T](state.freeze, expr, {
+					case failed : Failed[_] => cont(fail(failed))
+					case Success(ContextValue(context), _) => contWithContext(Some(context))
+					case Success(TheoremValue(thm), _) => contWithContext(Some(thm.context))
+					case Success(TermValue(tm), _) => contWithContext(Some(tm.context))
+					case Success(v, _) => cont(fail(expr, "context, term or theorem expected, found: " + display(state, v)))
+				})
+		}		
+
 	}
 
 	def locationOf(state : State, t : TracksSourcePosition) : (Namespace, Option[Span]) = {
