@@ -1523,15 +1523,15 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 			case context : Context =>
 				val collect = 
 					state.collect match {
-						case _ : Collect.One => Collect.emptyOne
-						case _ => Collect.Zero
+						case Collect.Zero => Collect.Zero
+						case _ => Collect.emptyOne
 					}
 				evalBlock[T](state.setContext(context).setCollect(collect).spawnThread, control.body,  {
 					case failed : Failed[_] => cont(failed)
 					case su @ Success(updatedState, isReturnValue) =>
 						if (isReturnValue) cont(su)	
 						else {
-							state.collect match {
+							updatedState.collect match {
 								case _ : Collect.One =>
 									cont(success(state.addToCollect(updatedState.reapCollect)))
 								case _ => 
