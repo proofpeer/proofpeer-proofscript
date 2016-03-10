@@ -102,18 +102,12 @@ def binaryConv [lconv,rconv] = combConv (randConv lconv,rconv)
 def absConv conv =
   tm =>
     match destabs tm
-      case [ctx,x,bod] =>
-        val cthm
-        context <ctx>
-          cthm =
-            match conv bod
-              case nil  => nil
-              case cthm =>
-                lift cthm
-        match cthm
-          case nil  => nil
-          case cthm =>
-            assertNotNil (abstract (lift! cthm))
+      case [ctx,_,bod] =>
+        match incontext<ctx> conv bod
+          case nil => nil
+          case th => 
+            th = incontext<ctx> lift th
+            abstract (lift! th)
       case _ => nil
 
 # Converts a term appearing as the left hand side of the given equation to the

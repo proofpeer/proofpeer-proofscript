@@ -246,8 +246,6 @@ assert sqrt 1 == 1
 assert sqrt 4 == 2
 failure sqrt 10
 
-val x = failure 1/0
-
 # timeit
   -------------------------------
 
