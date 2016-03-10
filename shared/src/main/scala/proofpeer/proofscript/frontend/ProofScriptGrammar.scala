@@ -111,6 +111,9 @@ def g_literals =
   keyword("Theory", "theory") ++ 
   keyword("Extends", "extends") ++ 
   keyword("Context", "context") ++ 
+  keyword("Literalcontext", "literalcontext") ++
+  keyword("InContext", "incontext") ++
+  keyword("InLiteralcontext", "inliteralcontext") ++
   keyword("Show", "show") ++ 
   keyword("Fail", "fail") ++ 
   keyword("Nil", "nil") ++ 
@@ -260,6 +263,7 @@ val g_expr =
   arule("PrimitiveExpr", "ScriptTrue", c => Bool(true)) ++  
   arule("PrimitiveExpr", "ScriptFalse", c => Bool(false)) ++  
   arule("PrimitiveExpr", "Nil",  c => NilExpr) ++
+  arule("PrimitiveExpr", "Literalcontext", c => LiteralcontextExpr) ++
   arule("PrimitiveExpr", "Apostrophe ValueTerm Apostrophe", c => LogicTerm(c.ValueTerm)) ++
   arule("PrimitiveExpr", "Apostrophe Colon ValueType Apostrophe", c => LogicType(c.ValueType)) ++
   arule("PrimitiveExpr", "QuotationMark_1 StringLiteral QuotationMark_2", c => mkStringLiteral(c, c.span("QuotationMark_1"), c.span("QuotationMark_2"))) ++
@@ -445,14 +449,20 @@ val g_match =
   arule("MatchCase", "Case Pattern DoubleArrow Block", 
       c => MatchCase(c.Pattern, c.Block))    
 
-val g_context =
-  arule("STContext", "Context OptContextParam Block",
+def contextrules(contextKeyword : String, f : (Option[Expr], Block) => ControlFlow) : Grammar = 
+  arule("STContext", contextKeyword + " OptContextParam Block",
       CS.and(
-        CS.Indent("Context", "OptContextParam"),
-        CS.Indent("Context", "Block")),
-      c => ContextControl(c.OptContextParam, c.Block)) ++
-  arule("ContextExpr", "Context OptContextParam Block",
-      c => ContextControl(c.OptContextParam, c.Block)) ++
+        CS.Indent(contextKeyword, "OptContextParam"),
+        CS.Indent(contextKeyword, "Block")),
+      c => f(c.OptContextParam, c.Block)) ++
+  arule("ContextExpr", contextKeyword + " OptContextParam Block",
+      c => f(c.OptContextParam, c.Block)) 
+
+
+val g_context =
+  contextrules("Context", ContextControl.apply _) ++
+  contextrules("InContext", InContextControl.apply _) ++
+  contextrules("InLiteralcontext", InLiteralcontextControl.apply _) ++
   arule("OptContextParam", "", c => None) ++
   arule("OptContextParam", "Le PExpr Gr", c => Some(c.PExpr[Any]))
       

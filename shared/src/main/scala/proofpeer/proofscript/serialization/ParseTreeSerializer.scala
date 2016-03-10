@@ -81,111 +81,114 @@ extends Serializer[TracksSourcePosition]
 
     object Kind {
       val NILEXPR = 0
-      val BOOL = 1
-      val INTEGER = -1
-      val STRINGLITERAL = 2
-      val QUALIFIEDID = -2
-      val ID = 3
-      val UNARYOPERATION = -3
-      val BINARYOPERATION = 4
-      val CMPOPERATION = -4
-      val TUPLE = 5
-      val SETLITERAL = -5
-      val MAPLITERAL = 6
-      val APP = -6
-      val FUN = 7
-      val TYPECAST = -7
-      val LAZY = 8
-      val LOGICTERM = -8
-      val LOGICTYPE = 9
-      val CONTROLFLOWEXPR = -9
-      val DO = 10
-      val IF = -10
-      val WHILE = 11
-      val FOR = -11
-      val TIMEIT = 12
-      val MATCHCASE = -12
-      val MATCH = 13
-      val CONTEXTCONTROL = -13
-      val NEG = 14
-      val NOT = -14
-      val BANG = 15
-      val RANGETO = -15
-      val RANGEDOWNTO = 16
-      val ADD = -16
-      val SUB = 17
-      val MUL = -17
-      val DIV = 18
-      val MOD = -18
-      val AND = 19
-      val OR = -19
-      val PREPEND = 20
-      val APPEND = -20
-      val CONCAT = 21
-      val MINUS = -21
-      val EQ = 22
-      val NEQ = -22
-      val LE = 23
-      val LEQ = -23
-      val GR = 24
-      val GEQ = -24
-      val PANY = 25
-      val PID = -25
-      val PINT = 26
-      val PBOOL = -26
-      val PSTRING = 27
-      val PLOGICTERM = -27
-      val PLOGICTYPE = 28
-      val PTUPLE = -28
-      val PPREPEND = 29
-      val PAPPEND = -29
-      val PIF = 30
-      val PAS = -30
-      val PNIL = 31
-      val PNILBANG = -31
-      val PTYPE = 32
-      val PCONSTR = -32
-      val PDESTRUCT = 33
-      val TYANY = -33
-      val TYNIL = 34
-      val TYCONTEXT = -34
-      val TYTHEOREM = 35
-      val TYTERM = -35
-      val TYTYPE = 36
-      val TYBOOLEAN = -36
-      val TYINTEGER = 37
-      val TYFUNCTION = -37
-      val TYSTRING = 38
-      val TYTUPLE = -38
-      val TYMAP = 39
-      val TYSET = -39
-      val TYOPTION = 40
-      val TYUNION = -40
-      val TYCUSTOM = 41
-      val COMMENT = -41
-      val STCOMMENT = 42
-      val STEXPR = -42
-      val STCONTROLFLOW = 43
-      val STSHOW = -43
-      val STFAIL = 44
-      val STASSERT = -44
-      val STFAILURE = 45
-      val STVAL = -45
-      val STVALINTRO = 46
-      val STASSIGN = -46
-      val STDEF = 47
-      val DEFCASE = -47
-      val DATATYPECONSTR = 48
-      val DATATYPECASE = -48
-      val STDATATYPE = 49
-      val STRETURN = -49
-      val STASSUME = 50
-      val STLET = -50
-      val STCHOOSE = 51
-      val STTHEOREM = -51
-      val STTHEOREMBY = 52
-      val STTHEORY = -52
-      val BLOCK = 53
+      val LITERALCONTEXTEXPR = 1
+      val BOOL = -1
+      val INTEGER = 2
+      val STRINGLITERAL = -2
+      val QUALIFIEDID = 3
+      val ID = -3
+      val UNARYOPERATION = 4
+      val BINARYOPERATION = -4
+      val CMPOPERATION = 5
+      val TUPLE = -5
+      val SETLITERAL = 6
+      val MAPLITERAL = -6
+      val APP = 7
+      val FUN = -7
+      val TYPECAST = 8
+      val LAZY = -8
+      val LOGICTERM = 9
+      val LOGICTYPE = -9
+      val CONTROLFLOWEXPR = 10
+      val DO = -10
+      val IF = 11
+      val WHILE = -11
+      val FOR = 12
+      val TIMEIT = -12
+      val MATCHCASE = 13
+      val MATCH = -13
+      val CONTEXTCONTROL = 14
+      val INCONTEXTCONTROL = -14
+      val INLITERALCONTEXTCONTROL = 15
+      val NEG = -15
+      val NOT = 16
+      val BANG = -16
+      val RANGETO = 17
+      val RANGEDOWNTO = -17
+      val ADD = 18
+      val SUB = -18
+      val MUL = 19
+      val DIV = -19
+      val MOD = 20
+      val AND = -20
+      val OR = 21
+      val PREPEND = -21
+      val APPEND = 22
+      val CONCAT = -22
+      val MINUS = 23
+      val EQ = -23
+      val NEQ = 24
+      val LE = -24
+      val LEQ = 25
+      val GR = -25
+      val GEQ = 26
+      val PANY = -26
+      val PID = 27
+      val PINT = -27
+      val PBOOL = 28
+      val PSTRING = -28
+      val PLOGICTERM = 29
+      val PLOGICTYPE = -29
+      val PTUPLE = 30
+      val PPREPEND = -30
+      val PAPPEND = 31
+      val PIF = -31
+      val PAS = 32
+      val PNIL = -32
+      val PNILBANG = 33
+      val PTYPE = -33
+      val PCONSTR = 34
+      val PDESTRUCT = -34
+      val TYANY = 35
+      val TYNIL = -35
+      val TYCONTEXT = 36
+      val TYTHEOREM = -36
+      val TYTERM = 37
+      val TYTYPE = -37
+      val TYBOOLEAN = 38
+      val TYINTEGER = -38
+      val TYFUNCTION = 39
+      val TYSTRING = -39
+      val TYTUPLE = 40
+      val TYMAP = -40
+      val TYSET = 41
+      val TYOPTION = -41
+      val TYUNION = 42
+      val TYCUSTOM = -42
+      val COMMENT = 43
+      val STCOMMENT = -43
+      val STEXPR = 44
+      val STCONTROLFLOW = -44
+      val STSHOW = 45
+      val STFAIL = -45
+      val STASSERT = 46
+      val STFAILURE = -46
+      val STVAL = 47
+      val STVALINTRO = -47
+      val STASSIGN = 48
+      val STDEF = -48
+      val DEFCASE = 49
+      val DATATYPECONSTR = -49
+      val DATATYPECASE = 50
+      val STDATATYPE = -50
+      val STRETURN = 51
+      val STASSUME = -51
+      val STLET = 52
+      val STCHOOSE = -52
+      val STTHEOREM = 53
+      val STTHEOREMBY = -53
+      val STTHEORY = 54
+      val BLOCK = -54
     }
 
     object Serializers {
@@ -215,6 +218,8 @@ extends Serializer[TracksSourcePosition]
       val MATCHCASE = PairSerializer(PatternSerializer,BlockSerializer)
       val MATCH = PairSerializer(ExprSerializer,VectorSerializer(MatchCaseSerializer))
       val CONTEXTCONTROL = PairSerializer(OptionSerializer(ExprSerializer),BlockSerializer)
+      val INCONTEXTCONTROL = PairSerializer(OptionSerializer(ExprSerializer),BlockSerializer)
+      val INLITERALCONTEXTCONTROL = PairSerializer(OptionSerializer(ExprSerializer),BlockSerializer)
       val PID = StringSerializer
       val PINT = BigIntSerializer
       val PBOOL = BooleanSerializer
@@ -262,6 +267,8 @@ extends Serializer[TracksSourcePosition]
       obj match {
         case NilExpr =>
           (Kind.NILEXPR, None)
+        case LiteralcontextExpr =>
+          (Kind.LITERALCONTEXTEXPR, None)
         case Bool(x) =>
           (Kind.BOOL, Some(Serializers.BOOL.serialize(x)))
         case Integer(x) =>
@@ -314,6 +321,10 @@ extends Serializer[TracksSourcePosition]
           (Kind.MATCH, Some(Serializers.MATCH.serialize(Match.unapply(t).get)))
         case t : ContextControl =>
           (Kind.CONTEXTCONTROL, Some(Serializers.CONTEXTCONTROL.serialize(ContextControl.unapply(t).get)))
+        case t : InContextControl =>
+          (Kind.INCONTEXTCONTROL, Some(Serializers.INCONTEXTCONTROL.serialize(InContextControl.unapply(t).get)))
+        case t : InLiteralcontextControl =>
+          (Kind.INLITERALCONTEXTCONTROL, Some(Serializers.INLITERALCONTEXTCONTROL.serialize(InLiteralcontextControl.unapply(t).get)))
         case Neg =>
           (Kind.NEG, None)
         case Not =>
@@ -480,6 +491,8 @@ extends Serializer[TracksSourcePosition]
       kind match {
         case Kind.NILEXPR if args.isEmpty => 
           NilExpr
+        case Kind.LITERALCONTEXTEXPR if args.isEmpty => 
+          LiteralcontextExpr
         case Kind.BOOL if args.isDefined => 
           Bool(Serializers.BOOL.deserialize(args.get))
         case Kind.INTEGER if args.isDefined => 
@@ -532,6 +545,10 @@ extends Serializer[TracksSourcePosition]
           Match.tupled(Serializers.MATCH.deserialize(args.get))
         case Kind.CONTEXTCONTROL if args.isDefined => 
           ContextControl.tupled(Serializers.CONTEXTCONTROL.deserialize(args.get))
+        case Kind.INCONTEXTCONTROL if args.isDefined => 
+          InContextControl.tupled(Serializers.INCONTEXTCONTROL.deserialize(args.get))
+        case Kind.INLITERALCONTEXTCONTROL if args.isDefined => 
+          InLiteralcontextControl.tupled(Serializers.INLITERALCONTEXTCONTROL.deserialize(args.get))
         case Kind.NEG if args.isEmpty => 
           Neg
         case Kind.NOT if args.isEmpty => 
@@ -739,6 +756,7 @@ object ParseTreeSerializerGenerator {
 
   val names : Vector[Any] = Vector(
     "NilExpr",
+    "LiteralcontextExpr",
     ("Bool", "BooleanSerializer"),
     ("Integer", "BigIntSerializer"),
     ("StringLiteral", "VectorSerializer(IntSerializer)"),
@@ -765,6 +783,8 @@ object ParseTreeSerializerGenerator {
     ("MatchCase", "PatternSerializer", "BlockSerializer"),
     ("Match", "ExprSerializer", "VectorSerializer(MatchCaseSerializer)"),
     ("ContextControl", "OptionSerializer(ExprSerializer)", "BlockSerializer"),
+    ("InContextControl", "OptionSerializer(ExprSerializer)", "BlockSerializer"),
+    ("InLiteralcontextControl", "OptionSerializer(ExprSerializer)", "BlockSerializer"),    
     "Neg",
     "Not",
     "Bang",

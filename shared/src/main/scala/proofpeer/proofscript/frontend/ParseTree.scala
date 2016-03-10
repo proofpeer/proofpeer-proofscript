@@ -22,7 +22,7 @@ trait ParseTree extends TracksSourcePosition {
   protected def calcVars : (Set[String], Set[String])
 }
 
-object ParseTree {
+object ParseTree { 
 
   def mkId(name : Name) : Expr = {
     if (name.namespace.isDefined)
@@ -37,6 +37,10 @@ object ParseTree {
   }
 
   case object NilExpr extends Expr {
+    protected def calcFreeVars = Set()
+  }
+
+  case object LiteralcontextExpr extends Expr {
     protected def calcFreeVars = Set()
   }
   
@@ -170,6 +174,16 @@ object ParseTree {
   case class ContextControl(ctx : Option[Expr], body : Block) extends ControlFlow {
     protected def calcFreeVars = 
       if (ctx.isDefined) ctx.get.freeVars ++ body.freeVars else body.freeVars
+  }
+
+  case class InContextControl(ctx : Option[Expr], body : Block) extends ControlFlow {
+    protected def calcFreeVars = 
+      if (ctx.isDefined) ctx.get.freeVars ++ body.freeVars else body.freeVars
+  }
+
+  case class InLiteralcontextControl(ctx : Option[Expr], body : Block) extends ControlFlow {
+    protected def calcFreeVars = 
+      if (ctx.isDefined) ctx.get.freeVars ++ body.freeVars else body.freeVars    
   }
 
   sealed trait Operator extends TracksSourcePosition
