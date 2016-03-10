@@ -139,8 +139,8 @@ context
     p
   assert (t : Term) == '∀ p. p → (∀ a. p)'
 
-# context
-  ------------------------------------
+# context, literalcontext, incontext, inliteralcontext
+  ----------------------------------------------------
 
 context
   val w
@@ -163,7 +163,54 @@ context
   failure
     failure (context)
 
+context
+  val tm = '∀ p. p → p'
+  def prf() =
+    let p: 'p : ℙ'
+    assume prop: p
+    prop
+  theorem t: tm
+    prf()
 
+context
+  val tm = '∀ p. p → p'
+  def prf() =
+    let 'p : ℙ'
+    assume prop: 'p'
+    prop
+  failure
+    theorem t: tm
+      prf()
+
+context
+  val tm = '∀ p. p → p'
+  def prf() =
+    inliteralcontext
+      let 'p : ℙ'
+      assume prop: 'p'
+      prop
+  theorem t: tm
+    prf()
+
+context
+  val tm = '∀ p. p → p'
+  def prf() =
+    let 'p : ℙ'
+    assume prop: (inliteralcontext<context> 'p')
+    prop
+  theorem t: tm
+    prf()
+
+context
+  let 'p'
+  def f () = ('p', 'q')
+  def g c =
+    inliteralcontext<c> 
+      ('p', 'q')
+  let 'q'
+  failure f()
+  assert g (context) == ('p', 'q')
+  assert g literalcontext == ('p', 'q')
 
 # test *-statement behaviour 
   ------------------------------------
