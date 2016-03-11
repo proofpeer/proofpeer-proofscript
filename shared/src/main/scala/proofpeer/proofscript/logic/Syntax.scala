@@ -194,7 +194,6 @@ object Syntax {
     lex("Digits", digits) ++
     lex("Underscore", underscore) ++
     lex("Backslash", backslash) ++
-    lex("Id", id, Some(1)) ++
     lex("RelativeNamespace", relativeNamespace) ++
     lex("AbsoluteNamespace", absoluteNamespace) ++
     lex("Namespace", ALT(relativeNamespace, absoluteNamespace)) ++
