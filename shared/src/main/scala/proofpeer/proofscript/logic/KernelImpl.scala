@@ -435,8 +435,8 @@ private class KernelImpl(
         failwith("propositions are not alpha/beta/eta equivalent")
     }
 
-    def mkFresh(name : IndexedName) : IndexedName = {
-      def isFresh(name : Name) = !isPolyConst(name) && typeOfConst(name).isEmpty
+    private def _mkFresh(name : IndexedName, fresh : IndexedName => Boolean) : IndexedName = {
+      def isFresh(name : Name) = !isPolyConst(name) && typeOfConst(name).isEmpty && fresh(name.name)
       var i : Utils.Integer = if (name.index.isDefined) name.index.get else 0
       do {
         val indexedName = IndexedName(name.name, if (i == 0) None else Some(i))
@@ -445,7 +445,20 @@ private class KernelImpl(
           return indexedName
         i = i + 1
       } while (true)
-      failwith("mkFresh: internal error")    
+      failwith("mkFresh: internal error")          
+    }
+
+    def mkFresh(name : IndexedName) : IndexedName = {
+      _mkFresh(name, c => true)
+    }
+
+    def mkFreshs(names : Vector[IndexedName]) : Vector[IndexedName] = {
+      var results : Vector[IndexedName] = Vector()
+      for (name <- names) {
+        val r = _mkFresh(name, n => results.indexOf(n) < 0)
+        results = results :+ r
+      }
+      results
     }
 
     def destAbs(term_ : CTerm) : Option[(Context, CTerm, CTerm)] = {

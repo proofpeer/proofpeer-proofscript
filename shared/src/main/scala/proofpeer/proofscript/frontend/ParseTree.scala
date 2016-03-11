@@ -119,7 +119,7 @@ object ParseTree {
       }
       (fs -- is, is)
     } 
-    protected def calcFreshQuotes : (Map[String, FreshQuote], Map[String, FreshQuote]) = {
+    protected def calcFreshQuotes : (Vector[(String, FreshQuote)], Vector[(String, FreshQuote)]) = {
       var quotes : Map[String, FreshQuote] = Map()
       var conflicts : Map[String, FreshQuote] = Map()
       for (q <- Preterm.listQuotes(tm)) {
@@ -141,7 +141,7 @@ object ParseTree {
           case _ => 
         }
       }
-      (quotes, conflicts)
+      (quotes.toVector, conflicts.toVector)
     }  
     lazy val (freshQuotes, freshQuoteConflicts) = calcFreshQuotes
   }

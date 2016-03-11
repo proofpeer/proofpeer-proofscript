@@ -32,12 +32,19 @@ context
   let '‹val x› : ℙ'
   val y = 2
   let '‹= y›'
+  failure let '‹val z› = ‹val x›'
+  let '‹val z› = ‹x›'  
+  let w: '‹val w› = x' 
   def isTerm(t : Term) = true
+  def isTheorem(th : Theorem) = true
   show x
   show y
+  show z
   assert isTerm x
   assert isTerm y
-
+  assert isTerm z
+  failure (isTerm w) 
+  assert isTheorem w
 
 # let definition
   ------------------------------------

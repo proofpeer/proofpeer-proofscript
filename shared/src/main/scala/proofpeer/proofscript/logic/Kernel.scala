@@ -152,6 +152,10 @@ trait Context extends UniquelyIdentifiable {
   // Creates a new constant name which is fresh for this context and resembles the given name
   def mkFresh(name : IndexedName) : IndexedName 
 
+  // Creates new constants for the given names which are fresh for this context and resemble the given names.
+  // All returned names are different from each other.
+  def mkFreshs(names : Vector[IndexedName]) : Vector[IndexedName]
+
   // If abs is structurally an abstraction, destructs it
   // and returns (context, x, body), where context contains the constant x 
   // which corresponds to the variable that abs is abstracting over.

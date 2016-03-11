@@ -59,6 +59,14 @@ context
     assume '‹p›'
   show t
 
+context
+  theorem t: '∀ y ∃ x. x = y'
+    let 'y'
+    let 'x = y'    
+  choose x_def: '‹val x›' t
+  show x_def
+  assert (x_def : Term) == '∀ y. ‹x› y = y'
+
 
 # string
   ------------------------------------

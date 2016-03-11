@@ -206,14 +206,34 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})		
 	}
 
-	def evalPretermExpr[T](state : State, expr : Expr, cont : RC[Preterm, T]) : Thunk[T] = {
+	def evalPretermExpr[T](state : State, expr : Expr, cont : RC[(State, Map[String, IndexedName], Preterm), T]) : Thunk[T] = {
 		expr match {
 			case tm : LogicTerm => 
 				if (!tm.freshQuoteConflicts.isEmpty) {
 					cont(fail(tm.freshQuoteConflicts.head._2, "conflicting fresh quote"))
 				} else {
-
-					evalLogicPreterm[T](state, tm.tm, true, cont)
+					var updatedState = state
+					val freshQuotes = tm.freshQuotes
+					var freshVars : Map[String, IndexedName] = Map()
+					val freshnames = state.context.mkFreshs(freshQuotes.map(q => Syntax.parseIndexedName(q._1)))
+					var i = 0
+					val size = freshQuotes.size
+					while (i < size) {
+						val (name, q) = freshQuotes(i)
+						val freshname = freshnames(i)
+						freshVars += (name -> freshname)	
+						if (q.assign && !state.env.isLinear(name))
+							return cont(fail(q, name + " is not in linear scope"))
+						if (q.assign)
+							updatedState = updatedState.rebind(Map(name -> StateValue.mkStringValue(freshname.toString)))
+						else 
+							updatedState = updatedState.bind(Map(name -> StateValue.mkStringValue(freshname.toString)))					
+						i = i + 1
+					}
+					evalLogicPreterm[T](updatedState.freeze, tm.tm, true, {
+						case failed : Failed[_] => cont(fail(failed))
+						case Success(cterm, _) => cont(success((updatedState, freshVars, cterm)))
+					})
 				}
 			case _ => 
 				cont(fail(expr, "term literal expected"))
@@ -530,23 +550,23 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 						}
 				})
 			case st @ STLet(thm_name, tm) =>
-				evalPretermExpr(state.freeze, tm, {
+				evalPretermExpr(state, tm, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success(ptm, _) =>
+					case Success((updatedState, freshVars, ptm), _) =>
 						checkTypedName(ptm) match {
 							case None => 
 								letIsDef(ptm) match {
 									case None =>
 										cont(fail(st, "let can only handle introductions or simple definitions"))
-									case Some((n, tys, right)) => cont(evalLetDef(state, st, ptm, n, tys, right))
+									case Some((n, tys, right)) => cont(evalLetDef(updatedState, st, ptm, freshVars, n, tys, right))
 								}
-							case Some((n, tys)) => cont(evalLetIntro(state, st, n, tys))
+							case Some((n, tys)) => cont(evalLetIntro(updatedState, st, freshVars, n, tys))
 						}
 				})
 			case STChoose(thm_name, tm, proof) =>
-				evalPretermExpr(state.freeze, tm, {
+				evalPretermExpr(state, tm, {
 					case failed : Failed[_] => cont(fail(failed))
-					case Success(ptm, _) =>
+					case Success((state, freshVars, ptm), _) =>
 						checkTypedName(ptm) match {
 							case None => cont(fail(tm, "name expected"))
 							case Some((n, tys)) =>
@@ -557,6 +577,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 											Name(Some(state.context.namespace), n.name)
 										else 
 											n
+									var freshvar = name.name.toString
+									freshVars.get(freshvar) match {
+										case None => 
+											if (freshVars.size > 0) return cont(fail(tm, "choose: superfluous fresh vars"))
+											freshvar = null
+										case Some(_) =>
+											if (freshVars.size > 1) return cont(fail(tm, "choose: superfluous fresh vars"))
+									}
 									evalProof(state.spawnThread, proof, {
 										case failed : Failed[_] => cont(fail(failed))
 										case Success(value, true) => 
@@ -568,8 +596,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 												val ty = chosenThm.context.typeOfConst(name).get
 												if (!Pretype.solve(Pretype.translate(ty) :: tys).isDefined) 
 													cont(fail(st, "declared type of constant does not match computed type"))
-												else
-													cont(success((state.setContext(chosenThm.context), thm_name, TheoremValue(chosenThm))))
+												else {
+													var s = state.setContext(chosenThm.context)
+													if (freshvar != null) {
+														val tm = TermValue(s.context.certify(Term.Const(name)))
+													  s = s.rebind(Map(freshvar -> tm))
+													 }
+													cont(success((s, thm_name, TheoremValue(chosenThm))))													
+												}
 											}	catch {
 												case ex : Utils.KernelException =>
 													cont(fail(st, "choose: " + ex.reason))
@@ -719,7 +753,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
-	def evalLetIntro(state : State, st : STLet, _name : Name, tys : List[Pretype]) : 
+	def evalLetIntro(state : State, st : STLet, freshVars : Map[String, IndexedName], _name : Name, tys : List[Pretype]) : 
 		Result[(State, Option[String], StateValue)] = 
 	{
 		val name = 
@@ -731,12 +765,22 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					else
 						_name
 			}
+		var freshvar : String = name.name.toString
+		freshVars.get(freshvar) match {
+			case None => 
+				if (freshVars.size > 0) return fail(st, "let intro: superfluous fresh vars")
+				freshvar = null
+			case Some(_) => 
+				if (freshVars.size > 1) return fail(st, "let intro: superfluous fresh vars")
+		}
 		Pretype.solve(tys) match {
 			case None => fail(st, "let intro: inconsistent type constraints")
 			case Some(ty) =>
 				try {
 					var s = state.setContext(state.context.introduce(name, ty))
-					success((s, st.result_name, TermValue(s.context.certify(Term.Const(name)))))
+					val tm = TermValue(s.context.certify(Term.Const(name)))
+					if (freshvar != null) s = s.rebind(Map(freshvar -> tm))
+					success((s, st.result_name, tm))
 				} catch {
 					case ex: Utils.KernelException =>
 						return fail(st, "let intro: " + ex.reason)
@@ -768,7 +812,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		}
 	}
 
-	def evalLetDef(state : State, st : STLet, ptm : Preterm, _name : Name, 
+	def evalLetDef(state : State, st : STLet, ptm : Preterm, freshVars : Map[String, IndexedName], _name : Name, 
 		tys : List[Pretype], _rightHandSide : Preterm) : Result[(State, Option[String], StateValue)] = 
 	{
 		val name = 
@@ -780,14 +824,27 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					else 
 						_name
 			}
+		var freshvar = name.name.toString
+		freshVars.get(freshvar) match {
+			case None => 
+				if (freshVars.size > 0) return fail(st, "let def: superfluous fresh vars")
+				freshvar = null
+			case Some(_) => 
+				if (freshVars.size > 1) return fail(st, "let def: superfluous fresh vars")
+		}			
 		var rightHandSide = _rightHandSide
 		for (ty <- tys) rightHandSide = Preterm.PTmTyping(rightHandSide, ty)
 		resolvePreterm(state, rightHandSide) match {
-			case failed : Failed[_] => fail(st, "let def: ")
+			case failed : Failed[_] => fail(failed)
 			case Success(tm, _) =>	
 				try {
 					val thm = state.context.define(name, tm)
-					success((state.setContext(thm.context), st.result_name, TheoremValue(thm)))
+					var s = state.setContext(thm.context)
+					if (freshvar != null) {
+						val tm = TermValue(s.context.certify(Term.Const(name)))
+						s = s.rebind(Map(freshvar -> tm))	
+					}				
+					success((s, st.result_name, TheoremValue(thm)))
 				} catch {
 					case ex: Utils.KernelException =>
 						return fail(st, "let def: " + ex.reason)

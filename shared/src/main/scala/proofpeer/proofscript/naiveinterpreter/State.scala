@@ -289,6 +289,7 @@ object State {
 			this
 		}
 		def linearIds : Set[String] = linear.keySet
+		def isLinear(s : String) : Boolean = linear.get(s).isDefined
 	}
 
 	def emptyEnv : Env = Env(Map(), Map(), Map())
