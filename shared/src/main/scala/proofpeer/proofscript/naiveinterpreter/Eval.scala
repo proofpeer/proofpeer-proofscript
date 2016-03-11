@@ -933,8 +933,8 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					} else None
 				} else Some(IsNEq)
 			case (TermValue(u), TermValue(v)) => 
-				import KernelUtils._
-				if (betaEtaEq(state.context, u, v))
+				val ctx = if (u.context == v.context) u.context else state.context
+				if (KernelUtils.betaEtaEq(ctx, u, v))
 					Some(IsEq)
 				else
 					Some(IsNEq)
@@ -952,8 +952,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					Some(IsNEq)
 			case (c1 : ConstrUnappliedValue, c2 : ConstrUnappliedValue) =>
 				if (c1 == c2) Some(IsEq) else Some(IsNEq)
-			case (TheoremValue(p), TheoremValue(q)) => None
-			case (_ : ContextValue, _ : ContextValue) => None
+			case (TheoremValue(p), TheoremValue(q)) => 
+				if (p.context == q.context) {
+					if (KernelUtils.betaEtaEq(p.context, p.prop, q.prop))
+						Some(IsEq)
+					else
+						Some(IsNEq)					
+				} else None
+			case (c : ContextValue, d : ContextValue) => 
+				if (c.value == d.value)
+					Some(IsEq)
+				else
+					Some(IsNEq)
 			case (f, g) if StateValue.isFunction(f) && StateValue.isFunction(g) => None
 			case _ => Some(IsNEq)	
 		}

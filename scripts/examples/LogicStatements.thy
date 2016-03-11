@@ -244,3 +244,5 @@ context
       theorem 'x = x' x
 
   assert size l == 0
+
+show  context

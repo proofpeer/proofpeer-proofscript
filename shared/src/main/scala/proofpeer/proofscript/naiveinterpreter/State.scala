@@ -156,7 +156,7 @@ object StateValue {
 
 	def display(context : Context) : String = {
 		context.kind match {
-			case ContextKind.Complete => context.namespace.toString
+			case ContextKind.Complete => context.namespace.toString + "#" + context.hashCode
 			case _ =>
 				var i = 0
 				var ctx = context.parentContext
@@ -164,7 +164,7 @@ object StateValue {
 					i = i + 1
 					ctx = ctx.get.parentContext
 				}
-				context.namespace.toString + "+" + i
+				context.namespace.toString + "+" + i + "#" + context.hashCode
 		}
 	}
 
