@@ -189,6 +189,7 @@ extends Serializer[TracksSourcePosition]
       val STTHEOREMBY = -53
       val STTHEORY = 54
       val BLOCK = -54
+      val FRESHQUOTE = 55
     }
 
     object Serializers {
@@ -261,6 +262,7 @@ extends Serializer[TracksSourcePosition]
       val STTHEOREMBY = TripleSerializer(OptionSerializer(StringSerializer),ExprSerializer,ExprSerializer)
       val STTHEORY = TripleSerializer(NamespaceSerializer,ListSerializer(PairSerializer(IdSerializer,NamespaceSerializer)),ListSerializer(NamespaceSerializer))
       val BLOCK = VectorSerializer(StatementSerializer)
+      val FRESHQUOTE = PairSerializer(BooleanSerializer,IdSerializer)
     }
 
     def decomposeAndSerialize(obj : TracksSourcePosition) : (Int, Option[Any]) = {
@@ -483,6 +485,8 @@ extends Serializer[TracksSourcePosition]
           (Kind.STTHEORY, Some(Serializers.STTHEORY.serialize(STTheory.unapply(t).get)))
         case Block(x) =>
           (Kind.BLOCK, Some(Serializers.BLOCK.serialize(x)))
+        case t : FreshQuote =>
+          (Kind.FRESHQUOTE, Some(Serializers.FRESHQUOTE.serialize(FreshQuote.unapply(t).get)))
         case _ => throw new RuntimeException("ParseTreeSerializerBase: cannot serialize " + obj)
       }
     }
@@ -707,12 +711,13 @@ extends Serializer[TracksSourcePosition]
           STTheory.tupled(Serializers.STTHEORY.deserialize(args.get))
         case Kind.BLOCK if args.isDefined => 
           Block(Serializers.BLOCK.deserialize(args.get))
+        case Kind.FRESHQUOTE if args.isDefined => 
+          FreshQuote.tupled(Serializers.FRESHQUOTE.deserialize(args.get))
         case _ => throw new RuntimeException("ParseTreeSerializerBase: cannot deserialize " + (kind, args))
       }
     }
 
   }
-
 
   private def decodeInt(b : Any) : Int = {
     b match {
@@ -863,7 +868,8 @@ object ParseTreeSerializerGenerator {
     ("STTheorem", "OptionSerializer(StringSerializer)", "ExprSerializer", "BlockSerializer"),
     ("STTheoremBy", "OptionSerializer(StringSerializer)", "ExprSerializer", "ExprSerializer"),    
     ("STTheory", "NamespaceSerializer", "ListSerializer(PairSerializer(IdSerializer,NamespaceSerializer))", "ListSerializer(NamespaceSerializer)"),
-    ("Block", "VectorSerializer(StatementSerializer)")
+    ("Block", "VectorSerializer(StatementSerializer)"),
+    ("FreshQuote", "BooleanSerializer", "IdSerializer")
   )
   
   /** Rename _main to main to generate the code. */

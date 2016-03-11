@@ -105,17 +105,45 @@ object ParseTree {
   }
 
   case class LogicTerm(tm : Preterm) extends Expr {
-    protected def calcFreeVars = {
+    protected override def calcFreeVars = null
+    protected override def calcVars = {
       var fs : Set[String] = Set()
+      var is : Set[String] = Set()
       for (q <- Preterm.listQuotes(tm)) {
         q match {
-          case Left(Preterm.PTmQuote(p : ParseTree, _)) => fs = fs ++ p.freeVars
+          case Left(Preterm.PTmQuote(p : Expr, _)) => fs = fs ++ p.freeVars
+          case Left(Preterm.PTmQuote(p : FreshQuote, _)) => is = is ++ p.freeVars
           case Right(Pretype.PTyQuote(p : ParseTree)) => fs = fs ++ p.freeVars
           case _ => 
         }
       }
-      fs
+      (fs -- is, is)
+    } 
+    protected def calcFreshQuotes : (Map[String, FreshQuote], Map[String, FreshQuote]) = {
+      var quotes : Map[String, FreshQuote] = Map()
+      var conflicts : Map[String, FreshQuote] = Map()
+      for (q <- Preterm.listQuotes(tm)) {
+        q match {
+          case Left(Preterm.PTmQuote(p : FreshQuote, _)) => 
+            val name = p.id.name
+            quotes.get(name) match {
+              case None => quotes += (name -> p)
+              case Some(q) =>
+                if (q.assign != p.assign) {
+                  if (q.assign) {
+                    conflicts += (name -> q)
+                    quotes += (name -> p)
+                  } else {
+                    conflicts += (name -> p)
+                  }
+                }
+            }
+          case _ => 
+        }
+      }
+      (quotes, conflicts)
     }  
+    lazy val (freshQuotes, freshQuoteConflicts) = calcFreshQuotes
   }
 
   case class LogicType(ty : Pretype) extends Expr {
@@ -483,13 +511,13 @@ object ParseTree {
   case class STLet(result_name : Option[String], tm : Expr) extends Statement {
     protected def calcVars = 
       (tm.freeVars, 
-       if (result_name.isDefined) Set(result_name.get) else Set())
+       (if (result_name.isDefined) Set(result_name.get) else Set()) ++ tm.introVars)
   }
 
   case class STChoose(thm_name : Option[String], tm : Expr, proof : Block) extends Statement {
     protected def calcVars = 
       (tm.freeVars ++ proof.freeVars, 
-       if (thm_name.isDefined) Set(thm_name.get) else Set())
+       (if (thm_name.isDefined) Set(thm_name.get) else Set()) ++ tm.introVars)
   }
 
   case class STTheorem(thm_name : Option[String], tm : Expr, proof : Block) extends Statement {
@@ -522,5 +550,9 @@ object ParseTree {
     }
     def isEmpty : Boolean = statements.isEmpty
   }
+
+  case class FreshQuote(assign : Boolean, id : Id) extends ParseTree {
+    protected def calcVars = (Set(), if (assign) Set() else Set(id.name))
+  }  
   
 }

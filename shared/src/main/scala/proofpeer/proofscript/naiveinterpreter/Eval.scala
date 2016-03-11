@@ -80,27 +80,36 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 
 	/** Evaluates term and type quotes which contain expressions, but leaves pattern quotes alone. 
 	    Term quotes are evaluated in the current context, and stored within the term as PTmTerms. */
-	def evalLogicPreterm[T](_state : State, tm : Preterm, cont : RC[Preterm, T]) : Thunk[T] = 
+	def evalLogicPreterm[T](_state : State, tm : Preterm, allowFresh : Boolean, cont : RC[Preterm, T]) : Thunk[T] = 
 	{
 		val state = _state.freeze
 		def inst(tm : Preterm.PTmQuote, cont : Continuation[Either[Preterm, Failed[StateValue]], T]) : Thunk[T] = 
 		{
+			def handleStringValue(expr : ParseTree, s : StringValue) : Thunk[T] = {
+				Syntax.parsePreterm(s.toString) match {
+					case None => cont(Right(fail(expr, "parse error")))
+					case Some(preterm) => 
+						val typingContext = Preterm.obtainTypingContext(state.context, state.context)
+						Preterm.inferCTerm(typingContext, preterm) match {
+							case Left(t) => cont(Left(Preterm.translate(state.context, t)))
+							case _ => cont(Left(preterm))
+						}
+				}				
+			}
 			tm.quoted match {
 				case _ : Pattern => cont(Left(tm))
+				case fq : FreshQuote if !allowFresh => cont(Right(fail(fq, "illegal fresh quote")))
+				case fq : FreshQuote if allowFresh => 
+					state.lookup(fq.id.name) match {
+						case Some(s : StringValue) => handleStringValue(fq, s)
+						case Some(s) => cont(Right(fail(fq, "invalid fresh quote value: " + display(state, s))))
+						case None => cont(Right(fail(fq, "missing fresh quote value")))
+					}
 				case expr : Expr =>
 					evalExpr[T](state, expr, {
 						case failed : Failed[_] => cont(Right(failed))
 						case Success(TermValue(t), _) => cont(Left(Preterm.translate(state.context, t)))
-						case Success(s : StringValue, _) =>
-							Syntax.parsePreterm(s.toString) match {
-								case None => cont(Right(fail(expr, "parse error")))
-								case Some(preterm) => 
-									val typingContext = Preterm.obtainTypingContext(state.context, state.context)
-									Preterm.inferCTerm(typingContext, preterm) match {
-										case Left(t) => cont(Left(Preterm.translate(state.context, t)))
-										case _ => cont(Left(preterm))
-									}
-							}
+						case Success(s : StringValue, _) => handleStringValue(expr, s)
 						case Success(v, _) => cont(Right(fail(expr, "term value expected, found: " + display(state, v))))
 					})    	
 			}
@@ -123,7 +132,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	}
 
 	def evalLogicTerm[T](state : State, tm : LogicTerm, cont : RC[CTerm, T]) : Thunk[T] = {
-		evalLogicPreterm[T](state, tm.tm, {
+		evalLogicPreterm[T](state, tm.tm, false, {
 			case failed : Failed[_] => cont(fail(failed))
 			case Success(preterm, _) => cont(resolvePreterm(state, preterm))
 		})
@@ -200,12 +209,14 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 	def evalPretermExpr[T](state : State, expr : Expr, cont : RC[Preterm, T]) : Thunk[T] = {
 		expr match {
 			case tm : LogicTerm => 
-				evalLogicPreterm[T](state, tm.tm, cont)
+				if (!tm.freshQuoteConflicts.isEmpty) {
+					cont(fail(tm.freshQuoteConflicts.head._2, "conflicting fresh quote"))
+				} else {
+
+					evalLogicPreterm[T](state, tm.tm, true, cont)
+				}
 			case _ => 
-				evalExpr[T](state.freeze, expr, {
-					case failed : Failed[_] => cont(fail(failed))
-					case Success(v, _) => cont(fail(expr, "Preterm expected, found: "+display(state, v)))
-				})
+				cont(fail(expr, "term literal expected"))
 		}
 	}
 
@@ -1767,7 +1778,7 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					case _ => cont(success(None))
 				}
 			case PLogicTerm(_preterm) =>
-				evalLogicPreterm(state.freeze, _preterm, {
+				evalLogicPreterm(state.freeze, _preterm, false, {
 					case failed : Failed[_] => cont(fail(failed))
 					case Success(_preterm, _) =>
 						val term_ : CTerm = 

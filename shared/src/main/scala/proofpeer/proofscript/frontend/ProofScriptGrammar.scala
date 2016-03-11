@@ -20,6 +20,12 @@ def keyword(terminal : String, kw : String) : Grammar = {
   lex(terminal, string(kw), Some(2))  
 }
 
+def freshkeyword(terminal : String, kw : String) : Grammar = {
+  keywords += kw
+  lex(terminal, string(kw), Some(3))  
+}
+
+
 /*
 
 ≤
@@ -84,6 +90,8 @@ def g_literals =
   lex("Concat", string("++")) ++
   lex("MinusMinus", string("--")) ++
   keyword("Val", "val") ++
+  freshkeyword("FreshVal", "val") ++
+  freshkeyword("FreshAssign", "=") ++
   keyword("Def", "def") ++
   keyword("Table", "table") ++
   keyword("Datatype", "datatype") ++
@@ -348,7 +356,12 @@ val g_expr =
   arule("ExprMapList1", "PExpr_1 SingleArrow PExpr_2", c => Vector[(Expr, Expr)]((c.PExpr_1, c.PExpr_2))) ++
   arule("ExprMapList1", "ExprMapList1 Comma PExpr_1 SingleArrow PExpr_2", c => c.ExprMapList1[Vector[(Expr, Expr)]] :+ (c.PExpr_1, c.PExpr_2)) ++
   arule("PExpr", "Expr", _.Expr[Expr]) ++
-  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) 
+  arule("PExpr", "ControlFlowExpr", c => ControlFlowExpr(c.ControlFlowExpr)) ++
+  arule("PExprOrFreshVar", "PExpr", c => c.PExpr[Any]) ++
+  arule("PExprOrFreshVar", "FreshVal FreshId", c => FreshQuote(false, c.FreshId)) ++
+  arule("PExprOrFreshVar", "FreshAssign FreshId", c => FreshQuote(true, c.FreshId)) ++
+  arule("FreshId", "IndexedName", c => mkId(Syntax.parseName(c.text))
+)
   
 val g_do = 
   arule("STDo", "Do Block",
@@ -776,7 +789,7 @@ val g_prog =
   g_header ++
   arule("ValueQuotedType", "PExpr", _.PExpr[Any]) ++
   arule("PatternQuotedType", "Pattern", _.Pattern[Any]) ++
-  arule("ValueQuotedTerm", "PExpr", _.PExpr[Any]) ++
+  arule("ValueQuotedTerm", "PExprOrFreshVar", _.PExprOrFreshVar[Any]) ++
   arule("PatternQuotedTerm", "Pattern", _.Pattern[Any]) ++
   arule("Prog", "Block", _.Block[Any])
 

@@ -1,6 +1,6 @@
 theory root 
 
-val versionOfProofScript = "0.5.0.1"
+val versionOfProofScript = "0.5.0.2"
 
 let trueDef: 'true = ((p : ℙ ↦ p) = (p ↦ p))'
 let falseDef: 'false = (∀ p. p)'

@@ -28,6 +28,16 @@ context
   let 'x : 𝒰 → _ : _ → ℙ'
   assert 'x' == 'x : 𝒰 → ℙ'
 
+context 
+  let '‹val x› : ℙ'
+  val y = 2
+  let '‹= y›'
+  def isTerm(t : Term) = true
+  show x
+  show y
+  assert isTerm x
+  assert isTerm y
+
 
 # let definition
   ------------------------------------

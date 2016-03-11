@@ -22,7 +22,7 @@ object Preterm {
   	def typeOf = Pretype.PTyFun(ty, body_ty)
   }
   case class PTmComb(f : Preterm, x : Preterm, higherorder : Option[Boolean], typeOf : Pretype) extends Preterm
-  /** quoted is going to be either ParseTree.Expr or ParseTree.Pattern */
+  /** quoted is going to be either ParseTree.Expr or ParseTree.Pattern or a ParseTree.FreshQuote */
   case class PTmQuote(quoted : Any, typeOf : Pretype) extends Preterm 
   case class PTmTerm(tm : Term, ty : Type) extends Preterm {
     lazy val typeOf : Pretype = Pretype.translate(ty)
