@@ -227,8 +227,6 @@ private class KernelImpl(
       if (namespace != src_namespace) {
         if (created.ancestorNamespaces.contains(src_namespace)) {
           val prop = completedContext(src_namespace).liftLocally(thm, preserve_structure).proposition
-          if (!isQualifiedTerm(prop))
-            failwith("cannot lift theorem containing unqualified constants between namespaces")
           mk_theorem(this, prop)
         } else {
           failwith("cannot lift theorem from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
@@ -247,8 +245,6 @@ private class KernelImpl(
       if (namespace != src_namespace) {
         if (created.ancestorNamespaces.contains(src_namespace)) {
           val ct = completedContext(src_namespace).liftLocally(term, preserve_structure)
-          if (!isQualifiedTerm(ct.term))
-            failwith("cannot lift term containing unqualified constants between namespaces")
           mk_cterm(this, ct.term, ct.typeOf)
         } else {
           failwith("cannot lift term from namespace '" + src_context.namespace +"' to namespace '"+namespace+"'")
@@ -275,8 +271,13 @@ private class KernelImpl(
       val lifted_thm = common_ancestor.liftLocallyUp(thm, preserve_structure)
       if (common_ancestor.depth == depth)
         lifted_thm
-      else
+      else {
+        if (isComplete) {
+          if (!isQualifiedTerm(lifted_thm.proposition))
+            failwith("cannot lift theorem containing unqualified constants into completed context of namespace " + namespace)
+        }  
         mk_theorem(this, lifted_thm.proposition)
+      }
     }
     
     // Same as lift, but assumes that the termcontext has the same namespace as this context.
@@ -286,8 +287,13 @@ private class KernelImpl(
       val lifted_term = common_ancestor.liftLocallyUp(term, preserve_structure)
       if (common_ancestor.depth == depth)
         lifted_term
-      else
+      else {
+        if (isComplete) {
+          if (!isQualifiedTerm(lifted_term.term))
+            failwith("cannot lift term containing unqualified constants into completed context of namespace " + namespace)
+        }          
         mk_cterm(this, lifted_term.term, lifted_term.typeOf)
+      }
     }
 
     private def liftLocallyUp(thm : Theorem, preserve_structure : Boolean) : Theorem = {
