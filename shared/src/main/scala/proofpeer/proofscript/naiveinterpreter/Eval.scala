@@ -577,14 +577,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 											Name(Some(state.context.namespace), n.name)
 										else 
 											n
-									var freshvar = name.name.toString
-									freshVars.get(freshvar) match {
-										case None => 
-											if (freshVars.size > 0) return cont(fail(tm, "choose: superfluous fresh vars"))
-											freshvar = null
-										case Some(_) =>
-											if (freshVars.size > 1) return cont(fail(tm, "choose: superfluous fresh vars"))
-									}
+									val freshvar = 
+										extractFreshvar(freshVars, name.name) match {
+											case None => return cont(fail(tm, "choose: superfluous fresh vars"))
+											case Some(fv) => fv
+										}
 									evalProof(state.spawnThread, proof, {
 										case failed : Failed[_] => cont(fail(failed))
 										case Success(value, true) => 
@@ -598,9 +595,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 													cont(fail(st, "declared type of constant does not match computed type"))
 												else {
 													var s = state.setContext(chosenThm.context)
-													if (freshvar != null) {
+													if (freshvar.isDefined) {
 														val tm = TermValue(s.context.certify(Term.Const(name)))
-													  s = s.rebind(Map(freshvar -> tm))
+													  s = s.rebind(Map(freshvar.get -> tm))
 													 }
 													cont(success((s, thm_name, TheoremValue(chosenThm))))													
 												}
@@ -753,6 +750,16 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 		})
 	}
 
+	def extractFreshvar(freshVars : Map[String, IndexedName], generatedName : IndexedName) : Option[Option[String]] = {
+		val size = freshVars.size
+		if (size > 1) return None
+		else if (size == 0) return Some(None)
+		else {
+			val (v,n) = freshVars.head
+			if (n == generatedName) Some(Some(v)) else Some(None)
+		}
+	} 
+
 	def evalLetIntro(state : State, st : STLet, freshVars : Map[String, IndexedName], _name : Name, tys : List[Pretype]) : 
 		Result[(State, Option[String], StateValue)] = 
 	{
@@ -765,21 +772,18 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					else
 						_name
 			}
-		var freshvar : String = name.name.toString
-		freshVars.get(freshvar) match {
-			case None => 
-				if (freshVars.size > 0) return fail(st, "let intro: superfluous fresh vars")
-				freshvar = null
-			case Some(_) => 
-				if (freshVars.size > 1) return fail(st, "let intro: superfluous fresh vars")
-		}
+		val freshvar = 
+			extractFreshvar(freshVars, name.name) match {
+				case None => return fail(st, "let intro: superfluous fresh vars")
+				case Some(fv) => fv
+			}
 		Pretype.solve(tys) match {
 			case None => fail(st, "let intro: inconsistent type constraints")
 			case Some(ty) =>
 				try {
 					var s = state.setContext(state.context.introduce(name, ty))
 					val tm = TermValue(s.context.certify(Term.Const(name)))
-					if (freshvar != null) s = s.rebind(Map(freshvar -> tm))
+					if (freshvar.isDefined) s = s.rebind(Map(freshvar.get -> tm))
 					success((s, st.result_name, tm))
 				} catch {
 					case ex: Utils.KernelException =>
@@ -824,14 +828,11 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 					else 
 						_name
 			}
-		var freshvar = name.name.toString
-		freshVars.get(freshvar) match {
-			case None => 
-				if (freshVars.size > 0) return fail(st, "let def: superfluous fresh vars")
-				freshvar = null
-			case Some(_) => 
-				if (freshVars.size > 1) return fail(st, "let def: superfluous fresh vars")
-		}			
+		val freshvar = 
+			extractFreshvar(freshVars, name.name) match {
+				case None => return fail(st, "let def: superfluous fresh vars")
+				case Some(fv) => fv
+			}
 		var rightHandSide = _rightHandSide
 		for (ty <- tys) rightHandSide = Preterm.PTmTyping(rightHandSide, ty)
 		resolvePreterm(state, rightHandSide) match {
@@ -840,9 +841,9 @@ class Eval(completedStates : Namespace => Option[State], kernel : Kernel,
 				try {
 					val thm = state.context.define(name, tm)
 					var s = state.setContext(thm.context)
-					if (freshvar != null) {
+					if (freshvar.isDefined) {
 						val tm = TermValue(s.context.certify(Term.Const(name)))
-						s = s.rebind(Map(freshvar -> tm))	
+						s = s.rebind(Map(freshvar.get -> tm))	
 					}				
 					success((s, st.result_name, TheoremValue(thm)))
 				} catch {
