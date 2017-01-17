@@ -81,6 +81,12 @@ val eqFalseElim =
 # As sym, but descends through universal quantifiers first.
 def
   gsym '‹x› = ‹y›' as thm = sym thm
+  gsym '‹p› → ‹q›' as thm =
+    val symthm
+    context
+      assume asm:p
+      symthm = gsym (modusponens (asm,thm))
+    lift! symthm
   gsym '∀x. ‹p› x' as thm =
     val [ctx,x,eq] = destabs p
     val symthm

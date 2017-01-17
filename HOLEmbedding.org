@@ -1,0 +1,38 @@
+* HOL Light embedding
+
+** Types
+
+All types are embedded as proofscript terms of type =𝒰=:
+  + Types variables are embedded as Proofscript variables.
+  + A type constructor of arity n is embedded as a constant of type =𝒰 → 𝒰 → … → 𝒰=
+    with =n= antecedents. The type constructor appears in embedded theorems applied
+    to =n= embedded type arguments, giving a term of type =𝒰=.
+
+** Terms
+
+All terms are embedded as proofscript terms of type =𝒰=:
+  + Free variables are embedded as Proofscript variables.
+  + A constant which is polymorphic in =n= variables is embedded as a function of
+    type =𝒰 → 𝒰 → … → 𝒰= with =n= antecedents. The constant appears in embedded
+    theorems applied to it embedded type arguments.
+  + Applications are embedded as applications.
+  + Lambda abstractions =λx. f x= are embedded as terms of the form =fun ‹ty› ‹ef›=
+    where ty is the embedded type of =x= and =ef= is the embedding of =f=.
+
+** Theorems
+
+A theorem with m type variables, n free variables and p hypotheses is embedded as a
+proofscript theorem of the form:
+
+```
+    ∀τ1. (∃x. x ∈ τ1) → ∀τ2. (∃x. x ∈ τ2) → … → ∀τm. (∃x. x ∈ τm)
+      → ∀x1. x1 ∈ τ[m+1] → ∀x2. x2 ∈ τ[m+2] → … → ∀xn. xn. xn ∈ τ[m+n]
+      → is_true asm1 → is_true asm2 → … → asm[p] → is_true p
+```
+
+where =is_true x= is defined as ~x=one~.
+
+Each antecedent =(∃x. x ∈ τ)= requires that the variable =τ= is inhabited. These
+terms and assumptions appear in code with names =ty_inh=. Each antecedent =x ∈ τ=
+asserts that the variable =x= belongs to the embedded type =τ=. These terms and
+assumptions appear in code with names =x_is_ty=.
