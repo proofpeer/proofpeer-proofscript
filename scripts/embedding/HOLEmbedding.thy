@@ -75,10 +75,7 @@ context
   assume apply_codom : '∀A B f x. f ∈ fnspace A B ∧ x ∈ A → f x ∈ B'
   assume fnspace_inh : '∀A B. (∃x. x ∈ B) → (∃f. f ∈ fnspace A B)'
   assume fun_inh : '∀A B f. (fun A f ∈ fnspace A B) = (∀x. x ∈ A → f x ∈ B)'
-<<<<<<< Updated upstream
-=======
   val fun_inh_sym = gsym fun_inh
->>>>>>> Stashed changes
   assume eq_spec : '∀A x y. x ∈ A ∧ y ∈ A → (x = y) = (is_true (eq A x y))'
   val eq_spec_sym = gsym eq_spec
   assume eq_ty : '∀A. eq A ∈ fnspace A (fnspace A bool)'
@@ -458,23 +455,12 @@ context
     abs [constants, [xname,xty] as xvar, [ctx, eq_thm, eq_tree]] =
       val tyctx = ctx "tyctx"
       val eq_thm = lift! eq_thm
-<<<<<<< Updated upstream
-=======
       val tyvars = []
->>>>>>> Stashed changes
       val ty_inhs =
         for tyvar in ctx "tyvars" do
           let ety:'‹fresh tyvar›'
           assume ty_inh:'∃x. x ∈ ‹ety›'
           tyctx = tyctx ++ { tyvar → ty_inh }
-<<<<<<< Updated upstream
-          [tyvar,ty_inh]
-      val acc = mk_tyctx [initAcc tyctx,[xty],[]]
-      context <acc "context">
-        val exty = embed_ty_ctx [acc "tyctx",xty]
-        val left_is_tys = []
-        val right_is_tys = []
-=======
           tyvars = tyvar <+ tyvars
           [tyvar,ty_inh]
       val acc = mk_tyctx [initAcc tyctx,[xty],[]]
@@ -487,25 +473,18 @@ context
         val left_vars = []
         val right_is_tys = []
         val right_vars = []
->>>>>>> Stashed changes
         val v_ty_inhs =
           for [vname,vty] in ctx "vars" do
             if [vname,vty] == xvar then
               left_is_tys = right_is_tys
-<<<<<<< Updated upstream
-=======
               left_vars = right_vars
->>>>>>> Stashed changes
             else
               let ev:'‹fresh vname›'
               val evty = embed_ty_ctx [tyctx,vty]
               assume v_is_ty:'‹ev› ∈ ‹evty›'
               right_is_tys = right_is_tys +> v_is_ty
-<<<<<<< Updated upstream
-=======
               right_vars = right_vars +> [vname,vty]
         ctx = ctx ++ { "ctx" → left_vars ++ right_vars }
->>>>>>> Stashed changes
         def prove_conds ['‹ex› ∈ ‹_›' as x_is_ty,thm] =
           for [_,'∃x. x ∈ ‹ety›' as ty_inh] in ty_inhs do
             thm = modusponens [ty_inh, instantiate [thm, ety]]
@@ -544,18 +523,12 @@ context
             cond_eq_thm
           prove_hyps thm = thm
         val x_is_ty
-<<<<<<< Updated upstream
-=======
         val [_,[_,_,fxtree],gxtree] = eq_tree
->>>>>>> Stashed changes
         context
           let x:'‹fresh xname›'
           assume x_is_ty_asm:'‹x› ∈ ‹exty›'
           x_is_ty = x_is_ty_asm
           eq_thm = prove_conds [x_is_ty,eq_thm]
-<<<<<<< Updated upstream
-        # TODO Add trees
-=======
           fxtree = map_tree_thms [thm => prove_conds [x_is_ty,lift! thm], fxtree]
           gxtree = map_tree_thms [thm => prove_conds [x_is_ty,lift! thm], gxtree]
         val ('∀x. x ∈ ‹xty› → ‹f› x ∈ ‹yty›' as fx_is_ty) <+ _ = fxtree
@@ -563,26 +536,15 @@ context
         val f_is_ty = modusponens [fx_is_ty,instantiate [fun_inh_sym,xty,yty,f]]
         val g_is_ty = modusponens [gx_is_ty,instantiate [fun_inh_sym,xty,yty,g]]
         val abs_eq_tree = mk_eq_tree [[f_is_ty,fxtree],[g_is_ty,gxtree]]
->>>>>>> Stashed changes
         eq_thm = prove_hyps (lift! eq_thm)
         match eq_thm
           case _:Theorem =>
             val [ctx,_,eq_thm] = assume_all [{->},lift! eq_thm]
             context <ctx>
-<<<<<<< Updated upstream
-              match eq_thm
-                case '∀x. x ∈ ‹_› → ‹f› x = ‹g› x' as thm =>
-                  return modusponens [eq_thm,instantiate [abs_thm,exty,f,g]]
-                case '‹fx› = ‹gx›' as thm =>
-                  show fx
-                  show gx
-                  # modusponens [andIntro instantiate [eqspec,exty,'‹f› x','‹g› x']
-=======
               val '∀x. x ∈ ‹_› → ‹f› x = ‹g› x' as thm = eq_thm
               return [ctx,
                       modusponens [eq_thm,instantiate [abs_thm,exty,f,g]],
                       abs_eq_tree]
->>>>>>> Stashed changes
           case failMsg => return failMsg
 
   let 'list:𝒰 → 𝒰'
