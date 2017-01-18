@@ -21,6 +21,7 @@ All terms are embedded as proofscript terms of type =𝒰=:
 
 ** Theorems
 
+<<<<<<< Updated upstream
 A theorem with m type variables, n free variables and p hypotheses is embedded as a
 proofscript theorem of the form:
 
@@ -36,3 +37,21 @@ Each antecedent =(∃x. x ∈ τ)= requires that the variable =τ= is inhabited.
 terms and assumptions appear in code with names =ty_inh=. Each antecedent =x ∈ τ=
 asserts that the variable =x= belongs to the embedded type =τ=. These terms and
 assumptions appear in code with names =x_is_ty=.
+=======
+A theorem with m type variables and n free variables is embedded as a proofscript
+theorem of the form:
+
+```
+    ∀τ1. (∃x. x ∈ τ1) → ∀τ2. (∃x. x ∈ τ2) → … → ∀τm. (∃x. x ∈ τm)
+      → ∀x1. x1 ∈ τ[m+1] → ∀x2. x2 ∈ τ[m+2] → … → ∀xn. xn. xn ∈ τ[m+n]
+      → is_true p
+```
+
+where =is_true p= is defined as ~p=one~.
+
+Each antecedent =(∃x. x ∈ τ)= requires that the variable =τ= is inhabited. These terms
+and assumptions appear in code with names =ty_inh=. Each antecedent =x ∈ τ=
+asserts that the variable =x= belongs to the embedded type =τ=. These terms and
+assumptions appear in code with names =x_is_ty=.
+
+>>>>>>> Stashed changes

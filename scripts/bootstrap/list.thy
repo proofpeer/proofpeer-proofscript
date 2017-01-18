@@ -76,4 +76,14 @@ def
   iterate [0,_,x] = x
   iterate [n,f,x] = iterate [n-1,f,f x]
 
+# map with state (f : s -> [s,as])
+def
+  mapST [f,s,[]] = [s,[]]
+  mapST [f,s,x <+ xs] =
+    val s <+ y = f [s,x]
+    val [s,ys] = mapST [f,s,xs]
+    match y
+      case [y] => [s,y <+ ys]
+      case y   => [s,y <+ ys]
+
 assert (foldr (([x,xs] => x <+ xs),[1,2,3],[]) == [1,2,3])
