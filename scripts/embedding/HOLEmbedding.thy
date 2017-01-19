@@ -581,6 +581,93 @@ context
         val qthm = modusponens [pthm,combine [reflexive 'is_true',pqthm]]
         return [ectx,qthm,qtree]
 
+  def
+    deduct_anti_sym [p,q] =
+      val [ectx,pthm,'‹p› ∈ ‹_›' <+ _,qthm,'‹q› ∈ ‹_›' <+ _] =
+        merge_ctxs [p,q]
+      def
+        assums_but [lasms,rasms,asms,asm,'‹p› → ‹q›'] if asm == p =
+          assums_but [rasms,lasms,asms,asm,q]
+        assums_but [lasms,rasms,asms,asm,'‹p› → ‹q›'] =
+          match asms p
+            case nil =>
+              assume pAsm:p
+              assums_but [lasms,rasms +> pAsm,asms ++ {p → pAsm},q]
+            case pAsm => assums_but [lasms,rasms,asms,q]
+        assums_but [lasms,rasms,asms,asm,_] =
+          return [context,lasms,rasms,asms]
+        assums_but_ctx [ctx,asms,asm,thm] =
+          context <ctx>
+            return assums_but [[],[],asms,asm,thm]
+      val [ctx,asmSet,plasms,prasms] = assums_but_ctx [ectx "context",{→},q,pthm]
+      val [ctx,_,qlasms,qrasms]      = assums_but_ctx [ctx,asmSet,p,qthm]
+      context <ctx>
+        context
+          assume pasm:p
+          for p in plasms ++ [pasm] ++ prasms do
+            pthm = modusponens [p,pthm]
+        context
+          assume qasm:q
+          for q in qlasms ++ [qasm] ++ qrasms do
+            qthm = modusponens [q,qthm]
+        return equivalence [pthm,qthm]
+
+  def tyctx_of_thm [thm,tyvars,vars] =
+    val tyctx = {→}
+    val vctx = {→}
+    for tyvar in tyvars do
+      let ty:'‹fresh tyvar›'
+      val thm = instantiate [thm,ty]
+      val '‹ty_inh› → ‹p›' = thm
+      assume asm:ty_inh
+      thm = modusponens [asm,thm]
+      tyctx = tyctx ++ { ty → ty_inh }
+    for [varname,_] as v in vars do
+      let ev:'‹fresh varname›'
+      thm = instantiate [thm,ev]
+      val '‹v_is_ty› → ‹p›' = thm
+      assume asm:v_is_ty
+      thm = modusponens [asm,thm]
+      vctx = vctx ++ { v → v_is_ty }
+    [{ "tyctx" → tyctx, "vctx" → vctx, "vars" → vars, "tyvars" → tyvars,
+       "context" → context },
+     thm]
+
+  def mk_sequent [tyctx, constants, asms, prop] =
+    val acc = mk_tyctx [initAcc tyctx,[],asms +> prop]
+    val seqax =
+      incontext <acc "context">
+        val tyctx = acc "tyctx"
+        val vctx  = acc "vctx"
+        val easms = for asm in asms do embed_tm_ctx [tyctx,vctx,constants,asm]
+        val ('‹eprop› ∈ bool' <+ _) as etree =
+          embed_tm_ctx [tyctx,vctx,constants,prop]
+        val eseq =
+          foldr [['‹p› ∈ bool' <+ _,q] => 'is_true ‹p› → ‹q›',
+                  easms,
+                  'is_true ‹eprop›']
+        assume eseq
+        lift! truth
+
+    def
+      mk_ax [tyvar <+ tyvars,vs,'∀ty. (∃x. x ∈ ty) → ‹p› ty'] =
+        'forall ‹incontext
+                   let ety:'‹fresh tyvar›'
+                   '(∃x. x ∈ ‹ety›) → ‹mk_ax [tyvars,vs,'‹p› ‹ety›']›'›'
+      mk_ax [[],vs,tm] = mk_ax_vs [vs,tm]
+      mk_ax_vs [[vname,vty] <+ vs,'∀x. x ∈ ‹ty› → ‹p› x'] =
+        'forall ‹incontext
+                   let ev:'‹fresh vname›'
+                   '‹ev› ∈ ‹ty› → ‹mk_ax_vs [vs,'‹p› ‹ev›']›'›'
+      mk_ax_vs [[],'‹p› → ⊤'] = p
+
+    val tyvars = acc "tyvars"
+    val vars   = acc "vars"
+    assume seqax: (mk_ax [tyvars, vars, lift! seqax])
+    tyctx_of_thm [seqax,tyvars,vars]
+
+  def mk_axiom [tyctx, constants, prop] = mk_sequent [tyctx, constants, [], prop]
+
   let 'list:𝒰 → 𝒰'
   let 'append:𝒰 → 𝒰'
   let 'nil:𝒰 → 𝒰'
@@ -627,3 +714,8 @@ context
               assum [tyctx,
                      constants,
                      ["V","p",["bool"]]]]
+  show mk_sequent [tyctx,constants,[["V","p",["bool"]]],["V","q",["bool"]]]
+  val [ectx,ax] =
+    mk_sequent [tyctx,constants,[["V","q",["bool"]]],["V","p",["bool"]]]
+  context <ectx "context">
+    show ax
