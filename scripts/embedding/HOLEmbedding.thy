@@ -561,6 +561,23 @@ context
                       abs_eq_tree]
           case failMsg => return failMsg
 
+  def
+    eq_mp [pq,p] =
+      val [ectx,pqthm,pqtree,pthm,ptree] =
+        merge_ctxs [pq,p]
+      val [ctx,pqthm,pthm] = merge_asms [ectx "context",pqthm,pthm]
+      context <ctx>
+        val [_,[_,_,('‹p› ∈ ‹_›' as p_is_ty) <+ _],
+                    (('‹q› ∈ ‹_›' as q_is_ty) <+ _) as qtree] = pqtree
+        val pqthm =
+          modusponens [pqthm,
+                       modusponens [andIntro [p_is_ty,q_is_ty],
+                                    instantiate [eq_spec_sym,'bool',p,q]]]
+        show combine [reflexive 'is_true',pqthm]
+        show pthm
+        val qthm = modusponens [pthm,combine [reflexive 'is_true',pqthm]]
+        return [ectx,qthm,qtree]
+
   let 'list:𝒰 → 𝒰'
   let 'append:𝒰 → 𝒰'
   let 'nil:𝒰 → 𝒰'
