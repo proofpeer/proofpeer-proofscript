@@ -264,7 +264,10 @@ context
         val etm
         context <acc "context">
           etm = embed_tm_ctx [acc "tyctx", acc "vctx", constants, tm]
-        [acc -- {"bounds"},etm]
+        val vctx =
+          for [v,[v_is_ty]] in acc "vctx" do
+            [v,v_is_ty]
+        [(acc -- {"bounds"}) ++ { "vctx" → vctx:Map },etm]
 
     [embed_ty,embed_tm]
 
@@ -368,14 +371,14 @@ context
               val '∃x. x ∈ ‹xty›' = inh
               ythm = inst [xty,inh,ythm]
               ytree = map_tree_thms [thm => inst [xty,inh,lift! thm], ytree]
-        for [yvar,yty] in yctx "vars" do
+        for [yname,yty] as yvar in yctx "vars" do
           match vctx yvar
             case nil =>
-              let x:'‹fresh yvar›'
+              let x:'‹fresh yname›'
               val ety = embed_ty_ctx [tyctx,yty]
               assume ty_inh:'‹x› ∈ ‹ety›'
-              vs = vs +> [yvar,yty]
-              vctx = vctx ++ { [yvar,yty] → ty_inh }
+              vs = vs +> yvar
+              vctx = vctx ++ { yvar → ty_inh }
               ythm = inst [x,ty_inh,ythm]
               ytree = map_tree_thms [thm => inst [x,ty_inh,lift! thm], ytree]
             case ty_inh =>
