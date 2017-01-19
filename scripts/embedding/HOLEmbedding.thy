@@ -703,7 +703,8 @@ context
   val thm2 = refl [tyctx,constants,["V","x","a"]]
   val thm3 =
     assum [tyctx,constants,
-           [[["C","=",["fun","a",["fun","a",["bool"]]]],["V","x","a"]],["V","x","a"]]]
+           [[["C","=",["fun","a",["fun","a",["bool"]]]],["V","x","a"]],
+            ["V","x","a"]]]
   val thm4 = refl [tyctx,constants,["V","x",["fun","a","b"]]]
   show mk_comb [thm1,thm2]
   show beta [tyctx,constants,[["λ","x","a",["V","x","a"]],["V","x","a"]]]
