@@ -7,6 +7,9 @@ def onNonNil [f,x] =
 def onNonNil2 [f,x,y] =
   if x == nil or y == nil then nil else f [x,y]
 
+# TODO
+# Use incontext
+
 # vap_codom
 # vfun_type
 # vfun_space_inhabited
