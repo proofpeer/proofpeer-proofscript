@@ -590,7 +590,7 @@ context
   assume is_empty_ty:'∀a. (∃x. x ∈ a) → is_empty a ∈ fnspace (list a) bool'
 
   val constants =
-    { "=" → [["fun","a","a"],
+    { "=" → [["fun","a",["fun","a","bool"]],
              ["a"],
              eq_type],
       "++" → [["fun",["list","a"],["fun",["list","a"],["list","a"]]],
@@ -613,10 +613,14 @@ context
   val thm2 = refl [tyctx,constants,["V","x","a"]]
   val thm3 =
     assum [tyctx,constants,
-           [[["C","=",["fun","a","a"]],["V","x","a"]],["V","x","a"]]]
+           [[["C","=",["fun","a",["fun","a",["bool"]]]],["V","x","a"]],["V","x","a"]]]
   val thm4 = refl [tyctx,constants,["V","x",["fun","a","b"]]]
   show mk_comb [thm1,thm2]
   show beta [tyctx,constants,[["λ","x","a",["V","x","a"]],["V","x","a"]]]
   show abs [constants,["x","a"],thm3]
   show abs [constants,["x",["fun","a","b"]],thm4]
   show abs [constants,["x",["fun","c","d"]],thm4]
+  show eq_mp [refl [tyctx,constants,["V","p",["bool"]]],
+              assum [tyctx,
+                     constants,
+                     ["V","p",["bool"]]]]
