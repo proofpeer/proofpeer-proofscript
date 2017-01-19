@@ -406,9 +406,10 @@ context
 
   def
     mk_comb [fg,xy] =
-      val [ctx,fgthm,fgtree,xythm,xytree] =
+      val [ectx,fgthm,fgtree,xythm,xytree] =
         merge_ctxs [fg,xy]
-      context <ctx "context">
+      val [ctx,fgthm,xythm] = merge_asms [ectx "context",fgthm,xythm]
+      context <ctx>
         val [_,
                [_, _, ('‹ef› ∈ ‹efty›' as f_is_ty) <+ _ as ftree],
                ('‹eg› ∈ ‹_›' as g_is_ty) <+ _ as gtree] = fgtree
@@ -434,7 +435,7 @@ context
                                  modusponens [andIntro [fx_is_ty,gy_is_ty],
                                               instantiate [eq_spec,erty,efx,egy]]]
         return
-          [ctx,
+          [ectx,
            fgthm,
            mk_eq_tree [[fx_is_ty,ftree,xtree], [gy_is_ty,gtree,ytree]]]
 
