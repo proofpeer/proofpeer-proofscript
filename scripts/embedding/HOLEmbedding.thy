@@ -395,6 +395,16 @@ context
           val [ctx,asms,ythm] = assume_all [asms,ythm]
           return [ectx,xthm,xtree,ythm,ytree]
 
+  def
+    merge_asms [ctx,xthm,ythm] =
+      val asms
+      context <ctx>
+        [ctx,asms,xthm] = assume_all [{->},xthm]
+      context <ctx>
+        [ctx,_,ythm] = assume_all [asms,ythm]
+      [ctx,xthm,ythm]
+
+  def
     mk_comb [fg,xy] =
       val [ctx,fgthm,fgtree,xythm,xytree] =
         merge_ctxs [fg,xy]
