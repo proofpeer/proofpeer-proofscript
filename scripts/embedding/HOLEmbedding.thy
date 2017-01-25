@@ -183,8 +183,8 @@ context
         val ty2 = inst ty
         val thm = instantiate [thm,embed_ty_ctx [tyctx,ty2]]
         match thm
-          case '∃x. x ∈ ‹ty3› → ‹_›' if ty2 == ty3 =>
-            modusponens [prove_ty_inh ty2,thm]
+          case '‹ty_inh_cond› → ‹_›' =>
+            modusponens [prove_ty_inh [tyctx,ty2],thm]
           case _ => thm
       [foldr [f,tyvars,c_is_ty]]
 
