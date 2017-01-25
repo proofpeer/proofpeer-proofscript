@@ -289,29 +289,18 @@ context
                  modusponens [andIntro [asm,asm],
                               instantiate [eq_spec,'A','x','x']]]
 
-  def
-    assume_ty_conds '∀x. ‹p› x → ‹q› x' as thm =
-      let x:'‹fresh "x"›'
-      assume asm:'‹p› ‹x›'
-      assume_ty_conds (modusponens [asm,instantiate [thm,x]])
-    assume_ty_conds thm = [context,thm]
-
   # Given typing trees for terms x and y, produce the typing tree for x = y.
   def
     mk_eq_tree [(xty_thm <+ _) as xtree, (yty_thm <+ _) as ytree] =
-      val [ctx,xty_thm] = assume_ty_conds xty_thm
-      context <ctx>
-        val [ctx,yty_thm] = assume_ty_conds yty_thm
-        context <ctx>
-          val '‹ex› ∈ ‹exty›' = xty_thm
-          val '‹ey› ∈ ‹_›'    = yty_thm
-          val ty_thm = modusponens [andIntro [xty_thm,yty_thm],
-                                    instantiate [eq_applied_ty,exty,ex,ey]]
-          val ty_thm2 =
-            modusponens [xty_thm, instantiate [eq_applied_partial_ty, exty, ex]]
-          return [ty_thm, [ty_thm2, [instantiate [eq_ty, exty]],
-                                     xtree],
-                           ytree]
+      val '‹ex› ∈ ‹exty›' = xty_thm
+      val '‹ey› ∈ ‹_›'    = yty_thm
+      val ty_thm = modusponens [andIntro [xty_thm,yty_thm],
+                                instantiate [eq_applied_ty,exty,ex,ey]]
+      val ty_thm2 =
+        modusponens [xty_thm, instantiate [eq_applied_partial_ty, exty, ex]]
+      return [ty_thm, [ty_thm2, [instantiate [eq_ty, exty]],
+                                 xtree],
+                       ytree]
 
   def
     refl [tyctx, constants, x] =
