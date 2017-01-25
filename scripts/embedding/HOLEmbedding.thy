@@ -155,6 +155,21 @@ context
          embedded type on condition of its embedded type arguments being inhabited.
 
   def
+    prove_ty_inh [tyctx,["fun",domty,codomty]] =
+      val codom_inh = prove_ty_inh [tyctx,codomty]
+      modusponens [codom_inh,
+                   instantiate [fnspace_inh,
+                                embed_ty_ctx [tyctx,domty],
+                                embed_ty_ctx [tyctx,codomty]]]
+    prove_ty_inh [tyctx,cons <+ tyargs] =
+      def f [thm,ty] =
+        modusponens [prove_ty_inh [tyctx,ty],
+                     instantiate [thm,embed_ty_ctx [tyctx,ty]]]
+      val [_,ty_inh] = tyctx [cons]
+      foldl [f,tyargs,ty_inh]
+    prove_ty_inh [tyctx,tyvar] = tyctx tyvar
+
+  def
     embed_tm_ctx [tyctx,vctx,constants,["V",name,ty]] =
       val ev <+ _ = vctx [name,ty]
       [ev]
@@ -163,21 +178,6 @@ context
 
       # TODO: Can we get match failures here?
       val inst = ty_match [registered_ty,ty]
-
-      def
-        prove_ty_inh ["fun",domty,codomty] =
-          val codom_inh = prove_ty_inh codomty
-          modusponens [codom_inh,
-                       instantiate [fnspace_inh,
-                                    embed_ty_ctx [tyctx,domty],
-                                    embed_ty_ctx [tyctx,codomty]]]
-        prove_ty_inh (cons <+ tyargs) =
-          def f [thm,ty] =
-            modusponens [prove_ty_inh ty,
-                         instantiate [thm,embed_ty_ctx [tyctx,ty]]]
-          val [_,ty_inh] = tyctx [cons]
-          foldl [f,tyargs,ty_inh]
-        prove_ty_inh tyvar = tyctx tyvar
 
       def f [ty,thm] =
         val ty2 = inst ty
