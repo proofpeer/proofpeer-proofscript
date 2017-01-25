@@ -131,7 +131,7 @@ context
 
   # embed_tm_ctx
 
-     Convert a HOL term to an embedded term
+     Convert a HOL term to an embedded term tree
        tyctx: as for embed_ty_ctx
        vctx: a dictionary sending variable name/type pairs (HOL supports overloading)
          to a list of theorems asserting that the embedded term belongs to the
