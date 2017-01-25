@@ -401,7 +401,7 @@ context
                                 "tyvars" → tys,
                                 "vars" → vs,
                                 "axioms" → axioms }
-          return [ectx,xthm,xtree,ythm,ytree]
+          return [ectx,lift! xthm,map_tree_thms [lift!,xtree],ythm,ytree]
 
   def
     merge_asms [ctx,xthm,ythm] =
