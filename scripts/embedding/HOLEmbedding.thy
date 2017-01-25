@@ -762,7 +762,7 @@ context
   assume is_empty_ty:'∀a. (∃x. x ∈ a) → is_empty a ∈ fnspace (list a) bool'
 
   val constants =
-    { "=" → [["fun","a",["fun","a","bool"]],
+    { "=" → [["fun","a",["fun","a",["bool"]]],
              ["a"],
              eq_type],
       "++" → [["fun",["list","a"],["fun",["list","a"],["list","a"]]],
