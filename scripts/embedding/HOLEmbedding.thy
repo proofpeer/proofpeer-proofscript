@@ -769,7 +769,7 @@ context
               ["a"],
               append_ty],
       "nil" → [["list","c"],["c"],nil_ty],
-      "is_empty" → [["fun",["list","d"],"bool"],["d"],is_empty_ty] }
+      "is_empty" → [["fun",["list","a"],["bool"]],["a"],is_empty_ty] }
 
   assume bool_inh: '∃x. x ∈ bool'
 
