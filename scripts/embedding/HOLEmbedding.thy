@@ -619,6 +619,65 @@ context
               pthm = modusponens [q,pthm]
           return [ectx,equivalence [pthm,qthm],mk_eq_tree [ptree,qtree]]
 
+  def subst_ty [inst,ty] =
+    val inst = inst:Map
+    def
+      subst (cons <+ args) = cons <+ map [subst,args]
+      subst tyvar =
+        val ty = inst tyvar
+        if ty == nil then tyvar else ty
+    subst ty
+
+  def subst_tm [ty_inst,v_inst,tm] =
+    val ty_inst = ty_inst:Map
+    def
+      subst [v_inst,["V",v,ty]] =
+        val tm = v_inst [v,ty]
+        if tm == nil then ["V",v,subst_ty [ty_inst,ty]] else tm
+      subst [v_inst,[f,x]] = [subst [v_inst,f],subst [v_inst,x]]
+      subst [v_inst,["λ",x,ty,body]] = ["λ",x,ty,subst [v_inst -- {[x,ty]}]]
+      subst [v_inst,tm] = tm
+    subst [v_inst:Map,tm]
+
+  def inst_ty [tyctx,constants,ty_inst,v_inst,ethm] =
+    val ty_inst = ty_inst:Map
+    val v_inst  = v_inst:Map
+    val [ectx,thm,etree] = ethm
+
+    # Perform the substitution on the HOL Light types and terms
+    val tys = for tyvar in ectx "tyvars" do subst_ty [ty_inst,tyvar]
+    val tms = for [v,ty] in ectx "vars" do subst_tm [ty_inst,v_inst,["V",v,ty]]
+
+    # Obtain a new typing context based on the new list of types and terms
+    val acc = mk_tyctx [initAcc tyctx,tys,tms]
+    val tyctx = acc "tyctx"
+
+    # Instantiate in the new context
+    incontext <acc "context">
+      val vctx =
+        for [v,v_is_ty] in acc "vctx" do
+          [v,[v_is_ty]]
+      def inst_thm thm =
+        val thm =
+          foldl [[thm,ty] =>
+                   val '∃x. x ∈ ‹ety›' as ty_inh = prove_ty_inh [tyctx,ty]
+                   modusponens [ty_inh,instantiate [thm,ety]],
+                 tys,
+                 lift! thm]
+        foldl [[thm,tm] =>
+                 val ('‹etm› ∈ ‹ety›' as tm_is_ty) <+ _ =
+                   embed_tm_ctx [tyctx,vctx:Map,constants,tm]
+                 modusponens [tm_is_ty,instantiate [thm,etm]],
+               tms,
+               thm]
+      val thm = inst_thm thm
+      show etree
+      val etree = map_tree_thms [inst_thm,etree]
+      val ectx = ectx ++ { "tyvars" → acc "tyvars",
+                           "vctx" → acc "vctx",
+                           "context" → context }
+      [ectx,thm,etree]
+
   def ethm_of_thm [thm,tyvars,vars] =
     val tyctx = {→}
     val vctx = {→}
